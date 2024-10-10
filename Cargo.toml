@@ -1,0 +1,19 @@
+[package]
+name = "kg-node"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.89"
+futures = "0.3.31"
+heck = "0.5.0"
+neo4rs = "0.8.0"
+prost = "0.13.3"
+prost-types = "0.13.3"
+reqwest = "0.12.8"
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
+tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }
+
+[build-dependencies]
+prost-build = "0.13.3"

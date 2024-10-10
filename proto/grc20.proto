@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package grc20;
+
+message Edit {
+  ActionType type = 1;
+  string version = 2;
+  string id = 3;
+  string name = 4;
+  repeated Op ops = 5;
+  repeated string authors = 6;
+}
+
+message ImportEdit {
+  ActionType type = 1;
+  string version = 2;
+  string id = 3;
+  string name = 4;
+  repeated Op ops = 5;
+  repeated string authors = 6;
+  string createdBy = 7;
+  string createdAt = 8;
+  string blockHash = 9;
+  string blockNumber = 10;
+  string transactionHash = 11;
+}
+
+message Op {
+  OpType type = 1;
+  Triple triple = 2;
+}
+
+message Triple {
+  string entity = 1;
+  string attribute = 2;
+  Value value = 3;
+}
+
+message Value {
+  ValueType type = 1;
+  string value = 2;
+}
+
+enum OpType {
+  DEFAULT_OP_TYPE = 0;
+  SET_TRIPLE = 1;
+  DELETE_TRIPLE = 2;
+}
+
+enum ValueType {
+  DEFAULT_VALUE_TYPE = 0;
+  TEXT = 1;
+  NUMBER = 2;
+  ENTITY = 3;
+  URI = 4;
+  CHECKBOX = 5;
+  TIME = 6;
+  GEO_LOCATION = 7;
+}
+
+enum ActionType {
+  DEFAULT_ACTION_TYPE = 0;
+  ADD_EDIT = 1;
+  IMPORT_SPACE = 2;
+  ADD_SUBSPACE = 3;
+  REMOVE_SUBSPACE = 4;
+  ADD_EDITOR = 5;
+  REMOVE_EDITOR = 6;
+  ADD_MEMBER = 7;
+  REMOVE_MEMBER = 8;
+}
+
+message Import {
+  ActionType type = 1;
+  string version = 2;
+  string previousNetwork = 3;
+  string previousContractAddress = 4;
+  repeated string edits = 5;
+  // repeated Edit edits = 3;
+}
+
+message Options {
+  string format = 1;
+  string crop = 2;
+}
