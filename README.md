@@ -15,5 +15,21 @@ wget https://gateway.lighthouse.storage/ipfs/bafkreif4acly7y46hx7optzfxtehxotizg
 
 ## Run
 ```bash
-cargo run
+cargo run -- \
+    --neo4j-uri neo4j://localhost:7687 \
+    --neo4j-user neo4j \
+    --neo4j-pass neo4j 
+```
+
+## Docker compose
+### 1. Start neo4j
+```bash
+cd docker/
+docker compose up neo4j
+```
+
+### 2. Start kg-node
+```bash
+cd docker/
+docker compose up kg-node
 ```

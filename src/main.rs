@@ -2,8 +2,11 @@ use futures::{stream, StreamExt, TryStreamExt};
 use kg_node::grc20;
 use kg_node::kg_client::{self, Entity};
 use prost::Message;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 use std::fs;
 use std::path::Path;
+use clap::{Args, Parser};
 
 const IPFS_CACHE_DIR: &str = "ipfs-cache";
 
@@ -44,9 +47,54 @@ impl IpfsClient {
     }
 }
 
+#[derive(Debug, Parser)]
+#[command(name = "stdout", version, about, arg_required_else_help = true)]
+struct AppArgs {
+    // #[clap(flatten)]
+    // source_args: SourceArgs,
+
+    #[clap(flatten)]
+    neo4j_args: Neo4jArgs,
+    // #[clap(subcommand)]
+    // command: Command,
+}
+
+#[derive(Debug, Args)]
+struct Neo4jArgs {
+    /// Neo4j database host
+    #[arg(long)]
+    neo4j_uri: String,
+
+    /// Neo4j database user name
+    #[arg(long)]
+    neo4j_user: String,
+
+    /// Neo4j database user password
+    #[arg(long)]
+    neo4j_pass: String,
+}
+
+fn init_tracing() {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "stdout=info".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let kg_client = kg_client::KgClient::new("neo4j://localhost:7687", "", "").await?;
+    init_tracing();
+    let args = AppArgs::parse();
+
+    // let kg_client = kg_client::KgClient::new("neo4j://localhost:7687", "", "").await?;
+    let kg_client = kg_client::KgClient::new(
+        &args.neo4j_args.neo4j_uri,
+        &args.neo4j_args.neo4j_user,
+        &args.neo4j_args.neo4j_pass, 
+    ).await?;
     kg_client.bootstrap().await?;
 
     let buf = include_bytes!("../bafkreif4acly7y46hx7optzfxtehxotizgqjz5h5vszo7vtmzsnm4ktxjy");

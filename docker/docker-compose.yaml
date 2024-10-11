@@ -1,0 +1,21 @@
+version: "3"
+services:
+  neo4j:
+    image: neo4j:latest
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - ./data/neo4j:/data
+    environment:
+      NEO4J_AUTH: none
+  kg-node:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    depends_on:
+      - neo4j
+    environment:
+      neo4j_uri: neo4j://neo4j:7687
+      neo4j_user: neo4j
+      neo4j_pass: neo4j
