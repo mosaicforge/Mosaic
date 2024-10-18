@@ -1,32 +1,112 @@
+use std::fmt::Display;
+
 use futures::TryStreamExt;
 use serde::Deserialize;
 
-use crate::grc20::{self};
+use crate::{
+    grc20::{self},
+    ops::ops::Op,
+    system_ids,
+};
 
-pub struct KgClient {
-    neo4j: neo4rs::Graph,
+pub fn create_geo_id() -> String {
+    uuid::Uuid::new_v4().to_string().replace("-", "")
 }
 
-// pub fn label_name(name: &str) -> String {
+pub struct Client {
+    pub neo4j: neo4rs::Graph,
+}
 
-// }
+fn starts_with_non_alpha(s: &str) -> bool {
+    s.chars().next().map_or(false, |c| !c.is_ascii_alphabetic())
+}
 
-impl KgClient {
+fn contains_space(s: &str) -> bool {
+    s.chars().any(|c| c.is_ascii_whitespace())
+}
+
+/// A label for a type in the KG.
+/// Displays as UpperCamelCase.
+pub struct TypeLabel(String);
+
+impl TypeLabel {
+    pub fn new(name: &str) -> Self {
+        Self(name.to_string())
+    }
+}
+
+impl Display for TypeLabel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let label: String = format!("{}", heck::AsUpperCamelCase(&self.0));
+
+        if starts_with_non_alpha(&self.0) {
+            write!(f, "`{}`", label)
+        } else {
+            write!(f, "{}", label)
+        }
+    }
+}
+
+/// A label for a relation in the KG.
+/// Displays as SHOUTY_SNAKE_CASE.
+pub struct RelationLabel(String);
+
+impl RelationLabel {
+    pub fn new(name: &str) -> Self {
+        Self(name.to_string())
+    }
+}
+
+impl Display for RelationLabel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let label: String = format!("{}", heck::AsShoutySnakeCase(&self.0));
+
+        if starts_with_non_alpha(&self.0) {
+            write!(f, "`{}`", label)
+        } else {
+            write!(f, "{}", label)
+        }
+    }
+}
+
+/// A label for an attribute in the KG.
+/// Displays as lowerCamelCase.
+pub struct AttributeLabel(String);
+
+impl AttributeLabel {
+    pub fn new(name: &str) -> Self {
+        Self(name.to_string())
+    }
+}
+
+impl Display for AttributeLabel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let label: String = format!("{}", heck::AsLowerCamelCase(&self.0));
+
+        if starts_with_non_alpha(&self.0) {
+            write!(f, "`{}`", label)
+        } else {
+            write!(f, "{}", label)
+        }
+    }
+}
+
+impl Client {
     pub async fn new(uri: &str, user: &str, pass: &str) -> anyhow::Result<Self> {
         let neo4j = neo4rs::Graph::new(uri, user, pass).await?;
         Ok(Self { neo4j })
     }
 
-    pub async fn bootstrap(&self) -> anyhow::Result<()> {
-        let mut txn = self.neo4j.start_txn().await?;
+    // pub async fn bootstrap(&self) -> anyhow::Result<()> {
+    //     let mut txn = self.neo4j.start_txn().await?;
 
-        txn.run_queries([include_str!("../resources/bootstrap.cypher")])
-            .await?;
+    //     txn.run_queries([include_str!("../resources/bootstrap.cypher")])
+    //         .await?;
 
-        txn.commit().await?;
+    //     txn.commit().await?;
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     pub async fn find_one<T: for<'a> Deserialize<'a>>(
         &self,
@@ -72,8 +152,13 @@ impl KgClient {
             return Ok(());
         }
 
-        println!("SetName: {}, {}", entity_id, name);
+        tracing::info!("SetName: {}, {}", entity_id, name);
         let mut txn = self.neo4j.start_txn().await?;
+
+        let old_name = self
+            .get_name(entity_id)
+            .await?
+            .unwrap_or(entity_id.to_string());
 
         // Rename Entity
         txn.run(
@@ -91,45 +176,42 @@ impl KgClient {
         )
         .await?;
 
-        // // Rename properties
-        // txn.run(
-        //     neo4rs::query(&format!(
-        //         r#"
-        //             MATCH (n) 
-        //             WHERE n._{entity_id} IS NOT NULL
-        //             SET n.{property} = n._{entity_id}
-        //             REMOVE n._{entity_id}
-        //             "#,
-        //         entity_id = entity_id,
-        //         property = heck::AsLowerCamelCase(name),
-        //     )),
-        // )
-        // .await?;
+        // Rename properties
+        txn.run(neo4rs::query(&format!(
+            r#"
+                    MATCH (n) 
+                    WHERE n.{old_attribute} IS NOT NULL
+                    SET n.{new_attribute} = n.{old_attribute}
+                    REMOVE n.{old_attribute}
+                    "#,
+            old_attribute = AttributeLabel::new(&old_name),
+            new_attribute = AttributeLabel::new(name),
+        )))
+        .await?;
 
-        // // Rename relation
-        // txn.run(neo4rs::query(&format!(
-        //     r#"
-        //         MATCH (n) -[r:_{entity_id}]-> (m)
-        //         CREATE (n) -[:{relation_label}]-> (m)
-        //         DELETE r
-        //     "#,
-        //     entity_id = entity_id,
-        //     relation_label = heck::AsShoutySnakeCase(name)
-        // )))
-        // .await?;
+        // Rename relation
+        txn.run(neo4rs::query(&format!(
+            r#"
+                MATCH (n) -[r:{old_relation}]-> (m)
+                CREATE (n) -[:{new_relation} {{id: r.id}}]-> (m)
+                DELETE r
+            "#,
+            old_relation = RelationLabel::new(&old_name),
+            new_relation = RelationLabel::new(name)
+        )))
+        .await?;
 
-        // // Rename labels
-        // txn.run(neo4rs::query(&format!(
-        //     r#"
-        //         MATCH (n) 
-        //         WHERE n:_{entity_id}
-        //         REMOVE n:_{entity_id}
-        //         SET n:{label}
-        //     "#,
-        //     entity_id = entity_id,
-        //     label = heck::AsUpperCamelCase(name)
-        // )))
-        // .await?;
+        // Rename type label
+        txn.run(neo4rs::query(&format!(
+            r#"
+                MATCH (n:{old_type})
+                REMOVE n:{old_type}
+                SET n:{new_type}
+            "#,
+            old_type = TypeLabel::new(&old_name),
+            new_type = TypeLabel::new(name)
+        )))
+        .await?;
 
         Ok(txn.commit().await?)
     }
@@ -141,54 +223,65 @@ impl KgClient {
         value: grc20::Value,
     ) -> anyhow::Result<()> {
         let entity_name = self
-            .find_one::<Entity>(Entity::find_by_id_query(&entity_id))
+            .get_name(entity_id)
             .await?
-            .and_then(|entity| entity.name)
             .unwrap_or(entity_id.to_string());
 
-        let attribute_label = self
+        let attribute_name = self
             .get_name(attribute_id)
             .await?
             .unwrap_or(attribute_id.to_string());
 
-        println!(
+        tracing::info!(
             "SetTriple: {}, {}, {:?}",
-            entity_name, attribute_label, value,
+            if entity_name == entity_id {
+                entity_id.to_string()
+            } else {
+                format!("{} ({})", entity_name, entity_id)
+            },
+            if attribute_name == attribute_id {
+                attribute_id.to_string()
+            } else {
+                format!("{} ({})", attribute_name, attribute_id)
+            },
+            value,
         );
 
-        match (value.r#type(), attribute_label.as_str()) {
-            (grc20::ValueType::Entity, "Type") => {
+        match (value.r#type(), attribute_id) {
+            (grc20::ValueType::Entity, system_ids::TYPES) => {
                 let type_label = self
                     .get_name(&value.value)
                     .await?
-                    .map_or(format!("_{}", value.value), |name| {
-                        format!("{}", heck::AsUpperCamelCase(name))
-                    });
+                    .map_or(TypeLabel::new(&value.value), |name| TypeLabel::new(&name));
 
                 self.neo4j
                     .run(
                         neo4rs::query(&format!(
                             r#"
+                            MERGE (t {{ id: $value }})
                             MERGE (n {{ id: $id }}) 
                             ON CREATE 
-                                SET n :{type_label} 
+                                SET n :{type_label}
                             ON MATCH 
                                 SET n :{type_label}
+                            MERGE (n) -[:TYPE {{id: $attribute_id}}]-> (t)
                             "#,
                         ))
-                        .param("id", entity_id),
+                        .param("id", entity_id)
+                        .param("value", value.value)
+                        .param("attribute_id", attribute_id),
                     )
                     .await?;
             }
-            // (grc20::ValueType::Text, "Name") => {
-            //     self.set_name(entity_id, &value.value).await?;
-            // }
-            (grc20::ValueType::Entity, label) => {
+            (grc20::ValueType::Text, system_ids::NAME) => {
+                self.set_name(entity_id, &value.value).await?;
+            }
+            (grc20::ValueType::Entity, attribute_id) => {
                 let relation_label = self
                     .get_name(attribute_id)
                     .await?
-                    .map_or(format!("_{}", attribute_id), |name| {
-                        format!("{}", heck::AsShoutySnakeCase(name))
+                    .map_or(RelationLabel::new(attribute_id), |name| {
+                        RelationLabel::new(&name)
                     });
 
                 self.neo4j
@@ -197,22 +290,16 @@ impl KgClient {
                             r#"
                             MERGE (n {{ id: $id }})
                             MERGE (m {{ id: $value }})
-                            MERGE (n) -[:{relation_label}]-> (m)
+                            MERGE (n) -[:{relation_label} {{id: $attribute_id}}]-> (m)
                             "#,
                         ))
                         .param("id", entity_id)
-                        .param("value", value.value),
+                        .param("value", value.value)
+                        .param("attribute_id", attribute_id),
                     )
                     .await?;
             }
-            (_, label) => {
-                let attribute_name = self
-                    .get_name(attribute_id)
-                    .await?
-                    .map_or(format!("_{}", attribute_id), |name| {
-                        format!("{}", heck::AsLowerCamelCase(name))
-                    });
-
+            (_, attribute_id) => {
                 self.neo4j
                     .run(
                         neo4rs::query(&format!(
@@ -223,6 +310,7 @@ impl KgClient {
                             ON MATCH
                                 SET n.{attribute_name} = $value
                             "#,
+                            attribute_name = AttributeLabel::new(&attribute_name),
                         ))
                         .param("id", entity_id)
                         .param("value", value.value),
@@ -251,9 +339,11 @@ impl KgClient {
             .await?
             .unwrap_or(attribute_id.to_string());
 
-        println!(
+        tracing::info!(
             "DeleteTriple: {}, {}, {:?}",
-            entity_name, attribute_label, value,
+            entity_name,
+            attribute_label,
+            value,
         );
 
         match (value.r#type(), attribute_label.as_str()) {
@@ -289,12 +379,13 @@ impl KgClient {
                     .run(
                         neo4rs::query(&format!(
                             r#"
-                            MATCH ({{ id: $id }}) -[r:{relation_label}]-> ({{ id: $value }})
+                            MATCH ({{ id: $id }}) -[r:{relation_label} {{id: $attribute_id}}]-> ({{ id: $value }})
                             DELETE r
                             "#,
                         ))
                         .param("id", entity_id)
-                        .param("value", value.value),
+                        .param("value", value.value)
+                        .param("attribute_id", attribute_id),
                     )
                     .await?;
             }
@@ -324,30 +415,8 @@ impl KgClient {
         Ok(())
     }
 
-    pub async fn handle_op(&self, op: grc20::Op) -> anyhow::Result<()> {
-        match (op.r#type(), op.triple) {
-            (
-                grc20::OpType::SetTriple,
-                Some(grc20::Triple {
-                    entity: entity_id,
-                    attribute: attribute_id,
-                    value: Some(value),
-                }),
-            ) => {
-                self.set_triple(&entity_id, &attribute_id, value).await?;
-            }
-            (
-                grc20::OpType::DeleteTriple,
-                Some(grc20::Triple {
-                    entity: entity_id,
-                    attribute: attribute_id,
-                    value: Some(value),
-                }),
-            ) => self.delete_tripe(&entity_id, &attribute_id, value).await?,
-            _ => (),
-        };
-
-        Ok(())
+    pub async fn handle_op(&self, op: Op) -> anyhow::Result<()> {
+        Ok(op.apply_op(self).await?)
     }
 }
 
