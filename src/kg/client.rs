@@ -13,6 +13,7 @@ pub fn create_geo_id() -> String {
     uuid::Uuid::new_v4().to_string().replace("-", "")
 }
 
+#[derive(Clone)]
 pub struct Client {
     pub neo4j: neo4rs::Graph,
 }
@@ -135,6 +136,41 @@ impl Client {
             .await?)
     }
 
+    pub async fn find_node_one<T: for<'a> Deserialize<'a>>(&self, query: neo4rs::Query) -> anyhow::Result<Option<T>> {
+        Ok(self
+            .neo4j
+            .execute(query)
+            .await?
+            .next()
+            .await?
+            .map(|row| row.get("n"))
+            .transpose()?)
+    }
+
+    pub async fn find_node_by_id<T: for<'a> Deserialize<'a>>(&self, id: &str) -> anyhow::Result<Option<T>> {
+        let query = neo4rs::query("MATCH (n { id: $id }) RETURN n").param("id", id);
+        self.find_node_one(query).await
+    }
+
+    pub async fn find_relation<T: for<'a> Deserialize<'a>>(
+        &self,
+        query: neo4rs::Query,
+    ) -> anyhow::Result<Option<T>> {
+        Ok(self
+            .neo4j
+            .execute(query)
+            .await?
+            .next()
+            .await?
+            .map(|row| row.get("r"))
+            .transpose()?)
+    }
+
+    pub async fn find_relation_by_id<T: for<'a> Deserialize<'a>>(&self, id: &str) -> anyhow::Result<Option<T>> {
+        let query = neo4rs::query("MATCH () -[r]-> () WHERE r.id = $id RETURN r").param("id", id);
+        self.find_relation(query).await
+    }
+
     pub async fn get_name(&self, entity_id: &str) -> anyhow::Result<Option<String>> {
         match self
             .find_one::<Entity>(Entity::find_by_id_query(&entity_id))
@@ -214,205 +250,6 @@ impl Client {
         .await?;
 
         Ok(txn.commit().await?)
-    }
-
-    pub async fn set_triple(
-        &self,
-        entity_id: &str,
-        attribute_id: &str,
-        value: grc20::Value,
-    ) -> anyhow::Result<()> {
-        let entity_name = self
-            .get_name(entity_id)
-            .await?
-            .unwrap_or(entity_id.to_string());
-
-        let attribute_name = self
-            .get_name(attribute_id)
-            .await?
-            .unwrap_or(attribute_id.to_string());
-
-        tracing::info!(
-            "SetTriple: {}, {}, {:?}",
-            if entity_name == entity_id {
-                entity_id.to_string()
-            } else {
-                format!("{} ({})", entity_name, entity_id)
-            },
-            if attribute_name == attribute_id {
-                attribute_id.to_string()
-            } else {
-                format!("{} ({})", attribute_name, attribute_id)
-            },
-            value,
-        );
-
-        match (value.r#type(), attribute_id) {
-            (grc20::ValueType::Entity, system_ids::TYPES) => {
-                let type_label = self
-                    .get_name(&value.value)
-                    .await?
-                    .map_or(TypeLabel::new(&value.value), |name| TypeLabel::new(&name));
-
-                self.neo4j
-                    .run(
-                        neo4rs::query(&format!(
-                            r#"
-                            MERGE (t {{ id: $value }})
-                            MERGE (n {{ id: $id }}) 
-                            ON CREATE 
-                                SET n :{type_label}
-                            ON MATCH 
-                                SET n :{type_label}
-                            MERGE (n) -[:TYPE {{id: $attribute_id}}]-> (t)
-                            "#,
-                        ))
-                        .param("id", entity_id)
-                        .param("value", value.value)
-                        .param("attribute_id", attribute_id),
-                    )
-                    .await?;
-            }
-            (grc20::ValueType::Text, system_ids::NAME) => {
-                self.set_name(entity_id, &value.value).await?;
-            }
-            (grc20::ValueType::Entity, attribute_id) => {
-                let relation_label = self
-                    .get_name(attribute_id)
-                    .await?
-                    .map_or(RelationLabel::new(attribute_id), |name| {
-                        RelationLabel::new(&name)
-                    });
-
-                self.neo4j
-                    .run(
-                        neo4rs::query(&format!(
-                            r#"
-                            MERGE (n {{ id: $id }})
-                            MERGE (m {{ id: $value }})
-                            MERGE (n) -[:{relation_label} {{id: $attribute_id}}]-> (m)
-                            "#,
-                        ))
-                        .param("id", entity_id)
-                        .param("value", value.value)
-                        .param("attribute_id", attribute_id),
-                    )
-                    .await?;
-            }
-            (_, attribute_id) => {
-                self.neo4j
-                    .run(
-                        neo4rs::query(&format!(
-                            r#"
-                            MERGE (n {{ id: $id }}) 
-                            ON CREATE
-                                SET n.{attribute_name} = $value
-                            ON MATCH
-                                SET n.{attribute_name} = $value
-                            "#,
-                            attribute_name = AttributeLabel::new(&attribute_name),
-                        ))
-                        .param("id", entity_id)
-                        .param("value", value.value),
-                    )
-                    .await?;
-            }
-        };
-
-        Ok(())
-    }
-
-    pub async fn delete_tripe(
-        &self,
-        entity_id: &str,
-        attribute_id: &str,
-        value: grc20::Value,
-    ) -> anyhow::Result<()> {
-        let entity_name = self
-            .find_one::<Entity>(Entity::find_by_id_query(&entity_id))
-            .await?
-            .and_then(|entity| entity.name)
-            .unwrap_or(entity_id.to_string());
-
-        let attribute_label = self
-            .get_name(attribute_id)
-            .await?
-            .unwrap_or(attribute_id.to_string());
-
-        tracing::info!(
-            "DeleteTriple: {}, {}, {:?}",
-            entity_name,
-            attribute_label,
-            value,
-        );
-
-        match (value.r#type(), attribute_label.as_str()) {
-            (grc20::ValueType::Entity, "Type") => {
-                let type_label = self
-                    .get_name(&value.value)
-                    .await?
-                    .map_or(format!("_{}", value.value), |name| {
-                        format!("{}", heck::AsUpperCamelCase(name))
-                    });
-
-                self.neo4j
-                    .run(
-                        neo4rs::query(&format!(
-                            r#"
-                            MATCH (n {{ id: $id }})
-                            REMOVE n :{type_label}
-                            "#,
-                        ))
-                        .param("id", entity_id),
-                    )
-                    .await?;
-            }
-            (grc20::ValueType::Entity, label) => {
-                let relation_label = self
-                    .get_name(attribute_id)
-                    .await?
-                    .map_or(format!("_{}", attribute_id), |name| {
-                        format!("{}", heck::AsShoutySnakeCase(name))
-                    });
-
-                self.neo4j
-                    .run(
-                        neo4rs::query(&format!(
-                            r#"
-                            MATCH ({{ id: $id }}) -[r:{relation_label} {{id: $attribute_id}}]-> ({{ id: $value }})
-                            DELETE r
-                            "#,
-                        ))
-                        .param("id", entity_id)
-                        .param("value", value.value)
-                        .param("attribute_id", attribute_id),
-                    )
-                    .await?;
-            }
-            (_, label) => {
-                let attribute_name = self
-                    .get_name(attribute_id)
-                    .await?
-                    .map_or(format!("_{}", attribute_id), |name| {
-                        format!("{}", heck::AsLowerCamelCase(name))
-                    });
-
-                self.neo4j
-                    .run(
-                        neo4rs::query(&format!(
-                            r#"
-                            MATCH (n {{ id: $id }}) 
-                            REMOVE n.{attribute_name}
-                            "#,
-                        ))
-                        .param("id", entity_id)
-                        .param("value", value.value),
-                    )
-                    .await?;
-            }
-        };
-
-        Ok(())
     }
 
     pub async fn handle_op(&self, op: Op) -> anyhow::Result<()> {

@@ -8,7 +8,7 @@ use crate::{grc20, kg::client::Client};
 pub enum Value {
     Null,
     Text(String),
-    Number(f64),
+    Number(String),
     Entity(String),
     Uri(String),
     Checkbox(bool),
@@ -35,7 +35,7 @@ impl From<grc20::Value> for Value {
     fn from(value: grc20::Value) -> Self {
         match value.r#type() {
             grc20::ValueType::Text => Value::Text(value.value),
-            grc20::ValueType::Number => Value::Number(value.value.parse().unwrap_or(0.0)),
+            grc20::ValueType::Number => Value::Number(value.value),
             grc20::ValueType::Entity => Value::Entity(value.value),
             grc20::ValueType::Uri => Value::Uri(value.value),
             grc20::ValueType::Checkbox => Value::Checkbox(value.value.parse().unwrap_or(false)),
@@ -50,7 +50,7 @@ impl From<&grc20::Value> for Value {
     fn from(value: &grc20::Value) -> Self {
         match value.r#type() {
             grc20::ValueType::Text => Value::Text(value.value.clone()),
-            grc20::ValueType::Number => Value::Number(value.value.parse().unwrap_or(0.0)),
+            grc20::ValueType::Number => Value::Number(value.value.clone()),
             grc20::ValueType::Entity => Value::Entity(value.value.clone()),
             grc20::ValueType::Uri => Value::Uri(value.value.clone()),
             grc20::ValueType::Checkbox => Value::Checkbox(value.value.parse().unwrap_or(false)),
@@ -66,7 +66,7 @@ impl From<Value> for neo4rs::BoltType {
         match value {
             Value::Null => neo4rs::BoltType::Null(neo4rs::BoltNull),
             Value::Text(value) => neo4rs::BoltType::String(value.into()),
-            Value::Number(value) => neo4rs::BoltType::Float(neo4rs::BoltFloat::new(value)),
+            Value::Number(value) => neo4rs::BoltType::String(value.into()),
             Value::Entity(value) => neo4rs::BoltType::String(value.into()),
             Value::Uri(value) => neo4rs::BoltType::String(value.into()),
             Value::Checkbox(value) => neo4rs::BoltType::Boolean(neo4rs::BoltBoolean::new(value)),

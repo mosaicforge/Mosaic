@@ -186,6 +186,7 @@ pub const FOREIGN_TYPES: &str = "be74597305a94cd0a46d1c5538270faf";
 
 /* Example Usage: SF Config > TYPES > SPACE_CONFIGURATION */
 pub const SPACE_CONFIGURATION: &str = "1d5d0c2adb23466ca0b09abe879df457";
+pub const SOURCE_SPACE_ATTRIBUTE: &str = "315c23ed14414c378f14bd8b64f36702";
 
 /* Example Usage: Block Entity > TYPES > TABLE_BLOCK */
 pub const TABLE_BLOCK: &str = "88d5925217ae4d9aa36724710129eb47";

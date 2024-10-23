@@ -3,65 +3,7 @@
 use crate::kg::client::create_geo_id;
 use crate::{grc20, system_ids};
 
-const ENTITIES: &[&str] = &[
-    system_ids::TYPES,
-    system_ids::ATTRIBUTES,
-    system_ids::SCHEMA_TYPE,
-    system_ids::VALUE_TYPE,
-    system_ids::RELATION_TYPE,
-    system_ids::COLLECTION_VALUE_TYPE,
-    system_ids::TEXT,
-    system_ids::IMAGE,
-    system_ids::IMAGE_ATTRIBUTE,
-    system_ids::DESCRIPTION,
-    system_ids::NAME,
-    system_ids::SPACE,
-    system_ids::ATTRIBUTE,
-    system_ids::SPACE_CONFIGURATION,
-    system_ids::FOREIGN_TYPES,
-    system_ids::TABLE_BLOCK,
-    system_ids::SHOWN_COLUMNS,
-    system_ids::TEXT_BLOCK,
-    system_ids::IMAGE_BLOCK,
-    system_ids::BLOCKS,
-    system_ids::MARKDOWN_CONTENT,
-    system_ids::ROW_TYPE,
-    system_ids::PARENT_ENTITY,
-    system_ids::RELATION_VALUE_RELATIONSHIP_TYPE,
-    system_ids::DATE,
-    system_ids::WEB_URL,
-    system_ids::PERSON_TYPE,
-    system_ids::AVATAR_ATTRIBUTE,
-    system_ids::COVER_ATTRIBUTE,
-    system_ids::WALLETS_ATTRIBUTE,
-    system_ids::FILTER,
-    system_ids::BROADER_SPACES,
-    // Compound types are value types that are stored as entities but are
-    // selectable as a "native" type for a triple's value type.
-    //
-    // e.g., you can select a Text value type, or a Number, or an Image. The
-    // image is stored as an entity while the others are stored as a primitive
-    // type in the database.
-    system_ids::IMAGE_URL_ATTRIBUTE,
-    // Collections
-    system_ids::COLLECTION_TYPE,
-    system_ids::RELATION,
-    system_ids::RELATION_INDEX,
-    system_ids::RELATION_TO_ATTRIBUTE,
-    system_ids::RELATION_FROM_ATTRIBUTE,
-    system_ids::RELATION_TYPE_ATTRIBUTE,
-    // Templates
-    system_ids::TEMPLATE_ATTRIBUTE,
-    // Data block views
-    system_ids::VIEW_TYPE,
-    system_ids::VIEW_ATTRIBUTE,
-    system_ids::GALLERY_VIEW,
-    system_ids::TABLE_VIEW,
-    system_ids::LIST_VIEW,
-    system_ids::PLACEHOLDER_TEXT,
-    system_ids::PLACEHOLDER_IMAGE,
-];
-
+// (entity_id, name)
 const NAMES: &[(&str, &str)] = &[
     (system_ids::TYPES, "Types"),
     (system_ids::NAME, "Name"),
@@ -82,6 +24,7 @@ const NAMES: &[(&str, &str)] = &[
     (system_ids::IMAGE_ATTRIBUTE, "Image"),
     (system_ids::DESCRIPTION, "Description"),
     (system_ids::SPACE_CONFIGURATION, "Space"),
+    (system_ids::SOURCE_SPACE_ATTRIBUTE, "Source space"),
     (system_ids::FOREIGN_TYPES, "Foreign Types"),
     // Data blocks
     (system_ids::VIEW_TYPE, "View"),
@@ -116,6 +59,7 @@ const NAMES: &[(&str, &str)] = &[
     (system_ids::RELATION_FROM_ATTRIBUTE, "From entity"),
 ];
 
+// (attribute_id, value_type_id)
 const ATTRIBUTES: &[(&str, &str)] = &[
     (system_ids::TYPES, system_ids::RELATION_TYPE),
     (system_ids::TEMPLATE_ATTRIBUTE, system_ids::RELATION_TYPE),
@@ -129,8 +73,9 @@ const ATTRIBUTES: &[(&str, &str)] = &[
     (system_ids::DESCRIPTION, system_ids::TEXT),
     (system_ids::NAME, system_ids::TEXT),
     (system_ids::SPACE, system_ids::TEXT),
+    (system_ids::SOURCE_SPACE_ATTRIBUTE, system_ids::RELATION),
     // Data blocks
-    (system_ids::VIEW_ATTRIBUTE, system_ids::RELATION_TYPE),
+    (system_ids::VIEW_ATTRIBUTE, system_ids::RELATION_TYPE), 
     (system_ids::FOREIGN_TYPES, system_ids::RELATION_TYPE),
     (system_ids::MARKDOWN_CONTENT, system_ids::TEXT),
     (system_ids::ROW_TYPE, system_ids::RELATION_TYPE),
@@ -158,6 +103,7 @@ const ATTRIBUTES: &[(&str, &str)] = &[
 
 // These types include the default types and attributes for a given type. There might be more
 // attributes on a type than are listed here if they were later added by users.
+// (type_id, [attribute_id])
 const TYPES: &[(&str, &[&str])] = &[
     (system_ids::SCHEMA_TYPE, &[system_ids::TEMPLATE_ATTRIBUTE]),
     (system_ids::VIEW_TYPE, &[]),
@@ -301,7 +247,7 @@ pub fn type_schema_ops() -> Vec<grc20::Triple> {
             attributes
                 .iter()
                 .flat_map(|attribute_id| {
-                    create_relationship(&type_id, attribute_id, system_ids::ATTRIBUTE)
+                    create_relationship(&type_id, attribute_id, system_ids::ATTRIBUTES)
                 })
                 .collect::<Vec<_>>()
         })

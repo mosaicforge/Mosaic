@@ -3,7 +3,7 @@ use std::{collections::HashMap, iter};
 use crate::{grc20, system_ids};
 
 use super::{
-    create_relation::{CreateRelation, CreateRelationBuilder},
+    create_relation::CreateRelationBuilder,
     delete_triple::DeleteTriple,
     ops::{self, Op},
     set_triple::SetTriple,
@@ -104,8 +104,9 @@ pub fn batch_ops(ops: Vec<grc20::Op>) -> Vec<Op> {
                         .collect::<Vec<_>>(),
                     // If the batch fails to build, log the error and return the ops as is
                     Err(err) => {
-                        tracing::error!("Failed to build relation batch: {:?}", err);
-                        ops.into_iter().map(Op::from).collect::<Vec<_>>()
+                        tracing::error!("Failed to build relation batch: {:?}! Ignoring", err);
+                        // ops.into_iter().map(Op::from).collect::<Vec<_>>()
+                        vec![]
                     }
                 }
             }

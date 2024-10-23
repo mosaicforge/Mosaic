@@ -1,6 +1,6 @@
 use clap::{Args, Parser};
 use futures::{stream, StreamExt};
-use kg_node::ops::ops::Op;
+use kg_node::ops::conversions;
 use kg_node::{bootstrap, kg};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -60,7 +60,7 @@ async fn main() -> anyhow::Result<()> {
     )
     .await?;
 
-    let ops = bootstrap::bootstrap().into_iter().map(Op::from);
+    let ops = conversions::batch_ops(bootstrap::bootstrap());
 
     stream::iter(ops)
         .for_each_concurrent(1, |op| async {

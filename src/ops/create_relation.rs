@@ -1,16 +1,20 @@
 use crate::{
     grc20,
-    kg::client::{RelationLabel, TypeLabel},
     system_ids,
 };
 
 use super::KgOp;
 
 pub struct CreateRelation {
+    /// ID of the relation entity
     pub entity_id: String,
+    /// ID of the "from" entity
     pub from_entity_id: String,
+    /// ID of the "to" entity
     pub to_entity_id: String,
+    /// ID of the relation type entity
     pub relation_type_id: String,
+    /// Index of the relation
     pub index: String,
 }
 
@@ -35,12 +39,24 @@ impl KgOp for CreateRelation {
 
         match self.relation_type_id.as_str() {
             system_ids::TYPES => {
-                let type_label = kg
+                let type_label = match kg
                     .get_name(&self.to_entity_id)
-                    .await?
-                    .map_or(TypeLabel::new(&self.to_entity_id), |name| {
-                        TypeLabel::new(&name)
-                    });
+                    .await? 
+                {
+                    Some(name) if name.replace(" ", "").is_empty() => self.to_entity_id.clone(),
+                    Some(name) => name,
+                    None => self.to_entity_id.clone(),
+                };
+
+                tracing::info!(
+                    "SetType {}: {}",
+                    self.from_entity_id,
+                    if type_label == self.to_entity_id {
+                        self.to_entity_id.to_string()
+                    } else {
+                        format!("{} ({})", type_label, self.to_entity_id)
+                    },
+                );
 
                 kg.neo4j
                     .run(
@@ -48,10 +64,11 @@ impl KgOp for CreateRelation {
                             r#"
                             MERGE (n {{ id: $id }}) 
                             ON CREATE 
-                                SET n :{type_label}
+                                SET n :`{type_id}`
                             ON MATCH 
-                                SET n :{type_label}
+                                SET n :`{type_id}`
                             "#,
+                            type_id = self.to_entity_id
                             // MERGE (n) -[:TYPE {{id: $attribute_id}}]-> (t)
                             // "#,
                         ))
@@ -64,16 +81,18 @@ impl KgOp for CreateRelation {
                     .run(
                         neo4rs::query(&format!(
                             r#"
-                        MERGE (from {{id: $from_id}})
-                        MERGE (to {{id: $to_id}})
-                        MERGE (from)-[:{relation_label} {{id: $relation_id, index: $index}}]->(to)
-                        "#,
-                            relation_label = RelationLabel::new(&relation_name)
-                        ))
+                            MERGE (from {{id: $from_id}})
+                            MERGE (to {{id: $to_id}})
+                            MERGE (from)-[:`{relation_type_id}` {{id: $relation_id, `{index_id}`: $index}}]->(to)
+                            "#,
+                            relation_type_id = self.relation_type_id,
+                            index_id = system_ids::RELATION_INDEX
+                            ))
                         .param("from_id", self.from_entity_id.clone())
                         .param("to_id", self.to_entity_id.clone())
                         .param("relation_id", self.entity_id.clone())
-                        .param("index", self.index.clone()),
+                        .param("index", self.index.clone())
+                        .param("relation_type_id", self.relation_type_id.clone())
                     )
                     .await?;
             }
@@ -145,7 +164,8 @@ impl CreateRelationBuilder {
                         ..
                     }),
                 ) if attribute == system_ids::RELATION_TO_ATTRIBUTE
-                    && *r#type == grc20::ValueType::Entity as i32 =>
+                    && *r#type == grc20::ValueType::Entity as i32 
+                    && !value.is_empty() =>
                 {
                     self.to_entity_id = Some(value.clone());
                     false
@@ -190,17 +210,34 @@ impl CreateRelationBuilder {
 
     pub fn build(self) -> anyhow::Result<CreateRelation> {
         Ok(CreateRelation {
-            entity_id: self.entity_id,
-            from_entity_id: self
-                .from_entity_id
-                .ok_or_else(|| anyhow::anyhow!("Missing from entity"))?,
-            to_entity_id: self
-                .to_entity_id
-                .ok_or_else(|| anyhow::anyhow!("Missing to entity"))?,
-            relation_type_id: self
-                .relation_type_id
-                .ok_or_else(|| anyhow::anyhow!("Missing relation type"))?,
+            from_entity_id: match self.from_entity_id {
+                Some(id) if id.is_empty() => return Err(anyhow::anyhow!("{}: Invalid from entity id: `{id}`", self.entity_id)),
+                Some(id) => id,
+                None => return Err(anyhow::anyhow!("{}: Missing from entity", self.entity_id)),
+            },
+            to_entity_id: match self.to_entity_id {
+                Some(id) if id.is_empty() => return Err(anyhow::anyhow!("{}: Invalid to entity id: `{id}`", self.entity_id)),
+                Some(id) => id,
+                None => return Err(anyhow::anyhow!("{}: Missing to entity", self.entity_id)),
+            },
+            relation_type_id: match self.relation_type_id {
+                Some(id) if id.is_empty() => return Err(anyhow::anyhow!("{}: Invalid relation type id: `{id}`", self.entity_id)),
+                Some(id) => id,
+                None => return Err(anyhow::anyhow!("{}: Missing relation type", self.entity_id)),
+            },
+            // relation_type_id: match self.relation_type_id {
+            //     Some(id) if id.is_empty() => {
+            //         tracing::warn!("{}: Invalid relation type id: `{id}`! Using default _UNKNOWN", self.entity_id);
+            //         "_UNKNOWN".to_string()
+            //     },
+            //     Some(id) => id,
+            //     None => {
+            //         tracing::warn!("{}: Missing relation type! Using default _UNKNOWN", self.entity_id);
+            //         "_UNKNOWN".to_string()
+            //     },
+            // },
             index: self.index.unwrap_or_else(|| "a0".to_string()),
+            entity_id: self.entity_id,
         })
     }
 }

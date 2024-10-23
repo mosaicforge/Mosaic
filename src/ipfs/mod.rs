@@ -42,38 +42,27 @@ impl IpfsClient {
 
         Ok(bytes.to_vec())
     }
-}
-
-pub async fn import_blob(
-    kg_client: &kg::Client,
-    client: &IpfsClient,
-    hash: &str,
-) -> anyhow::Result<()> {
-    let buf = fs::read(&Path::new(hash))?;
-    let import = deserialize::<grc20::Import>(&buf)?;
-
-    let mut edits = stream::iter(import.edits)
-        .map(|edit| async move {
-            let hash = edit.replace("ipfs://", "");
-            let bytes = client.get(&hash).await?;
-            anyhow::Ok(deserialize::<grc20::ImportEdit>(&bytes)?)
-        })
-        .buffer_unordered(10)
-        .try_collect::<Vec<_>>()
-        .await?;
-
-    edits.sort_by_key(|edit| edit.block_number.clone());
-
-    for edit in edits {
-        stream::iter(edit.ops)
-            .for_each_concurrent(1, |op| async {
-                kg_client
-                    .handle_op(op.into())
-                    .await
-                    .expect("Failed to handle op");
+    
+    pub async fn import_blob(
+        &self,
+        hash: &str,
+    ) -> anyhow::Result<Vec<grc20::Op>> {
+        let buf = fs::read(&Path::new(hash))?;
+        let import = deserialize::<grc20::Import>(&buf)?;
+    
+        let mut edits = stream::iter(import.edits)
+            .map(|edit| async move {
+                let hash = edit.replace("ipfs://", "");
+                let bytes = self.get(&hash).await?;
+                anyhow::Ok(deserialize::<grc20::ImportEdit>(&bytes)?)
             })
-            .await;
+            .buffer_unordered(10)
+            .try_collect::<Vec<_>>()
+            .await?;
+    
+        edits.sort_by_key(|edit| edit.block_number.clone());
+    
+        Ok(edits.into_iter().flat_map(|edit| edit.ops).collect())
     }
-
-    Ok(())
 }
+
