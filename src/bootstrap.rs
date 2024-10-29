@@ -75,7 +75,7 @@ const ATTRIBUTES: &[(&str, &str)] = &[
     (system_ids::SPACE, system_ids::TEXT),
     (system_ids::SOURCE_SPACE_ATTRIBUTE, system_ids::RELATION),
     // Data blocks
-    (system_ids::VIEW_ATTRIBUTE, system_ids::RELATION_TYPE), 
+    (system_ids::VIEW_ATTRIBUTE, system_ids::RELATION_TYPE),
     (system_ids::FOREIGN_TYPES, system_ids::RELATION_TYPE),
     (system_ids::MARKDOWN_CONTENT, system_ids::TEXT),
     (system_ids::ROW_TYPE, system_ids::RELATION_TYPE),

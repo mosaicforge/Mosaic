@@ -1,7 +1,4 @@
-use crate::{
-    grc20,
-    system_ids,
-};
+use crate::{grc20, system_ids};
 
 use super::KgOp;
 
@@ -39,10 +36,7 @@ impl KgOp for CreateRelation {
 
         match self.relation_type_id.as_str() {
             system_ids::TYPES => {
-                let type_label = match kg
-                    .get_name(&self.to_entity_id)
-                    .await? 
-                {
+                let type_label = match kg.get_name(&self.to_entity_id).await? {
                     Some(name) if name.replace(" ", "").is_empty() => self.to_entity_id.clone(),
                     Some(name) => name,
                     None => self.to_entity_id.clone(),
@@ -68,9 +62,8 @@ impl KgOp for CreateRelation {
                             ON MATCH 
                                 SET n :`{type_id}`
                             "#,
-                            type_id = self.to_entity_id
-                            // MERGE (n) -[:TYPE {{id: $attribute_id}}]-> (t)
-                            // "#,
+                            type_id = self.to_entity_id // MERGE (n) -[:TYPE {{id: $attribute_id}}]-> (t)
+                                                        // "#,
                         ))
                         .param("id", self.from_entity_id.clone()),
                     )
@@ -164,7 +157,7 @@ impl CreateRelationBuilder {
                         ..
                     }),
                 ) if attribute == system_ids::RELATION_TO_ATTRIBUTE
-                    && *r#type == grc20::ValueType::Entity as i32 
+                    && *r#type == grc20::ValueType::Entity as i32
                     && !value.is_empty() =>
                 {
                     self.to_entity_id = Some(value.clone());
@@ -211,17 +204,32 @@ impl CreateRelationBuilder {
     pub fn build(self) -> anyhow::Result<CreateRelation> {
         Ok(CreateRelation {
             from_entity_id: match self.from_entity_id {
-                Some(id) if id.is_empty() => return Err(anyhow::anyhow!("{}: Invalid from entity id: `{id}`", self.entity_id)),
+                Some(id) if id.is_empty() => {
+                    return Err(anyhow::anyhow!(
+                        "{}: Invalid from entity id: `{id}`",
+                        self.entity_id
+                    ))
+                }
                 Some(id) => id,
                 None => return Err(anyhow::anyhow!("{}: Missing from entity", self.entity_id)),
             },
             to_entity_id: match self.to_entity_id {
-                Some(id) if id.is_empty() => return Err(anyhow::anyhow!("{}: Invalid to entity id: `{id}`", self.entity_id)),
+                Some(id) if id.is_empty() => {
+                    return Err(anyhow::anyhow!(
+                        "{}: Invalid to entity id: `{id}`",
+                        self.entity_id
+                    ))
+                }
                 Some(id) => id,
                 None => return Err(anyhow::anyhow!("{}: Missing to entity", self.entity_id)),
             },
             relation_type_id: match self.relation_type_id {
-                Some(id) if id.is_empty() => return Err(anyhow::anyhow!("{}: Invalid relation type id: `{id}`", self.entity_id)),
+                Some(id) if id.is_empty() => {
+                    return Err(anyhow::anyhow!(
+                        "{}: Invalid relation type id: `{id}`",
+                        self.entity_id
+                    ))
+                }
                 Some(id) => id,
                 None => return Err(anyhow::anyhow!("{}: Missing relation type", self.entity_id)),
             },

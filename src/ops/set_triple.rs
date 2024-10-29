@@ -1,7 +1,4 @@
-use crate::{
-    kg::grc20::EntityNode,
-    system_ids,
-};
+use crate::{kg::grc20::EntityNode, system_ids};
 
 use crate::ops::{KgOp, Value};
 
@@ -40,7 +37,10 @@ impl KgOp for SetTriple {
 
         match (self.attribute_id.as_str(), &self.value) {
             (system_ids::TYPES, Value::Entity(value)) => {
-                if let Some(_) = kg.find_relation_by_id::<EntityNode>(&self.entity_id).await? {
+                if let Some(_) = kg
+                    .find_relation_by_id::<EntityNode>(&self.entity_id)
+                    .await?
+                {
                     // let entity = Entity::from_entity(kg.clone(), relation);
                     // kg.neo4j.run(
                     //     neo4rs::query(&format!(
@@ -53,7 +53,9 @@ impl KgOp for SetTriple {
                     //     .param("relation_id", self.entity_id.clone())
                     //     .param("relation_type_id", system_ids::TYPES),
                     // ).await?;
-                    tracing::warn!("Unhandled case: Setting type on existing relation {entity_name}");
+                    tracing::warn!(
+                        "Unhandled case: Setting type on existing relation {entity_name}"
+                    );
                 } else {
                     kg.neo4j
                         .run(
@@ -88,11 +90,16 @@ impl KgOp for SetTriple {
                     system_ids::RELATION_TO_ATTRIBUTE,
                     system_ids::RELATION_INDEX,
                     system_ids::RELATION_TYPE_ATTRIBUTE,
-                ].contains(&attribute_id) {
+                ]
+                .contains(&attribute_id)
+                {
                     panic!("Unhandled case: Setting entity value on attribute {attribute_name}({attribute_id}) of entity {entity_name}({})", self.entity_id);
                 }
-                
-                if let Some(_) = kg.find_relation_by_id::<EntityNode>(&self.entity_id).await? {
+
+                if let Some(_) = kg
+                    .find_relation_by_id::<EntityNode>(&self.entity_id)
+                    .await?
+                {
                     tracing::warn!("Unhandled case: Relation {attribute_name} defined on relation {entity_name}");
                 } else {
                     kg.neo4j
@@ -111,17 +118,22 @@ impl KgOp for SetTriple {
                 }
             }
             (attribute_id, value) => {
-                if let Some(_) = kg.find_relation_by_id::<EntityNode>(&self.entity_id).await? {
-                    kg.neo4j.run(
-                        neo4rs::query(&format!(
-                            r#"
+                if let Some(_) = kg
+                    .find_relation_by_id::<EntityNode>(&self.entity_id)
+                    .await?
+                {
+                    kg.neo4j
+                        .run(
+                            neo4rs::query(&format!(
+                                r#"
                             MATCH () -[r {{id: $relation_id}}]-> ()
                             SET r.`{attribute_id}` = $value
                             "#,
-                        ))
-                        .param("relation_id", self.entity_id.clone())
-                        .param("value", value.clone()),
-                    ).await?;
+                            ))
+                            .param("relation_id", self.entity_id.clone())
+                            .param("value", value.clone()),
+                        )
+                        .await?;
                 } else {
                     kg.neo4j
                         .run(

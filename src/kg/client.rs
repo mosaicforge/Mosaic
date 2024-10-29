@@ -136,7 +136,10 @@ impl Client {
             .await?)
     }
 
-    pub async fn find_node_one<T: for<'a> Deserialize<'a>>(&self, query: neo4rs::Query) -> anyhow::Result<Option<T>> {
+    pub async fn find_node_one<T: for<'a> Deserialize<'a>>(
+        &self,
+        query: neo4rs::Query,
+    ) -> anyhow::Result<Option<T>> {
         Ok(self
             .neo4j
             .execute(query)
@@ -147,7 +150,10 @@ impl Client {
             .transpose()?)
     }
 
-    pub async fn find_node_by_id<T: for<'a> Deserialize<'a>>(&self, id: &str) -> anyhow::Result<Option<T>> {
+    pub async fn find_node_by_id<T: for<'a> Deserialize<'a>>(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<Option<T>> {
         let query = neo4rs::query("MATCH (n { id: $id }) RETURN n").param("id", id);
         self.find_node_one(query).await
     }
@@ -166,7 +172,10 @@ impl Client {
             .transpose()?)
     }
 
-    pub async fn find_relation_by_id<T: for<'a> Deserialize<'a>>(&self, id: &str) -> anyhow::Result<Option<T>> {
+    pub async fn find_relation_by_id<T: for<'a> Deserialize<'a>>(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<Option<T>> {
         let query = neo4rs::query("MATCH () -[r]-> () WHERE r.id = $id RETURN r").param("id", id);
         self.find_relation(query).await
     }

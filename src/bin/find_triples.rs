@@ -15,7 +15,6 @@ struct AppArgs {
     id: String,
 }
 
-
 fn init_tracing() {
     tracing_subscriber::registry()
         .with(
@@ -32,7 +31,6 @@ fn set_log_level() {
     }
 }
 
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     set_log_level();
@@ -44,39 +42,62 @@ async fn main() -> anyhow::Result<()> {
     stream::iter(bootstrap_ops)
         .for_each_concurrent(1, |op| async {
             match (op.r#type(), &op.triple) {
-                (grc20::OpType::SetTriple, Some(grc20::Triple { entity, attribute, value: Some(grc20::Value {value, ..}) })) 
-                if *entity == args.id || *attribute == args.id || *value == args.id => {
+                (
+                    grc20::OpType::SetTriple,
+                    Some(grc20::Triple {
+                        entity,
+                        attribute,
+                        value: Some(grc20::Value { value, .. }),
+                    }),
+                ) if *entity == args.id || *attribute == args.id || *value == args.id => {
                     println!("SetTriple: {:?}", op.triple.unwrap());
                 }
-                (grc20::OpType::DeleteTriple, Some(grc20::Triple { entity, attribute, value: Some(grc20::Value {value, ..}) })) 
-                if *entity == args.id || *attribute == args.id || *value == args.id => {
+                (
+                    grc20::OpType::DeleteTriple,
+                    Some(grc20::Triple {
+                        entity,
+                        attribute,
+                        value: Some(grc20::Value { value, .. }),
+                    }),
+                ) if *entity == args.id || *attribute == args.id || *value == args.id => {
                     println!("DeleteTriple: {:?}", op.triple.unwrap());
                 }
-                _ => ()
+                _ => (),
             }
         })
         .await;
 
     let ipfs_client = IpfsClient::from_url("https://gateway.lighthouse.storage/ipfs/");
 
-    // // Import root space ops 
-    let root_space_ops = ipfs_client.import_blob(
-        "bafkreif4acly7y46hx7optzfxtehxotizgqjz5h5vszo7vtmzsnm4ktxjy",
-    )
-    .await?;
-    
+    // // Import root space ops
+    let root_space_ops = ipfs_client
+        .import_blob("bafkreif4acly7y46hx7optzfxtehxotizgqjz5h5vszo7vtmzsnm4ktxjy")
+        .await?;
+
     stream::iter(root_space_ops)
         .for_each_concurrent(1, |op| async {
             match (op.r#type(), &op.triple) {
-                (grc20::OpType::SetTriple, Some(grc20::Triple { entity, attribute, value: Some(grc20::Value {value, ..}) })) 
-                if *entity == args.id || *attribute == args.id || *value == args.id => {
+                (
+                    grc20::OpType::SetTriple,
+                    Some(grc20::Triple {
+                        entity,
+                        attribute,
+                        value: Some(grc20::Value { value, .. }),
+                    }),
+                ) if *entity == args.id || *attribute == args.id || *value == args.id => {
                     println!("SetTriple: {:?}", op.triple.unwrap());
                 }
-                (grc20::OpType::DeleteTriple, Some(grc20::Triple { entity, attribute, value: Some(grc20::Value {value, ..}) })) 
-                if *entity == args.id || *attribute == args.id || *value == args.id => {
+                (
+                    grc20::OpType::DeleteTriple,
+                    Some(grc20::Triple {
+                        entity,
+                        attribute,
+                        value: Some(grc20::Value { value, .. }),
+                    }),
+                ) if *entity == args.id || *attribute == args.id || *value == args.id => {
                     println!("DeleteTriple: {:?}", op.triple.unwrap());
                 }
-                _ => ()
+                _ => (),
             }
         })
         .await;

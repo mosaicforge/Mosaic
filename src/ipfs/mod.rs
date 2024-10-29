@@ -3,7 +3,7 @@ use std::{fs, path::Path};
 use futures::{stream, StreamExt, TryStreamExt};
 use prost::Message;
 
-use crate::{grc20, kg};
+use crate::grc20;
 
 const IPFS_CACHE_DIR: &str = "ipfs-cache";
 
@@ -42,14 +42,11 @@ impl IpfsClient {
 
         Ok(bytes.to_vec())
     }
-    
-    pub async fn import_blob(
-        &self,
-        hash: &str,
-    ) -> anyhow::Result<Vec<grc20::Op>> {
-        let buf = fs::read(&Path::new(hash))?;
+
+    pub async fn import_blob(&self, hash: &str) -> anyhow::Result<Vec<grc20::Op>> {
+        let buf = self.get(&hash).await?;
         let import = deserialize::<grc20::Import>(&buf)?;
-    
+
         let mut edits = stream::iter(import.edits)
             .map(|edit| async move {
                 let hash = edit.replace("ipfs://", "");
@@ -59,10 +56,9 @@ impl IpfsClient {
             .buffer_unordered(10)
             .try_collect::<Vec<_>>()
             .await?;
-    
+
         edits.sort_by_key(|edit| edit.block_number.clone());
-    
+
         Ok(edits.into_iter().flat_map(|edit| edit.ops).collect())
     }
 }
-
