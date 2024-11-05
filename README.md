@@ -21,6 +21,15 @@ cargo run --bin main -- \
     --neo4j-pass neo4j 
 ```
 
+Codegen
+```bash
+cargo run --package kg-cli -- \
+    --neo4j-uri neo4j://localhost:7687 \
+    --neo4j-user neo4j \
+    --neo4j-pass neo4j \
+    codegen
+```
+
 ## Docker compose
 ### 1. Start neo4j
 ```bash

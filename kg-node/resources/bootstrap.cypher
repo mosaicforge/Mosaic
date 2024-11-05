@@ -54,7 +54,7 @@ CREATE (name_attr:Attribute {
 })
 
 CREATE (type_attr:Attribute {
-    name: "Type", 
+    name: "Types", 
     id: "8f151ba4de204e3c9cb499ddf96f48f1",
     description: "The one or many Types that this entity has."
 })
@@ -83,7 +83,7 @@ CREATE (cont_attr:Attribute {
 // From geo browser
 CREATE (type_type:Type { name: 'Type', id: 'd7ab40920ab5441e88c35c27952de773' })
 
-CREATE (:Attribute {name: 'Attribute', id: '01412f8381894ab1836565c7fd358cc1'})
+CREATE (:Attribute {name: 'Attributes', id: '01412f8381894ab1836565c7fd358cc1'})
 CREATE (:Attribute {name: 'Relation type', id: 'd747a35a6aa14f468f76e6c2064c7036'})
 
 CREATE (:Type {name: 'Space', id: '362c1dbddc6444bba3c4652f38a642d7'})

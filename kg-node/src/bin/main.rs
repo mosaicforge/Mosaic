@@ -9,10 +9,11 @@ use tracing_subscriber::util::SubscriberInitExt;
 
 const ROOT_SPACE_IMPORTS: &str = "bafkreif4acly7y46hx7optzfxtehxotizgqjz5h5vszo7vtmzsnm4ktxjy";
 // const CONSTRUCTION_SPACE_IMPORTS: &str = "bafkreih3oxxoenvhrcb747ib6rh7gpnho2rzopdljrtiyafoesyxnrhziq";
-const CONSTRUCTION_SPACE_IMPORTS: &str =
-    "bafkreiadpdybqrlieaql57fjpcwhy25ut3s742qkhuxz4i6meahhrpvnf4";
+// const CONSTRUCTION_SPACE_IMPORTS: &str =
+//     "bafkreiadpdybqrlieaql57fjpcwhy25ut3s742qkhuxz4i6meahhrpvnf4";
+const CONSTRUCTION_SPACE_IMPORTS: &str = "bafkreidgyievktbezgsaxnnuylyn7acgy3kmaderzy4t4lwnfenhrggice";
 
-#[derive(Debug, Parser)]
+#[derive(Debug, Parser)]    
 #[command(name = "stdout", version, about, arg_required_else_help = true)]
 struct AppArgs {
     // #[clap(flatten)]
@@ -100,18 +101,18 @@ async fn main() -> anyhow::Result<()> {
         .await;
 
     // // Import construction space ops
-    // let construction_space_import = ipfs_client.import_blob(
-    //     CONSTRUCTION_SPACE_IMPORTS,
-    // ).await?;
+    let construction_space_import = ipfs_client.import_blob(
+        CONSTRUCTION_SPACE_IMPORTS,
+    ).await?;
 
-    // // let construction_space_ops = conversions::batch_ops(construction_space_ops);
+    let construction_space_ops = conversions::batch_ops(construction_space_import);
     // let construction_space_ops = construction_space_import.into_iter().map(Op::from);
 
-    // stream::iter(construction_space_ops)
-    //     .for_each_concurrent(1, |op| async {
-    //         kg_client.handle_op(op).await.expect("Failed to handle op");
-    //     })
-    //     .await;
+    stream::iter(construction_space_ops)
+        .for_each_concurrent(1, |op| async {
+            kg_client.handle_op(op).await.expect("Failed to handle op");
+        })
+        .await;
 
     Ok(())
 }

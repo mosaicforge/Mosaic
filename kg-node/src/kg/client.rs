@@ -192,73 +192,9 @@ impl Client {
         }
     }
 
-    pub async fn set_name(&self, entity_id: &str, name: &str) -> anyhow::Result<()> {
-        if name.is_empty() {
-            return Ok(());
-        }
-
-        tracing::info!("SetName: {}, {}", entity_id, name);
-        let mut txn = self.neo4j.start_txn().await?;
-
-        let old_name = self
-            .get_name(entity_id)
-            .await?
-            .unwrap_or(entity_id.to_string());
-
-        // Rename Entity
-        txn.run(
-            neo4rs::query(&format!(
-                r#"
-                    MERGE (n {{ id: $id }})
-                    ON CREATE
-                        SET n.name = $value
-                    ON MATCH
-                        SET n.name = $value
-                    "#,
-            ))
-            .param("id", entity_id)
-            .param("value", name),
-        )
-        .await?;
-
-        // Rename properties
-        txn.run(neo4rs::query(&format!(
-            r#"
-                    MATCH (n) 
-                    WHERE n.{old_attribute} IS NOT NULL
-                    SET n.{new_attribute} = n.{old_attribute}
-                    REMOVE n.{old_attribute}
-                    "#,
-            old_attribute = AttributeLabel::new(&old_name),
-            new_attribute = AttributeLabel::new(name),
-        )))
-        .await?;
-
-        // Rename relation
-        txn.run(neo4rs::query(&format!(
-            r#"
-                MATCH (n) -[r:{old_relation}]-> (m)
-                CREATE (n) -[:{new_relation} {{id: r.id}}]-> (m)
-                DELETE r
-            "#,
-            old_relation = RelationLabel::new(&old_name),
-            new_relation = RelationLabel::new(name)
-        )))
-        .await?;
-
-        // Rename type label
-        txn.run(neo4rs::query(&format!(
-            r#"
-                MATCH (n:{old_type})
-                REMOVE n:{old_type}
-                SET n:{new_type}
-            "#,
-            old_type = TypeLabel::new(&old_name),
-            new_type = TypeLabel::new(name)
-        )))
-        .await?;
-
-        Ok(txn.commit().await?)
+    pub async fn find_types<T: for<'a> Deserialize<'a>>(&self) -> anyhow::Result<Vec<T>> {
+        let query = neo4rs::query(&format!("MATCH (t:`{}`) RETURN t", system_ids::SCHEMA_TYPE));
+        self.find_all(query).await
     }
 
     pub async fn handle_op(&self, op: Op) -> anyhow::Result<()> {

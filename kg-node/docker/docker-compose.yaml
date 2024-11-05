@@ -9,6 +9,15 @@ services:
       - ./data/neo4j:/data
     environment:
       NEO4J_AUTH: none
+  neo4j_2:
+    image: neo4j:latest
+    ports:
+      - "7475:7474"
+      - "7688:7687"
+    volumes:
+      - ./data/neo4j_2:/data
+    environment:
+      NEO4J_AUTH: none
   kg-node:
     build:
       context: ..
