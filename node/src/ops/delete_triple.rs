@@ -46,7 +46,7 @@ impl KgOp for DeleteTriple {
                     attribute_label = self.attribute_id,
                 ))
                 .param("id", self.entity_id.clone())
-                .param("space_id", space_id)
+                .param("space_id", space_id),
             )
             .await?;
 

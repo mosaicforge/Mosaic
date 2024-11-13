@@ -1,11 +1,13 @@
 use clap::{Args, Parser, Subcommand};
+use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::IpfsClient;
-use kg_node::kg::entity::{Entity, EntityNode};
-use kg_node::{bootstrap, kg};
 use kg_core::pb::grc20;
+use kg_node::kg;
+use kg_node::kg::entity::{Entity, EntityNode};
+use kg_node::ops::conversions;
+use kg_node::system_ids::ROOT_SPACE_ID;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use futures::{stream, StreamExt, TryStreamExt};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -21,24 +23,20 @@ async fn main() -> anyhow::Result<()> {
     .await?;
     let ipfs_client = IpfsClient::from_url("https://gateway.lighthouse.storage/ipfs/");
 
-    let bootstrap_ops = bootstrap::bootstrap();
-
-    // // Import root space ops
-    let root_space_ops = import_space(&ipfs_client, "bafkreif4acly7y46hx7optzfxtehxotizgqjz5h5vszo7vtmzsnm4ktxjy").await?;
-
     match args.command {
-        Command::FindTriples { id } => {
-            let ops = find_triples(bootstrap_ops, &id)
-                .into_iter()
-                .chain(find_triples(root_space_ops, &id));
+        Command::FindTriples { id: _ } => {
+            // let ops = find_triples(bootstrap_ops, &id)
+            //     .into_iter()
+            //     .chain(find_triples(root_space_ops, &id));
 
-            for (op_type, triple) in ops {
-                match op_type {
-                    grc20::OpType::SetTriple => println!("SetTriple: {:?}", triple),
-                    grc20::OpType::DeleteTriple => println!("DeleteTriple: {:?}", triple),
-                    _ => (),
-                }
-            }
+            // for (op_type, triple) in ops {
+            //     match op_type {
+            //         grc20::OpType::SetTriple => println!("SetTriple: {:?}", triple),
+            //         grc20::OpType::DeleteTriple => println!("DeleteTriple: {:?}", triple),
+            //         _ => (),
+            //     }
+            // }
+            unimplemented!()
         }
         Command::Describe { id } => {
             let entity_node = kg_client
@@ -63,6 +61,20 @@ async fn main() -> anyhow::Result<()> {
             let code = kg_codegen::codegen(&kg_client).await?;
             std::fs::write("./src/space.ts", code)?;
             println!("Generated code has been written to ./src/space.ts");
+        }
+        Command::ResetDb => {
+            kg_client.reset_db(true).await?;
+        }
+        Command::ImportSpace {
+            ipfs_hash,
+            space_id,
+        } => {
+            let ops = import_space(&ipfs_client, &ipfs_hash).await?;
+            let rollups = conversions::batch_ops(ops);
+
+            for op in rollups {
+                op.apply_op(&kg_client, &space_id).await?;
+            }
         }
     }
 
@@ -91,6 +103,19 @@ enum Command {
     Describe {
         /// Entity ID
         id: String,
+    },
+
+    /// Reset the database
+    ResetDb,
+
+    /// Import a space
+    ImportSpace {
+        /// IPFS hash
+        ipfs_hash: String,
+
+        /// Space ID (defaults to root space)
+        #[arg(default_value = ROOT_SPACE_ID)]
+        space_id: String,
     },
 
     /// Codegen
@@ -167,7 +192,9 @@ async fn import_space(ipfs_client: &IpfsClient, ipfs_hash: &str) -> anyhow::Resu
 
     Ok(stream::iter(import.edits)
         .then(|edit_hash| async move {
-            let edit = ipfs_client.get::<grc20::ImportEdit>(&edit_hash, true).await?;
+            let edit = ipfs_client
+                .get::<grc20::ImportEdit>(&edit_hash, true)
+                .await?;
             anyhow::Ok(edit.ops)
         })
         .try_collect::<Vec<_>>()

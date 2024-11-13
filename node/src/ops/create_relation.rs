@@ -1,7 +1,7 @@
 use kg_core::pb::grc20;
 
-use crate::{system_ids};
 use super::KgOp;
+use crate::system_ids;
 
 pub struct CreateRelation {
     /// ID of the relation entity
@@ -66,7 +66,7 @@ impl KgOp for CreateRelation {
                             type_id = self.to_entity_id
                         ))
                         .param("id", self.from_entity_id.clone())
-                        .param("space_id", space_id)
+                        .param("space_id", space_id),
                     )
                     .await?;
             }

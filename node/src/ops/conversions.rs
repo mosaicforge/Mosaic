@@ -1,7 +1,5 @@
 use std::{collections::HashMap, iter};
 
-use crate::{system_ids};
-use kg_core::pb::grc20;
 use super::{
     create_relation::CreateRelationBuilder,
     delete_triple::DeleteTriple,
@@ -9,6 +7,8 @@ use super::{
     set_triple::SetTriple,
     Value,
 };
+use crate::system_ids;
+use kg_core::pb::grc20;
 
 impl From<grc20::Op> for Op {
     fn from(op: grc20::Op) -> Self {

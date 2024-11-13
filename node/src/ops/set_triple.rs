@@ -86,10 +86,12 @@ impl KgOp for SetTriple {
             //     }
             // }
             (attribute_id, Value::Entity(value)) => {
-                if ![system_ids::RELATION_FROM_ATTRIBUTE,
+                if ![
+                    system_ids::RELATION_FROM_ATTRIBUTE,
                     system_ids::RELATION_TO_ATTRIBUTE,
                     system_ids::RELATION_INDEX,
-                    system_ids::RELATION_TYPE_ATTRIBUTE]
+                    system_ids::RELATION_TYPE_ATTRIBUTE,
+                ]
                 .contains(&attribute_id)
                 {
                     panic!("Unhandled case: Setting entity value on attribute {attribute_name}({attribute_id}) of entity {entity_name}({})", self.entity_id);
@@ -112,7 +114,7 @@ impl KgOp for SetTriple {
                             ))
                             .param("id", self.entity_id.clone())
                             .param("value", value.clone())
-                            .param("space_id", space_id)
+                            .param("space_id", space_id),
                         )
                         .await?;
                 }
@@ -149,7 +151,7 @@ impl KgOp for SetTriple {
                             ))
                             .param("id", self.entity_id.clone())
                             .param("value", value.clone())
-                            .param("space_id", space_id)
+                            .param("space_id", space_id),
                         )
                         .await?;
                 }

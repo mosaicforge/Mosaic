@@ -2,10 +2,14 @@ use futures::{stream, StreamExt, TryStreamExt};
 use serde::Deserialize;
 
 use crate::{
-    bootstrap, neo4j_utils::Neo4jExt, network_ids, ops::{conversions, ops::Op}, system_ids
+    bootstrap,
+    neo4j_utils::Neo4jExt,
+    network_ids,
+    ops::{conversions, ops::Op},
+    system_ids,
 };
 
-use kg_core::models::{Space, EditProposal};
+use kg_core::models::{EditProposal, Space};
 
 const ROOT_SPACE_ID: &str = "ab7d4b9e02f840dab9746d352acb0ac6";
 
@@ -30,11 +34,9 @@ impl Client {
 
         stream::iter(bootstrap_ops)
             .map(|op| Ok(op)) // Convert to Result to be able to use try_for_each
-            .try_for_each(|op| async move {
-                op.apply_op(self, ROOT_SPACE_ID).await
-            })
+            .try_for_each(|op| async move { op.apply_op(self, ROOT_SPACE_ID).await })
             .await?;
-        
+
         Ok(())
     }
 
@@ -51,17 +53,11 @@ impl Client {
         Ok(())
     }
 
-    pub async fn create_space(
-        &self,
-        space: Space,
-    ) -> anyhow::Result<()> {
+    pub async fn create_space(&self, space: Space) -> anyhow::Result<()> {
         self.neo4j.insert_one(space).await
     }
 
-    pub async fn get_space_by_address(
-        &self,
-        space_address: &str,
-    ) -> anyhow::Result<Option<Space>> {
+    pub async fn get_space_by_address(&self, space_address: &str) -> anyhow::Result<Option<Space>> {
         let query = neo4rs::query("MATCH (s:`Space`) WHERE s.contract_address = $address RETURN s")
             .param("address", space_address);
 
@@ -101,16 +97,14 @@ impl Client {
         let query = neo4rs::query(&format!("MATCH (t:`{}`) RETURN t", system_ids::SCHEMA_TYPE));
         self.neo4j.find_all(query).await
     }
-    
+
     pub async fn process_edit(&self, edit: EditProposal) -> anyhow::Result<()> {
         let space_id = edit.space.as_str();
         let rolled_up_ops = conversions::batch_ops(edit.ops);
 
         stream::iter(rolled_up_ops)
             .map(|op| Ok(op)) // Convert to Result to be able to use try_for_each
-            .try_for_each(|op| async move {
-                op.apply_op(self, space_id).await
-            })
+            .try_for_each(|op| async move { op.apply_op(self, space_id).await })
             .await?;
 
         Ok(())

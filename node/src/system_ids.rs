@@ -119,7 +119,6 @@ pub const TEXT: &str = "9edb6fcce4544aa5861139d7f024c010";
 pub const NUMBER: &str = "9b597aaec31c46c88565a370da0c2a65";
 pub const CHECKBOX: &str = "7aa4792eeacd41868272fa7fc18298ac";
 
-
 // Date of Birth > VALUE_TYPE > DATE
 pub const DATE: &str = "167664f668f840e1976b20bd16ed8d47";
 

@@ -1,7 +1,7 @@
 // See https://github.com/geobrowser/geogenesis/blob/stream/1.0.0/packages/substream/sink/bootstrap-root.ts
 
 use crate::kg::id::create_geo_id;
-use crate::{system_ids};
+use crate::system_ids;
 use kg_core::pb::grc20;
 
 // (entity_id, name)

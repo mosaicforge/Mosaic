@@ -5,10 +5,16 @@ use chrono::{DateTime, Utc};
 use clap::{Args, Parser};
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::{deserialize, IpfsClient};
+use kg_core::{
+    models::{EditProposal, Space, SpaceType},
+    pb::{
+        geo::{self, GeoOutput},
+        grc20,
+    },
+};
 use kg_node::kg::id::{create_geo_id, create_space_id};
 use kg_node::web3_utils::checksum_address;
 use kg_node::{kg, network_ids};
-use kg_core::{pb::{grc20, geo::{self, GeoOutput}}, models::{EditProposal, Space, SpaceType}};
 use prost::Message;
 use substreams_sink_rust::pb::sf::substreams::rpc::v2::BlockScopedData;
 use substreams_sink_rust::Sink;
@@ -144,7 +150,7 @@ impl KgSink {
                     block.timestamp,
                     space_id
                 );
-                
+
                 self.kg
                     .create_space(Space {
                         id: space_id.to_string(),
@@ -182,7 +188,7 @@ impl KgSink {
             .flatten()
             .collect::<Vec<_>>();
 
-        // TODO: Create "synthetic" proposals for newly created spaces and 
+        // TODO: Create "synthetic" proposals for newly created spaces and
         // personal spaces
 
         stream::iter(proposals)
@@ -194,9 +200,7 @@ impl KgSink {
                     block.timestamp,
                     proposal.proposal_id
                 );
-                self.kg
-                    .process_edit(proposal)
-                    .await
+                self.kg.process_edit(proposal).await
             })
             .await?;
 
@@ -249,7 +253,7 @@ impl KgSink {
                     .buffer_unordered(10)
                     .try_collect::<Vec<_>>()
                     .await?;
-                
+
                 Ok(edits
                     .into_iter()
                     .map(|edit| EditProposal {

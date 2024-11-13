@@ -4,12 +4,22 @@ use anyhow::{format_err, Context};
 use futures::StreamExt;
 use prost::Message;
 
-use crate::{pb::sf::substreams::{rpc::v2::{BlockScopedData, BlockUndoSignal}, v1::Package}, substreams::SubstreamsEndpoint, substreams_stream::{BlockResponse, SubstreamsStream}};
+use crate::{
+    pb::sf::substreams::{
+        rpc::v2::{BlockScopedData, BlockUndoSignal},
+        v1::Package,
+    },
+    substreams::SubstreamsEndpoint,
+    substreams_stream::{BlockResponse, SubstreamsStream},
+};
 
 pub trait Sink: Send + Sync {
     type Error: std::error::Error + Send + Sync + 'static;
 
-    fn process_block_scoped_data(&self, data: &BlockScopedData) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send;
+    fn process_block_scoped_data(
+        &self,
+        data: &BlockScopedData,
+    ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send;
 
     fn process_block_undo_signal(&self, _undo_signal: &BlockUndoSignal) -> Result<(), Self::Error> {
         // `BlockUndoSignal` must be treated as "delete every data that has been recorded after
@@ -47,53 +57,55 @@ pub trait Sink: Send + Sync {
         module_name: &str,
         start_block: i64,
         end_block: u64,
-    ) -> impl std::future::Future<Output = Result<(), anyhow::Error>> + Send {async move {
-        let token_env = env::var("SUBSTREAMS_API_TOKEN").unwrap_or("".to_string());
-        let mut token: Option<String> = None;
-        if token_env.len() > 0 {
-            token = Some(token_env);
-        }
-    
-        let cursor: Option<String> = self.load_persisted_cursor()?;
+    ) -> impl std::future::Future<Output = Result<(), anyhow::Error>> + Send {
+        async move {
+            let token_env = env::var("SUBSTREAMS_API_TOKEN").unwrap_or("".to_string());
+            let mut token: Option<String> = None;
+            if token_env.len() > 0 {
+                token = Some(token_env);
+            }
 
-        let package = read_package(spkg_file).await?;
+            let cursor: Option<String> = self.load_persisted_cursor()?;
 
-        let endpoint = Arc::new(SubstreamsEndpoint::new(&endpoint_url, token).await?);
+            let package = read_package(spkg_file).await?;
 
-        let mut stream = SubstreamsStream::new(
-            endpoint.clone(),
-            cursor,
-            package.modules.clone(),
-            module_name.to_string(),
-            start_block,
-            end_block,
-        );
+            let endpoint = Arc::new(SubstreamsEndpoint::new(&endpoint_url, token).await?);
 
-        loop {
-            match stream.next().await {
-                None => {
-                    println!("Stream consumed");
-                    break;
-                }
-                Some(Ok(BlockResponse::New(data))) => {
-                    self.process_block_scoped_data(&data).await?;
-                    self.persist_cursor(data.cursor)?;
-                }
-                Some(Ok(BlockResponse::Undo(undo_signal))) => {
-                    self.process_block_undo_signal(&undo_signal)?;
-                    self.persist_cursor(undo_signal.last_valid_cursor)?;
-                }
-                Some(Err(err)) => {
-                    println!();
-                    println!("Stream terminated with error");
-                    println!("{:?}", err);
-                    exit(1);
+            let mut stream = SubstreamsStream::new(
+                endpoint.clone(),
+                cursor,
+                package.modules.clone(),
+                module_name.to_string(),
+                start_block,
+                end_block,
+            );
+
+            loop {
+                match stream.next().await {
+                    None => {
+                        println!("Stream consumed");
+                        break;
+                    }
+                    Some(Ok(BlockResponse::New(data))) => {
+                        self.process_block_scoped_data(&data).await?;
+                        self.persist_cursor(data.cursor)?;
+                    }
+                    Some(Ok(BlockResponse::Undo(undo_signal))) => {
+                        self.process_block_undo_signal(&undo_signal)?;
+                        self.persist_cursor(undo_signal.last_valid_cursor)?;
+                    }
+                    Some(Err(err)) => {
+                        println!();
+                        println!("Stream terminated with error");
+                        println!("{:?}", err);
+                        exit(1);
+                    }
                 }
             }
-        }
 
-        Ok(())
-    } }
+            Ok(())
+        }
+    }
 }
 
 async fn read_package(input: &str) -> Result<Package, anyhow::Error> {

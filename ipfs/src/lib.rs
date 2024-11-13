@@ -33,11 +33,7 @@ impl IpfsClient {
         }
     }
 
-    pub async fn get<T: prost::Message + Default>(
-        &self,
-        hash: &str,
-        cache: bool,
-    ) -> Result<T> {
+    pub async fn get<T: prost::Message + Default>(&self, hash: &str, cache: bool) -> Result<T> {
         let bytes = self.get_bytes(hash, cache).await?;
         let data = deserialize(&bytes)?;
         Ok(data)
@@ -71,47 +67,85 @@ impl IpfsClient {
 mod tests {
     #[tokio::test]
     async fn test_import() {
+        #[derive(
+            Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration,
+        )]
+        #[repr(i32)]
+        pub enum ActionType {
+            DefaultActionType = 0,
+            AddEdit = 1,
+            ImportSpace = 2,
+            AddSubspace = 3,
+            RemoveSubspace = 4,
+            AddEditor = 5,
+            RemoveEditor = 6,
+            AddMember = 7,
+            RemoveMember = 8,
+        }
+        #[derive(
+            Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration,
+        )]
+        #[repr(i32)]
+        pub enum OpType {
+            DefaultOpType = 0,
+            SetTriple = 1,
+            DeleteTriple = 2,
+        }
         #[allow(clippy::derive_partial_eq_without_eq)]
         #[derive(Clone, PartialEq, ::prost::Message)]
         pub struct Edit {
-            #[prost(enumeration="ActionType", tag="1")]
+            #[prost(enumeration = "ActionType", tag = "1")]
             pub r#type: i32,
-            #[prost(string, tag="2")]
+            #[prost(string, tag = "2")]
             pub version: ::prost::alloc::string::String,
-            #[prost(string, tag="3")]
+            #[prost(string, tag = "3")]
             pub id: ::prost::alloc::string::String,
-            #[prost(string, tag="4")]
+            #[prost(string, tag = "4")]
             pub name: ::prost::alloc::string::String,
-            #[prost(message, repeated, tag="5")]
+            #[prost(message, repeated, tag = "5")]
             pub ops: ::prost::alloc::vec::Vec<Op>,
-            #[prost(string, repeated, tag="6")]
+            #[prost(string, repeated, tag = "6")]
             pub authors: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
         }
 
         #[allow(clippy::derive_partial_eq_without_eq)]
         #[derive(Clone, PartialEq, ::prost::Message)]
         pub struct Op {
-            #[prost(enumeration="OpType", tag="1")]
+            #[prost(enumeration = "OpType", tag = "1")]
             pub r#type: i32,
-            #[prost(message, optional, tag="2")]
+            #[prost(message, optional, tag = "2")]
             pub triple: ::core::option::Option<Triple>,
         }
         #[allow(clippy::derive_partial_eq_without_eq)]
         #[derive(Clone, PartialEq, ::prost::Message)]
         pub struct Triple {
-            #[prost(string, tag="1")]
+            #[prost(string, tag = "1")]
             pub entity: ::prost::alloc::string::String,
-            #[prost(string, tag="2")]
+            #[prost(string, tag = "2")]
             pub attribute: ::prost::alloc::string::String,
-            #[prost(message, optional, tag="3")]
+            #[prost(message, optional, tag = "3")]
             pub value: ::core::option::Option<Value>,
+        }
+        #[derive(
+            Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration,
+        )]
+        #[repr(i32)]
+        pub enum ValueType {
+            DefaultValueType = 0,
+            Text = 1,
+            Number = 2,
+            Entity = 3,
+            Uri = 4,
+            Checkbox = 5,
+            Time = 6,
+            GeoLocation = 7,
         }
         #[allow(clippy::derive_partial_eq_without_eq)]
         #[derive(Clone, PartialEq, ::prost::Message)]
         pub struct Value {
-            #[prost(enumeration="ValueType", tag="1")]
+            #[prost(enumeration = "ValueType", tag = "1")]
             pub r#type: i32,
-            #[prost(string, tag="2")]
+            #[prost(string, tag = "2")]
             pub value: ::prost::alloc::string::String,
         }
 
@@ -119,9 +153,6 @@ mod tests {
 
         let client = super::IpfsClient::from_url("https://gateway.lighthouse.storage/ipfs/");
 
-        let edit = client
-            .get::<Edit>(ipfs_hash, false)
-            .await
-            .unwrap();
+        let edit = client.get::<Edit>(ipfs_hash, false).await.unwrap();
     }
 }

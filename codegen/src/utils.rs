@@ -2,9 +2,9 @@ use swc_common::{Span, SyntaxContext};
 use swc_core::quote_expr;
 use swc_ecma_ast::{
     AssignExpr, AssignOp, AssignTarget, BindingIdent, BlockStmt, Class, ClassDecl, ClassMember,
-    ClassMethod, ClassProp, Constructor, Expr, ExprStmt, Function, Ident,
-    IdentName, MemberExpr, MemberProp, MethodKind, Param,
-    ParamOrTsParamProp, Pat, PropName, ReturnStmt, SimpleAssignTarget, Stmt, TsExprWithTypeArgs, TsType, TsTypeAnn,
+    ClassMethod, ClassProp, Constructor, Expr, ExprStmt, Function, Ident, IdentName, MemberExpr,
+    MemberProp, MethodKind, Param, ParamOrTsParamProp, Pat, PropName, ReturnStmt,
+    SimpleAssignTarget, Stmt, TsExprWithTypeArgs, TsType, TsTypeAnn,
 };
 
 pub fn ident(name: impl ToString) -> Ident {

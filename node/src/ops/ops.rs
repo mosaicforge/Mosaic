@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
+use crate::kg::client::Client;
 use futures::future::BoxFuture;
 use kg_core::pb::grc20;
-use crate::{kg::client::Client};
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -87,22 +87,37 @@ impl Op {
         Op(Box::new(NullOp))
     }
 
-    pub fn apply_op<'a>(&'a self, kg: &'a Client, space_id: &'a str) -> BoxFuture<'a, anyhow::Result<()>> {
+    pub fn apply_op<'a>(
+        &'a self,
+        kg: &'a Client,
+        space_id: &'a str,
+    ) -> BoxFuture<'a, anyhow::Result<()>> {
         self.0.apply_op(kg, space_id)
     }
 }
 
 pub trait KgOp: Send {
-    fn apply_op(&self, kg: &Client, space_id: &str)
-        -> impl std::future::Future<Output = anyhow::Result<()>> + Send;
+    fn apply_op(
+        &self,
+        kg: &Client,
+        space_id: &str,
+    ) -> impl std::future::Future<Output = anyhow::Result<()>> + Send;
 }
 
 pub trait KgOpDyn: Send {
-    fn apply_op<'a>(&'a self, kg: &'a Client, space_id: &'a str) -> BoxFuture<'a, anyhow::Result<()>>;
+    fn apply_op<'a>(
+        &'a self,
+        kg: &'a Client,
+        space_id: &'a str,
+    ) -> BoxFuture<'a, anyhow::Result<()>>;
 }
 
 impl<T: KgOp> KgOpDyn for T {
-    fn apply_op<'a>(&'a self, kg: &'a Client, space_id: &'a str) -> BoxFuture<'a, anyhow::Result<()>> {
+    fn apply_op<'a>(
+        &'a self,
+        kg: &'a Client,
+        space_id: &'a str,
+    ) -> BoxFuture<'a, anyhow::Result<()>> {
         Box::pin(self.apply_op(kg, space_id))
     }
 }

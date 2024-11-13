@@ -33,17 +33,13 @@ pub fn ts_type_from_value_type(value_type: &Entity) -> TsType {
         }),
         _ => TsType::TsTypeRef(TsTypeRef {
             span: Span::default(),
-            type_name: TsEntityName::Ident(ident(
-                value_type.type_name(),
-            )),
+            type_name: TsEntityName::Ident(ident(value_type.type_name())),
             type_params: None,
         }),
     }
 }
 
-pub fn gen_type_constructor(
-    attributes: &Vec<&(Entity, Option<Entity>)>,
-) -> Constructor {
+pub fn gen_type_constructor(attributes: &Vec<&(Entity, Option<Entity>)>) -> Constructor {
     let super_constructor = vec![quote_expr!("super(id, driver)")];
 
     let constuctor_setters = attributes.iter().map(|(attr, _)| {

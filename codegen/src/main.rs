@@ -4,10 +4,7 @@ use std::io;
 use swc::config::{IsModule, SourceMapsConfig};
 use swc::PrintArgs;
 use swc_common::sync::Lrc;
-use swc_common::{
-    errors::Handler,
-    FileName, SourceMap,
-};
+use swc_common::{errors::Handler, FileName, SourceMap};
 use swc_ecma_ast::EsVersion;
 use swc_ecma_codegen::Config;
 use swc_ecma_parser::Syntax;
