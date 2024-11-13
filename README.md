@@ -14,11 +14,20 @@ wget https://gateway.lighthouse.storage/ipfs/bafkreif4acly7y46hx7optzfxtehxotizg
 ```
 
 ## Run
+Import
 ```bash
-cargo run --bin main -- \
+cargo run --bin import -- --reset-db --rollup \
     --neo4j-uri neo4j://localhost:7687 \
     --neo4j-user neo4j \
     --neo4j-pass neo4j 
+```
+
+Substreams
+```bash
+cargo run --bin ss_kg -- --rollup --reset-db \
+    --neo4j-uri neo4j://localhost:7687 \
+    --neo4j-user neo4j \
+    --neo4j-pass neo4j
 ```
 
 Codegen

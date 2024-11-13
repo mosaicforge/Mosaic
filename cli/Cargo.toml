@@ -1,0 +1,16 @@
+[package]
+name = "kg-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+kg-codegen = { version = "0.1.0", path = "../codegen" }
+kg-core = { version = "0.1.0", path = "../core" }
+kg-node = { version = "0.1.0", path = "../node" }
+ipfs = { version = "0.1.0", path = "../ipfs" }
+
+anyhow = "1.0.91"
+clap = "4.5.20"
+futures = "0.3.31"
+tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
+tracing-subscriber = "0.3.18"
