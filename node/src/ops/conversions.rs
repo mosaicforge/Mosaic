@@ -7,8 +7,7 @@ use super::{
     set_triple::SetTriple,
     Value,
 };
-use crate::system_ids;
-use kg_core::pb::grc20;
+use kg_core::{pb::grc20, system_ids};
 
 impl From<grc20::Op> for Op {
     fn from(op: grc20::Op) -> Self {

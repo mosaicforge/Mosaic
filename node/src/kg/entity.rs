@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
-use crate::{neo4j_utils::Neo4jExt, system_ids};
+use kg_core::system_ids;
+
+use crate::neo4j_utils::Neo4jExt;
 
 use super::Client;
 

@@ -1,7 +1,6 @@
-use kg_core::pb::grc20;
+use kg_core::{pb::grc20, system_ids};
 
 use super::KgOp;
-use crate::system_ids;
 
 pub struct CreateRelation {
     /// ID of the relation entity

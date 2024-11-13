@@ -6,15 +6,15 @@ use clap::{Args, Parser};
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::{deserialize, IpfsClient};
 use kg_core::{
+    ids::{create_geo_id, create_space_id},
     models::{EditProposal, Space, SpaceType},
+    network_ids,
     pb::{
         geo::{self, GeoOutput},
         grc20,
     },
 };
-use kg_node::kg::id::{create_geo_id, create_space_id};
-use kg_node::web3_utils::checksum_address;
-use kg_node::{kg, network_ids};
+use kg_node::{kg, web3_utils::checksum_address};
 use prost::Message;
 use substreams_sink_rust::pb::sf::substreams::rpc::v2::BlockScopedData;
 use substreams_sink_rust::Sink;

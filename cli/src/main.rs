@@ -2,12 +2,19 @@ use clap::{Args, Parser, Subcommand};
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::IpfsClient;
 use kg_core::pb::grc20;
+use kg_core::system_ids::ROOT_SPACE_ID;
 use kg_node::kg;
 use kg_node::kg::entity::{Entity, EntityNode};
 use kg_node::ops::conversions;
-use kg_node::system_ids::ROOT_SPACE_ID;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+
+const ROOT_SPACE_IMPORTS: &str = "bafkreif4acly7y46hx7optzfxtehxotizgqjz5h5vszo7vtmzsnm4ktxjy";
+// const CONSTRUCTION_SPACE_IMPORTS: &str = "bafkreih3oxxoenvhrcb747ib6rh7gpnho2rzopdljrtiyafoesyxnrhziq";
+// const CONSTRUCTION_SPACE_IMPORTS: &str =
+//     "bafkreiadpdybqrlieaql57fjpcwhy25ut3s742qkhuxz4i6meahhrpvnf4";
+const CONSTRUCTION_SPACE_IMPORTS: &str =
+    "bafkreidgyievktbezgsaxnnuylyn7acgy3kmaderzy4t4lwnfenhrggice";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

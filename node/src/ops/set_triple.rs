@@ -1,4 +1,6 @@
-use crate::{kg::entity::EntityNode, system_ids};
+use kg_core::system_ids;
+
+use crate::kg::entity::EntityNode;
 
 use crate::ops::{KgOp, Value};
 

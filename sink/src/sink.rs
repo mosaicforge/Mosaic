@@ -61,7 +61,7 @@ pub trait Sink: Send + Sync {
         async move {
             let token_env = env::var("SUBSTREAMS_API_TOKEN").unwrap_or("".to_string());
             let mut token: Option<String> = None;
-            if token_env.len() > 0 {
+            if !token_env.is_empty() {
                 token = Some(token_env);
             }
 
@@ -125,6 +125,7 @@ async fn read_http_package(input: &str) -> Result<Package, anyhow::Error> {
     Package::decode(body).context("decode command")
 }
 
+#[allow(dead_code)]
 fn read_block_range(pkg: &Package, module_name: &str) -> Result<(i64, u64), anyhow::Error> {
     let module = pkg
         .modules
@@ -176,5 +177,5 @@ fn read_block_range(pkg: &Package, module_name: &str) -> Result<(i64, u64), anyh
             .context("argument <stop> is not a valid integer")?,
     };
 
-    return Ok((start, stop));
+    Ok((start, stop))
 }

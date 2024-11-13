@@ -42,11 +42,9 @@ impl IpfsClient {
     pub async fn get_bytes(&self, hash: &str, cache: bool) -> Result<Vec<u8>> {
         let cache_path = Path::new(IPFS_CACHE_DIR).join(hash);
 
-        if cache {
-            if cache_path.exists() {
-                let cached_data = fs::read(&cache_path)?;
-                return Ok(cached_data);
-            }
+        if cache && cache_path.exists() {
+            let cached_data = fs::read(&cache_path)?;
+            return Ok(cached_data);
         }
 
         let url = format!("{}{}", self.url, hash);

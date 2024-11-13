@@ -4,12 +4,13 @@ use serde::Deserialize;
 use crate::{
     bootstrap,
     neo4j_utils::Neo4jExt,
-    network_ids,
     ops::{conversions, ops::Op},
-    system_ids,
 };
 
-use kg_core::models::{EditProposal, Space};
+use kg_core::{
+    models::{EditProposal, Space},
+    system_ids,
+};
 
 const ROOT_SPACE_ID: &str = "ab7d4b9e02f840dab9746d352acb0ac6";
 
