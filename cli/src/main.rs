@@ -1,6 +1,7 @@
 use clap::{Args, Parser, Subcommand};
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::IpfsClient;
+use kg_core::ids;
 use kg_core::pb::grc20;
 use kg_core::system_ids::ROOT_SPACE_ID;
 use kg_node::kg;
@@ -83,6 +84,10 @@ async fn main() -> anyhow::Result<()> {
                 op.apply_op(&kg_client, &space_id).await?;
             }
         }
+        Command::CreateEntityId => {
+            let entity_id = ids::create_geo_id();
+            println!("{}", entity_id);
+        }
     }
 
     Ok(())
@@ -127,6 +132,9 @@ enum Command {
 
     /// Codegen
     Codegen,
+
+    /// Create a new unique entity id
+    CreateEntityId, 
 }
 
 #[derive(Debug, Args)]
