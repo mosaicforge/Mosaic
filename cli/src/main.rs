@@ -84,9 +84,11 @@ async fn main() -> anyhow::Result<()> {
                 op.apply_op(&kg_client, &space_id).await?;
             }
         }
-        Command::CreateEntityId => {
-            let entity_id = ids::create_geo_id();
-            println!("{}", entity_id);
+        Command::CreateEntityId { n } => {
+            for _ in 0..n {
+                let entity_id = ids::create_geo_id();
+                println!("{}", entity_id);
+            }
         }
     }
 
@@ -134,7 +136,10 @@ enum Command {
     Codegen,
 
     /// Create a new unique entity id
-    CreateEntityId, 
+    CreateEntityId {
+        #[arg(default_value = "1")]
+        n: usize,
+    }, 
 }
 
 #[derive(Debug, Args)]

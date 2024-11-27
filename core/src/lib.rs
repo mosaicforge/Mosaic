@@ -1,3 +1,5 @@
+use serde::Deserialize;
+
 pub mod ids;
 pub mod models;
 pub mod network_ids;

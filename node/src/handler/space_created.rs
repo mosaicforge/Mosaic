@@ -1,10 +1,20 @@
 use std::collections::HashMap;
 
+use web3_utils::checksum_address;
+use crate::{
+    kg::mapping::{Node, Relation},
+    neo4j_utils::Neo4jExt,
+};
 use futures::{stream, StreamExt, TryStreamExt};
-use kg_core::{ids::create_space_id, models::{Space, SpaceType}, network_ids, pb::{geo, grc20}};
-use crate::web3_utils::checksum_address;
+use kg_core::{
+    ids::{create_geo_id, create_id_from_unique_string, create_space_id},
+    models::{self, GeoAccount, Space, SpaceType},
+    network_ids,
+    pb::{geo, grc20},
+    system_ids,
+};
 
-use super::{handler::{BlockMetadata, HandlerError}, EventHandler};
+use super::{handler::HandlerError, EventHandler};
 
 impl EventHandler {
     /// Handles `GeoSpaceCreated` events. `ProposalProcessed` events are used to determine
@@ -15,7 +25,7 @@ impl EventHandler {
         &self,
         spaces_created: &[geo::GeoSpaceCreated],
         proposals_processed: &[geo::ProposalProcessed],
-        block: &BlockMetadata,
+        block: &models::BlockMetadata,
     ) -> Result<Vec<String>, HandlerError> {
         // Match the space creation events with their corresponding initial proposal (if any)
         let initial_proposals = spaces_created
@@ -68,15 +78,25 @@ impl EventHandler {
                 );
 
                 self.kg
-                    .create_space(Space {
-                        id: space_id.to_string(),
-                        network: network_ids::GEO.to_string(),
-                        contract_address: event.space_address.to_string(),
-                        dao_contract_address: event.dao_address.to_string(),
-                        r#type: SpaceType::Public,
-                        created_at: block.timestamp,
-                        created_at_block: block.block_number,
-                    })
+                    .upsert_node(
+                        system_ids::INDEXER_SPACE_ID,
+                        &block,
+                        Node::new(
+                            space_id.to_string(),
+                            Space {
+                                id: space_id.to_string(),
+                                network: network_ids::GEO.to_string(),
+                                dao_contract_address: checksum_address(&event.dao_address, None),
+                                space_plugin_address: Some(checksum_address(
+                                    &event.space_address,
+                                    None,
+                                )),
+                                r#type: SpaceType::Public,
+                                ..Default::default()
+                            },
+                        )
+                        .with_type(system_ids::INDEXED_SPACE),
+                    )
                     .await?;
 
                 anyhow::Ok(space_id)
@@ -86,5 +106,117 @@ impl EventHandler {
             .map_err(|err| HandlerError::Other(format!("{err:?}").into()))?;
 
         Ok(created_ids)
+    }
+
+    pub async fn handle_personal_space_created(
+        &self,
+        personal_space_created: &geo::GeoPersonalSpaceAdminPluginCreated,
+        block: &models::BlockMetadata,
+    ) -> Result<(), HandlerError> {
+        let space = self
+            .kg
+            .get_space_by_dao_address(&personal_space_created.dao_address)
+            .await
+            .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+
+        if let Some(space) = &space {
+            self.kg
+                .upsert_node(
+                    system_ids::INDEXER_SPACE_ID,
+                    block,
+                    Node::new(
+                        space.id.clone(),
+                        Space {
+                            r#type: SpaceType::Personal,
+                            personal_space_admin_plugin: Some(checksum_address(
+                                &personal_space_created.personal_admin_address,
+                                None,
+                            )),
+                            ..space.clone()
+                        },
+                    )
+                    .with_type(system_ids::INDEXED_SPACE),
+                )
+                .await
+                .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+
+            // // Add initial editors to the personal space
+            let editor = GeoAccount::new(personal_space_created.initial_editor.clone());
+
+            self.kg
+                .add_editor(&space.id, &editor, &models::SpaceEditor, block)
+                .await
+                .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+
+            tracing::info!(
+                "Block #{} ({}): Creating personal admin space plugin for space {} with initial editor {}",
+                block.block_number,
+                block.timestamp,
+                space.id,
+                editor.id,
+            );
+        } else {
+            tracing::warn!(
+                "Block #{} ({}): Could not create personal admin space plugin for unknown space with dao_address = {}",
+                block.block_number,
+                block.timestamp,
+                personal_space_created.dao_address
+            );
+        }
+
+        Ok(())
+    }
+
+    pub async fn handle_governance_plugin_created(
+        &self,
+        governance_plugin_created: &geo::GeoGovernancePluginCreated,
+        block: &models::BlockMetadata,
+    ) -> Result<(), HandlerError> {
+        let space = self
+            .kg
+            .get_space_by_dao_address(&governance_plugin_created.dao_address)
+            .await
+            .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+
+        if let Some(space) = space {
+            tracing::info!(
+                "Block #{} ({}): Creating governance plugin for space {}",
+                block.block_number,
+                block.timestamp,
+                space.id
+            );
+
+            self.kg
+                .upsert_node(
+                    system_ids::INDEXER_SPACE_ID,
+                    block,
+                    Node::new(
+                        space.id.clone(),
+                        Space {
+                            voting_plugin_address: Some(checksum_address(
+                                &governance_plugin_created.main_voting_address,
+                                None,
+                            )),
+                            member_access_plugin: Some(checksum_address(
+                                &governance_plugin_created.member_access_address,
+                                None,
+                            )),
+                            ..space
+                        },
+                    )
+                    .with_type(system_ids::INDEXED_SPACE),
+                )
+                .await
+                .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+        } else {
+            tracing::warn!(
+                "Block #{} ({}): Could not create governance plugin for unknown space with dao_address = {}",
+                block.block_number,
+                block.timestamp,
+                checksum_address(&governance_plugin_created.dao_address, None)
+            );
+        }
+
+        Ok(())
     }
 }

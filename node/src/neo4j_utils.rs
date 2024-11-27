@@ -192,7 +192,7 @@ impl Neo4jMutExt for neo4rs::Txn {
     }
 }
 
-fn serde_value_to_bolt(value: serde_json::Value) -> BoltType {
+pub fn serde_value_to_bolt(value: serde_json::Value) -> BoltType {
     match value {
         serde_json::Value::Null => BoltType::Null(neo4rs::BoltNull),
         serde_json::Value::Bool(value) => BoltType::Boolean(neo4rs::BoltBoolean { value }),
