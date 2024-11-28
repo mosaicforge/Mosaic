@@ -30,3 +30,6 @@ cargo run --bin kg-node -- \
     --neo4j-user neo4j \
     --neo4j-pass neo4j
 ```
+
+## GRC20 CLI
+Coming soon™️
