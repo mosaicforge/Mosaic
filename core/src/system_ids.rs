@@ -11,23 +11,21 @@ pub const SPACE: &str = "362c1dbddc6444bba3c4652f38a642d7";
 pub const INDEXED_SPACE: &str = "306598522df542f69ad72921c33ad84b";
 pub const ATTRIBUTE: &str = "808a04ceb21c4d888ad12e240613e5ca";
 
-/**
- * Relations are a data model that enable us to create references between some
- * arbitrary id and a set of entity ids.
- *
- * They act similarly to Join Tables in a relational database, but are designed
- * around the graph-based nature of the Geo data model.
- *
- * Relations are themselves entities, so can store any metadata about the relation
- * as triples. Currently Relation entities cannot have their own relations. This is a
- * technical limitation to avoid infinitely creating recursive relations.
- *
- * ┌─────────────────────┐       ┌────────────────────┐      ┌──────────────────────┐
- * │                     │       │                    │      │                      │
- * │      Entity         │◄──────┤     Relation       │─────►│        Entity        │
- * │                     │       │                    │      │                      │
- * └─────────────────────┘       └────────────────────┘      └──────────────────────┘
- */
+// Relations are a data model that enable us to create references between some
+// arbitrary id and a set of entity ids.
+//
+// They act similarly to Join Tables in a relational database, but are designed
+// around the graph-based nature of the Geo data model.
+//
+// Relations are themselves entities, so can store any metadata about the relation
+// as triples. Currently Relation entities cannot have their own relations. This is a
+// technical limitation to avoid infinitely creating recursive relations.
+//
+// ┌─────────────────────┐       ┌────────────────────┐      ┌──────────────────────┐
+// │                     │       │                    │      │                      │
+// │      Entity         │◄──────┤     Relation       │─────►│        Entity        │
+// │                     │       │                    │      │                      │
+// └─────────────────────┘       └────────────────────┘      └──────────────────────┘
 
 /**
  * Relation type. This is the entity representing the Join between the
