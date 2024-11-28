@@ -18,7 +18,7 @@ pub fn create_space_id(network: &str, address: &str) -> String {
     create_id_from_unique_string(&format!("{}:{}", network, address))
 }
 
-fn create_id_from_unique_string(text: &str) -> String {
+pub fn create_id_from_unique_string(text: &str) -> String {
     let mut hasher = Md5::new();
     hasher.update(text);
     let hashed = hasher.finalize();

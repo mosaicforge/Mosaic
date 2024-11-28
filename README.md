@@ -22,9 +22,9 @@ cargo run --bin import -- --reset-db --rollup \
     --neo4j-pass neo4j 
 ```
 
-Substreams
+Indexer node
 ```bash
-cargo run --bin ss_kg -- --rollup --reset-db \
+cargo run --bin kg-node -- --rollup --reset-db \
     --neo4j-uri neo4j://localhost:7687 \
     --neo4j-user neo4j \
     --neo4j-pass neo4j

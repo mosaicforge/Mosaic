@@ -38,6 +38,10 @@ mod tests {
             "0x5A0b54D5dc17e0AadC383d2db43B0a0D3E029c4c"
         );
         assert_eq!(
+            checksum_address("0x5A0b54D5dc17e0AadC383d2db43B0a0D3E029c4c", None),
+            "0x5A0b54D5dc17e0AadC383d2db43B0a0D3E029c4c"
+        );
+        assert_eq!(
             checksum_address("0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c", Some(1)),
             "0x5A0B54d5dC17e0AAdC383d2db43b0a0d3E029C4c"
         );

@@ -512,6 +512,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3fd119d74b830634cea2a0f58bbd0d54540518a14397557951e79340abc28c0"
 
 [[package]]
+name = "const_format"
+version = "0.2.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50c655d81ff1114fb0dcdea9225ea9f0cc712a6f8d189378e82bdf62a473a64b"
+dependencies = [
+ "const_format_proc_macros",
+]
+
+[[package]]
+name = "const_format_proc_macros"
+version = "0.2.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eff1a44b93f47b1bac19a27932f5c591e43d1ba357ee4f61526c8a25603f0eb1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-xid",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1414,6 +1434,7 @@ dependencies = [
  "thiserror 2.0.3",
  "tracing",
  "uuid",
+ "web3-utils",
 ]
 
 [[package]]
@@ -1423,6 +1444,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "const_format",
  "futures",
  "heck",
  "ipfs",
@@ -1434,13 +1456,13 @@ dependencies = [
  "reqwest 0.12.9",
  "serde",
  "serde_json",
- "sha3",
  "substreams-sink-rust",
  "thiserror 2.0.3",
  "tokio",
  "tracing",
  "tracing-subscriber",
  "uuid",
+ "web3-utils",
 ]
 
 [[package]]
@@ -4167,6 +4189,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7dd6e30e90baa6f72411720665d41d89b9a3d039dc45b8faea1ddd07f617f6af"
 
 [[package]]
+name = "unicode-xid"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
+
+[[package]]
 name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4331,6 +4359,13 @@ checksum = "26fdeaafd9bd129f65e7c031593c24d62186301e0c72c8978fa1678be7d532c0"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "web3-utils"
+version = "0.1.0"
+dependencies = [
+ "sha3",
 ]
 
 [[package]]

@@ -1,7 +1,13 @@
+// ================================================================
+// Ported from https://github.com/geobrowser/geogenesis/blob/stream/1.0.0/packages/sdk/src/system-ids.ts
+// ================================================================
+
 pub const IMAGE_ATTRIBUTE: &str = "457a27af7b0b485cac07aa37756adafa";
 pub const DESCRIPTION: &str = "9b1f76ff9711404c861e59dc3fa7d037";
 pub const NAME: &str = "a126ca530c8e48d5b88882c734c38935";
+/// Space attribute: Entity.SPACE = Space.id
 pub const SPACE: &str = "362c1dbddc6444bba3c4652f38a642d7";
+/// Space type: SomeSpace: INDEXED_SPACE
 pub const INDEXED_SPACE: &str = "306598522df542f69ad72921c33ad84b";
 pub const ATTRIBUTE: &str = "808a04ceb21c4d888ad12e240613e5ca";
 
@@ -304,3 +310,54 @@ pub const PERSON_POSTS_PAGE_TEMPLATE: &str = "026362d45d414b8db6ef8ed10ecd0d89";
 
 // Entity templates
 pub const TEMPLATE_ATTRIBUTE: &str = "babd29fb968147d08b58cdafc3890e12";
+
+// ================================================================
+// Indexer Space
+// ================================================================
+// System attributes
+pub const CREATED_AT_TIMESTAMP: &str = "6302c2b3b29643028b191fabde2ef69b";
+pub const CREATED_AT_BLOCK: &str = "9528b79b3ada42f6b657a4f8b24124d6";
+pub const UPDATED_AT_TIMESTAMP: &str = "7e11f900f65345df92d978d45ba750b2";
+pub const UPDATED_AT_BLOCK: &str = "d7bc4976184642fcb33a5ef29b573105";
+
+/// Geo Account
+pub const GEO_ACCOUNT: &str = "a53955b0b99d40b385ee95602f11ad8a";
+
+// Space attributes
+pub const SPACE_PLUGIN_ADDRESS: &str = "bacada4cfbc14da188acd7d60fa3c7c1";
+pub const SPACE_VOTING_PLUGIN_ADDRESS: &str = "aac96a56c1e74d3497d4e1c7cfa31ece";
+pub const SPACE_MEMBER_PLUGIN_ADDRESS: &str = "bba3a3fad8da4be98be74cd22bafeb47";
+/// Type of space, e.g., Public or Personal
+pub const SPACE_KIND: &str = "65da3fab6e1c48b7921a6a3260119b48";
+
+/// GEO_ACCOUNT > MEMBER_RELATION > INDEXED_SPACE
+pub const MEMBER_RELATION: &str = "fe2c4540550641f8aa92a67ee9490c95";
+
+/// GEO_ACCOUNT > EDITOR_RELATION > INDEXED_SPACE
+pub const EDITOR_RELATION: &str = "b5e0508bcc2943b7a31c2ac283c0c157";
+
+/// SPACE > PARENT_SPACE > SPACE
+pub const PARENT_SPACE: &str = "54ff7bba2ef74268acb4d0bc6c4b8725";
+
+/// Special space for the indexer data
+pub const INDEXER_SPACE_ID: &str = "bf03e5e1dbd7472c9c74fa7aac1545bc";
+
+// Voting
+/// GEO_ACCOUNT > VOTE_CAST > PROPOSAL
+pub const VOTE_CAST: &str = "36c0262b99b34676ab733c32850bd2b1";
+
+// Proposal
+pub const PROPOSAL_TYPE: &str = "61055d985b9d42a19e15daab29f1248d";
+pub const MEMBERSHIP_PROPOSAL_TYPE: &str = "06a84ba84cc1442cb3c1ef89507b5e87";
+pub const EDITORSHIP_PROPOSAL_TYPE: &str = "50a93cea5c524e88915866d557f54f0d";
+pub const SUBSPACE_PROPOSAL_TYPE: &str = "44d5a6d2d91945059ad12c2c577dd686";
+
+/// MEMBERSHIP_PROPOSAL_TYPE > PROPOSED_ACCOUNT > GEO_ACCOUNT
+/// EDITORSHIP_PROPOSAL_TYPE > PROPOSED_ACCOUNT > GEO_ACCOUNT
+pub const PROPOSED_ACCOUNT: &str = "711f6bfcc009464fa274ac0e3a9f0382";
+
+/// SUBSPACE_PROPOSAL_TYPE > PROPOSED_SUBSPACE > INDEXED_SPACE
+pub const PROPOSED_SUBSPACE: &str = "53fd9bd36c9949be8981ee117c5019e1";
+
+/// INDEXED_SPACE > PROPOSALS > PROPOSAL
+pub const PROPOSALS: &str = "6bf8735530fa4f8bb6b024eb84f78ed0";

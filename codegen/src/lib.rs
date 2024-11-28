@@ -39,7 +39,7 @@ pub fn ts_type_from_value_type(value_type: &Entity) -> TsType {
     }
 }
 
-pub fn gen_type_constructor(attributes: &Vec<&(Entity, Option<Entity>)>) -> Constructor {
+pub fn gen_type_constructor(attributes: &[&(Entity, Option<Entity>)]) -> Constructor {
     let super_constructor = vec![quote_expr!("super(id, driver)")];
 
     let constuctor_setters = attributes.iter().map(|(attr, _)| {
@@ -129,7 +129,7 @@ impl<T: IntoIterator<Item = Entity>> EntitiesExt for T {
             .map(|entity| (entity.id.clone(), entity))
             .collect::<HashMap<_, _>>();
 
-        entities.into_iter().map(|(_, entity)| entity).collect()
+        entities.into_values().collect()
     }
 }
 
@@ -171,10 +171,7 @@ pub async fn gen_type(entity: &Entity) -> anyhow::Result<Decl> {
     // Get all attributes of the type
     let attributes: Vec<&(Entity, Option<Entity>)> = typed_attrs
         .iter()
-        .filter(|(_, value_type)| match value_type {
-            Some(value_type) if value_type.id == system_ids::RELATION_TYPE => false,
-            _ => true,
-        })
+        .filter(|(_, value_type)| !matches!(value_type, Some(value_type) if value_type.id == system_ids::RELATION_TYPE))
         .collect();
 
     let attribute_class_props = attributes
@@ -195,10 +192,7 @@ pub async fn gen_type(entity: &Entity) -> anyhow::Result<Decl> {
 
     // Get all relations of the type
     let relation_methods = typed_attrs.iter()
-        .filter(|(_, value_type)| match value_type {
-            Some(value_type) if value_type.id == system_ids::RELATION_TYPE => true,
-            _ => false,
-        })
+        .filter(|(_, value_type)| matches!(value_type, Some(value_type) if value_type.id == system_ids::RELATION_TYPE))
         .map(|(attr, _)| {
             let neo4j_query = format!("MATCH ({{id: $id}}) -[r:`{}`]-> (n) RETURN n", attr.id);
             method(

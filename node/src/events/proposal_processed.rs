@@ -1,15 +1,18 @@
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::deserialize;
-use kg_core::{models::EditProposal, pb::{geo, grc20}};
+use kg_core::{
+    models::{self, EditProposal},
+    pb::{self, geo, grc20},
+};
 
-use super::{handler::{BlockMetadata, HandlerError}, EventHandler};
+use super::{handler::HandlerError, EventHandler};
 
 impl EventHandler {
     pub async fn handle_proposals_processed(
         &self,
         proposals_processed: &[geo::ProposalProcessed],
-        created_space_ids: &[String],
-        block: &BlockMetadata,
+        _created_space_ids: &[String],
+        block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         let proposals = stream::iter(proposals_processed)
             .then(|proposal| async {
@@ -18,7 +21,7 @@ impl EventHandler {
             })
             .try_collect::<Vec<_>>()
             .await
-            .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?  // TODO: Convert anyhow::Error to HandlerError properly
+            .map_err(|e| HandlerError::Other(format!("{e:?}").into()))? // TODO: Convert anyhow::Error to HandlerError properly
             .into_iter()
             .flatten()
             .collect::<Vec<_>>();
@@ -49,7 +52,7 @@ impl EventHandler {
     ) -> Result<Vec<EditProposal>, HandlerError> {
         let space = if let Some(space) = self
             .kg
-            .get_space_by_address(&proposal_processed.plugin_address)
+            .get_space_by_space_plugin_address(&proposal_processed.plugin_address)
             .await
             .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?
         {
@@ -67,20 +70,22 @@ impl EventHandler {
             .get_bytes(&proposal_processed.content_uri.replace("ipfs://", ""), true)
             .await?;
 
-        let metadata = deserialize::<grc20::Metadata>(&bytes)?;
+        let metadata = deserialize::<pb::ipfs::IpfsMetadata>(&bytes)?;
         match metadata.r#type() {
-            grc20::ActionType::AddEdit => {
+            pb::ipfs::ActionType::AddEdit => {
                 let edit = deserialize::<grc20::Edit>(&bytes)?;
                 Ok(vec![EditProposal {
                     name: edit.name,
                     proposal_id: edit.id,
                     space: space.id,
-                    space_address: space.contract_address,
+                    space_address: space
+                        .space_plugin_address
+                        .expect("Space plugin address not found"),
                     creator: edit.authors[0].clone(),
                     ops: edit.ops,
                 }])
             }
-            grc20::ActionType::ImportSpace => {
+            pb::ipfs::ActionType::ImportSpace => {
                 let import = deserialize::<grc20::Import>(&bytes)?;
                 let edits = stream::iter(import.edits)
                     .map(|edit| async move {
@@ -97,13 +102,18 @@ impl EventHandler {
                         name: edit.name,
                         proposal_id: edit.id,
                         space: space.id.clone(),
-                        space_address: space.contract_address.clone(),
+                        space_address: space
+                            .space_plugin_address
+                            .clone()
+                            .expect("Space plugin address not found"),
                         creator: edit.authors[0].clone(),
                         ops: edit.ops,
                     })
                     .collect())
             }
-            _ => Err(HandlerError::Other("Invalid metadata".into())),
+            action_type => Err(HandlerError::Other(
+                format!("Invalid proposal action type {action_type:?}").into(),
+            )),
         }
     }
 }
