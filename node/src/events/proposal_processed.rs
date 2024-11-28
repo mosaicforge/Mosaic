@@ -70,7 +70,16 @@ impl EventHandler {
             .get_bytes(&proposal_processed.content_uri.replace("ipfs://", ""), true)
             .await?;
 
-        let metadata = deserialize::<pb::ipfs::IpfsMetadata>(&bytes)?;
+        let metadata = if let Ok(metadata) = deserialize::<pb::ipfs::IpfsMetadata>(&bytes) {
+            metadata
+        } else {
+            tracing::warn!(
+                "Invalid metadata for proposal {}",
+                proposal_processed.content_uri
+            );
+            return Ok(vec![]);
+        };
+
         match metadata.r#type() {
             pb::ipfs::ActionType::AddEdit => {
                 let edit = deserialize::<grc20::Edit>(&bytes)?;
@@ -111,9 +120,7 @@ impl EventHandler {
                     })
                     .collect())
             }
-            action_type => Err(HandlerError::Other(
-                format!("Invalid proposal action type {action_type:?}").into(),
-            )),
+            _ => Ok(vec![]),
         }
     }
 }
