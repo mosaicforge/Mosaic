@@ -270,7 +270,7 @@ pub fn bootstrap() -> Vec<grc20::Op> {
         .collect()
 }
 
-const RELATION_TYPES: &[(&str, &[&str])] = &[
-    (system_ids::TYPES, &[system_ids::ATTRIBUTES]),
-    (system_ids::ATTRIBUTES, &[system_ids::VALUE_TYPE]),
-];
+// const RELATION_TYPES: &[(&str, &[&str])] = &[
+//     (system_ids::TYPES, &[system_ids::ATTRIBUTES]),
+//     (system_ids::ATTRIBUTES, &[system_ids::VALUE_TYPE]),
+// ];

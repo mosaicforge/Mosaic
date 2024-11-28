@@ -39,9 +39,10 @@ impl KgOp for SetTriple {
 
         match (self.attribute_id.as_str(), &self.value) {
             (system_ids::TYPES, Value::Entity(value)) => {
-                if let Some(_) = kg
+                if kg
                     .find_relation_by_id::<EntityNode>(&self.entity_id)
                     .await?
+                    .is_some()
                 {
                     // let entity = Entity::from_entity(kg.clone(), relation);
                     // kg.neo4j.run(
@@ -99,9 +100,10 @@ impl KgOp for SetTriple {
                     panic!("Unhandled case: Setting entity value on attribute {attribute_name}({attribute_id}) of entity {entity_name}({})", self.entity_id);
                 }
 
-                if let Some(_) = kg
+                if kg
                     .find_relation_by_id::<EntityNode>(&self.entity_id)
                     .await?
+                    .is_some()
                 {
                     tracing::warn!("Unhandled case: Relation {attribute_name} defined on relation {entity_name}");
                 } else {
@@ -122,9 +124,10 @@ impl KgOp for SetTriple {
                 }
             }
             (attribute_id, value) => {
-                if let Some(_) = kg
+                if kg
                     .find_relation_by_id::<EntityNode>(&self.entity_id)
                     .await?
+                    .is_some()
                 {
                     kg.neo4j
                         .run(

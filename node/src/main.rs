@@ -1,6 +1,6 @@
 use anyhow::Error;
 use clap::{Args, Parser};
-use kg_node::{handler::EventHandler, kg};
+use kg_node::{events::EventHandler, kg};
 use substreams_sink_rust::Sink;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;

@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use kg_core::system_ids;
-
 pub struct Relation<T> {
     pub id: String,
     pub from: String,

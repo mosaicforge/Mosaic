@@ -4,7 +4,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use web3_utils::checksum_address;
 
-use crate::{ids, pb::{self, grc20}, system_ids};
+use crate::{
+    ids,
+    pb::{self, grc20},
+    system_ids,
+};
 
 pub struct BlockMetadata {
     pub cursor: String,
@@ -100,7 +104,7 @@ pub enum VoteType {
 
 impl TryFrom<u64> for VoteType {
     type Error = String;
-    
+
     fn try_from(vote: u64) -> Result<Self, Self::Error> {
         match vote {
             2 => Ok(Self::Accept),
@@ -109,7 +113,6 @@ impl TryFrom<u64> for VoteType {
         }
     }
 }
-
 
 #[derive(Deserialize, Serialize)]
 pub struct VoteCast {
@@ -132,7 +135,7 @@ pub enum ProposalType {
 
 impl TryFrom<pb::ipfs::ActionType> for ProposalType {
     type Error = String;
-    
+
     fn try_from(action_type: pb::ipfs::ActionType) -> Result<Self, Self::Error> {
         match action_type {
             pb::ipfs::ActionType::AddMember => Ok(Self::AddMember),
@@ -186,7 +189,7 @@ pub enum MembershipProposalType {
 
 impl TryFrom<pb::ipfs::ActionType> for MembershipProposalType {
     type Error = String;
-    
+
     fn try_from(action_type: pb::ipfs::ActionType) -> Result<Self, Self::Error> {
         match action_type {
             pb::ipfs::ActionType::AddMember => Ok(Self::AddMember),
@@ -249,7 +252,7 @@ pub enum SubspaceProposalType {
 
 impl TryFrom<pb::ipfs::ActionType> for SubspaceProposalType {
     type Error = String;
-    
+
     fn try_from(action_type: pb::ipfs::ActionType) -> Result<Self, Self::Error> {
         match action_type {
             pb::ipfs::ActionType::AddSubspace => Ok(Self::AddSubspace),

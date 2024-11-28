@@ -3,7 +3,7 @@ use std::{collections::HashMap, iter};
 use super::{
     create_relation::CreateRelationBuilder,
     delete_triple::DeleteTriple,
-    ops::{self, Op},
+    op::{self, Op},
     set_triple::SetTriple,
     Value,
 };
@@ -21,7 +21,7 @@ impl From<grc20::Op> for Op {
                 entity_id: triple.entity,
                 attribute_id: triple.attribute,
             }),
-            (grc20::OpType::DefaultOpType, _) | (_, None) => ops::Op::null(),
+            (grc20::OpType::DefaultOpType, _) | (_, None) => op::Op::null(),
         }
     }
 }
@@ -38,7 +38,7 @@ impl From<&grc20::Op> for Op {
                 entity_id: triple.entity.clone(),
                 attribute_id: triple.attribute.clone(),
             }),
-            (grc20::OpType::DefaultOpType, _) | (_, None) => ops::Op::null(),
+            (grc20::OpType::DefaultOpType, _) | (_, None) => op::Op::null(),
         }
     }
 }

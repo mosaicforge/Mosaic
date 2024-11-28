@@ -116,7 +116,7 @@ impl CreateRelationBuilder {
     }
 
     /// Extracts the from, to, and relation type entities from the ops and returns the remaining ops
-    pub fn from_ops(mut self, ops: &Vec<grc20::Op>) -> (Self, Vec<&grc20::Op>) {
+    pub fn from_ops(mut self, ops: &[grc20::Op]) -> (Self, Vec<&grc20::Op>) {
         let remaining = ops
             .iter()
             .filter(|op| match (op.r#type(), &op.triple) {

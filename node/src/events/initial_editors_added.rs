@@ -20,7 +20,8 @@ impl EventHandler {
                 .map(Result::<_, HandlerError>::Ok)
                 .try_for_each(|editor| async move {
                     let editor = models::GeoAccount::new(editor.clone());
-                    self.kg.add_editor(&space.id, &editor, &models::SpaceEditor, block)
+                    self.kg
+                        .add_editor(&space.id, &editor, &models::SpaceEditor, block)
                         .await
                         .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
 
@@ -35,7 +36,6 @@ impl EventHandler {
                 initial_editor_added.addresses.len(),
                 space.id
             );
-
         } else {
             tracing::warn!(
                 "Block #{} ({}): Could not add initial editors for unknown space with plugin_address = {}",

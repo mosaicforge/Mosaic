@@ -1,18 +1,15 @@
 use std::collections::HashMap;
 
-use web3_utils::checksum_address;
-use crate::{
-    kg::mapping::{Node, Relation},
-    neo4j_utils::Neo4jExt,
-};
+use crate::kg::mapping::Node;
 use futures::{stream, StreamExt, TryStreamExt};
 use kg_core::{
-    ids::{create_geo_id, create_id_from_unique_string, create_space_id},
+    ids,
     models::{self, GeoAccount, Space, SpaceType},
     network_ids,
     pb::{geo, grc20},
     system_ids,
 };
+use web3_utils::checksum_address;
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -52,7 +49,7 @@ impl EventHandler {
                     .map(|import| {
                         (
                             space_address,
-                            create_space_id(
+                            ids::create_space_id(
                                 &import.previous_network,
                                 &import.previous_contract_address,
                             ),
@@ -68,7 +65,7 @@ impl EventHandler {
                 let space_id = space_ids
                     .get(&event.space_address)
                     .cloned()
-                    .unwrap_or(create_space_id(network_ids::GEO, &event.dao_address));
+                    .unwrap_or(ids::create_space_id(network_ids::GEO, &event.dao_address));
 
                 tracing::info!(
                     "Block #{} ({}): Creating space {}",
@@ -80,7 +77,7 @@ impl EventHandler {
                 self.kg
                     .upsert_node(
                         system_ids::INDEXER_SPACE_ID,
-                        &block,
+                        block,
                         Node::new(
                             space_id.to_string(),
                             Space {

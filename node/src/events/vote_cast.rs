@@ -1,5 +1,9 @@
 use futures::join;
-use kg_core::{ids, models, pb::geo, system_ids::{self, INDEXER_SPACE_ID}};
+use kg_core::{
+    ids, models,
+    pb::geo,
+    system_ids::{self, INDEXER_SPACE_ID},
+};
 use web3_utils::checksum_address;
 
 use crate::{kg::mapping::Relation, neo4j_utils::Neo4jExt};
@@ -32,12 +36,16 @@ impl EventHandler {
                     .await
                     .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
 
-                let account = self.kg.neo4j
-                    .find_one::<models::GeoAccount>(neo4rs::query(&format!(
-                        "MATCH (a:`{ACCOUNT}` {{address: $address}}) RETURN a",
-                        ACCOUNT = system_ids::GEO_ACCOUNT,
-                    ))
-                    .param("address", checksum_address(&vote.voter, None)))
+                let account = self
+                    .kg
+                    .neo4j
+                    .find_one::<models::GeoAccount>(
+                        neo4rs::query(&format!(
+                            "MATCH (a:`{ACCOUNT}` {{address: $address}}) RETURN a",
+                            ACCOUNT = system_ids::GEO_ACCOUNT,
+                        ))
+                        .param("address", checksum_address(&vote.voter, None)),
+                    )
                     .await
                     .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
 
@@ -45,22 +53,26 @@ impl EventHandler {
                     (Some(proposal), Some(account)) => {
                         let vote_cast = models::VoteCast {
                             id: ids::create_geo_id(),
-                            vote_type: vote.vote_option.try_into()
+                            vote_type: vote
+                                .vote_option
+                                .try_into()
                                 .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?,
                         };
 
-                        self.kg.upsert_relation(
-                            INDEXER_SPACE_ID, 
-                            block, 
-                            Relation::new(
-                                &vote_cast.id.clone(),
-                                &account.id,
-                                &proposal.id,
-                                system_ids::VOTE_CAST,
-                                vote_cast
-                            ),
-                        ).await
-                        .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
+                        self.kg
+                            .upsert_relation(
+                                INDEXER_SPACE_ID,
+                                block,
+                                Relation::new(
+                                    &vote_cast.id.clone(),
+                                    &account.id,
+                                    &proposal.id,
+                                    system_ids::VOTE_CAST,
+                                    vote_cast,
+                                ),
+                            )
+                            .await
+                            .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
                     }
                     // Proposal or account not found
                     (Some(_), None) => {
@@ -87,7 +99,7 @@ impl EventHandler {
                     block.timestamp,
                     vote.plugin_address,
                 );
-           }
+            }
             // Errors
             (Err(e), _) | (_, Err(e)) => {
                 return Err(HandlerError::Other(format!("{e:?}").into()));
@@ -95,5 +107,5 @@ impl EventHandler {
         };
 
         Ok(())
-    } 
+    }
 }

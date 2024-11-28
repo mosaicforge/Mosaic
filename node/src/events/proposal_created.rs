@@ -3,7 +3,7 @@ use ipfs::deserialize;
 use kg_core::{
     ids,
     models::{self, EditorshipProposal, GeoAccount, MembershipProposal, Proposal},
-    pb::{self, geo, grc20},
+    pb::{self, geo},
     system_ids::{self, INDEXER_SPACE_ID},
 };
 use web3_utils::checksum_address;
@@ -28,7 +28,7 @@ impl EventHandler {
             (Ok(Some(space)), Ok(_)) | (Ok(None), Ok(Some(space))) => {
                 let bytes = self
                     .ipfs
-                    .get_bytes(&&proposal_created.metadata_uri.replace("ipfs://", ""), true)
+                    .get_bytes(&proposal_created.metadata_uri.replace("ipfs://", ""), true)
                     .await?;
 
                 let metadata = deserialize::<pb::ipfs::IpfsMetadata>(&bytes)?;
@@ -37,45 +37,66 @@ impl EventHandler {
                     pb::ipfs::ActionType::AddEdit => todo!(),
                     pb::ipfs::ActionType::AddSubspace | pb::ipfs::ActionType::RemoveSubspace => {
                         let subspace_proposal = deserialize::<pb::ipfs::Subspace>(&bytes)?;
-                        
-                        self.kg.upsert_node(
-                            INDEXER_SPACE_ID,
-                            block, 
-                            Node::new(
-                                subspace_proposal.id.clone(),
-                                models::SubspaceProposal {
-                                    proposal: Proposal {
-                                        id: subspace_proposal.id.clone(),
-                                        onchain_proposal_id: proposal_created.proposal_id.clone(),
-                                        proposal_type: metadata.r#type().try_into().map_err(|e: String| HandlerError::Other(e.into()))?,
-                                        status: models::ProposalStatus::Proposed,
-                                        plugin_address: checksum_address(&proposal_created.plugin_address, None),
-                                        start_time: proposal_created.start_time.parse().map_err(|e| HandlerError::Other(format!("{e:?}").into()))?,
-                                        end_time: proposal_created.end_time.parse().map_err(|e| HandlerError::Other(format!("{e:?}").into()))?,
+
+                        self.kg
+                            .upsert_node(
+                                INDEXER_SPACE_ID,
+                                block,
+                                Node::new(
+                                    subspace_proposal.id.clone(),
+                                    models::SubspaceProposal {
+                                        proposal: Proposal {
+                                            id: subspace_proposal.id.clone(),
+                                            onchain_proposal_id: proposal_created
+                                                .proposal_id
+                                                .clone(),
+                                            proposal_type: metadata.r#type().try_into().map_err(
+                                                |e: String| HandlerError::Other(e.into()),
+                                            )?,
+                                            status: models::ProposalStatus::Proposed,
+                                            plugin_address: checksum_address(
+                                                &proposal_created.plugin_address,
+                                                None,
+                                            ),
+                                            start_time: proposal_created
+                                                .start_time
+                                                .parse()
+                                                .map_err(|e| {
+                                                    HandlerError::Other(format!("{e:?}").into())
+                                                })?,
+                                            end_time: proposal_created.end_time.parse().map_err(
+                                                |e| HandlerError::Other(format!("{e:?}").into()),
+                                            )?,
+                                        },
+                                        proposal_type: subspace_proposal
+                                            .r#type()
+                                            .try_into()
+                                            .map_err(|e: String| HandlerError::Other(e.into()))?,
                                     },
-                                    proposal_type: subspace_proposal.r#type().try_into().map_err(|e: String| HandlerError::Other(e.into()))?,
-                                },
+                                )
+                                .with_type(system_ids::PROPOSAL_TYPE)
+                                .with_type(system_ids::SUBSPACE_PROPOSAL_TYPE),
                             )
-                            .with_type(system_ids::PROPOSAL_TYPE)
-                            .with_type(system_ids::SUBSPACE_PROPOSAL_TYPE),
-                        )
-                        .await
-                        .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
+                            .await
+                            .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
 
                         // Try to get the subspace
-                        let subspace = if let Some(subspace) = self.kg.get_space_by_dao_address(&subspace_proposal.subspace)
+                        let subspace = if let Some(subspace) = self
+                            .kg
+                            .get_space_by_dao_address(&subspace_proposal.subspace)
                             .await
-                            .map_err(|e| HandlerError::Other(format!("{e:?}").into()))? {
+                            .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?
+                        {
                             subspace
-                            } else {
-                                tracing::warn!(
-                                    "Block #{} ({}): Failed to get space for subspace DAO address = {}",
-                                    block.block_number,
-                                    block.timestamp,
-                                    checksum_address(&subspace_proposal.subspace, None)
-                                );
-                                return Ok(());
-                            };
+                        } else {
+                            tracing::warn!(
+                                "Block #{} ({}): Failed to get space for subspace DAO address = {}",
+                                block.block_number,
+                                block.timestamp,
+                                checksum_address(&subspace_proposal.subspace, None)
+                            );
+                            return Ok(());
+                        };
 
                         // Create relation between the proposal and the subspace
                         self.kg
@@ -157,7 +178,7 @@ impl EventHandler {
                                     },
                                 )
                                 .with_type(system_ids::PROPOSAL_TYPE)
-                                .with_type(system_ids::EDITORSHIP_PROPOSAL_TYPE),    
+                                .with_type(system_ids::EDITORSHIP_PROPOSAL_TYPE),
                             )
                             .await
                             .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;

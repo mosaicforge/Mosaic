@@ -11,7 +11,7 @@ impl EventHandler {
     pub async fn handle_proposals_processed(
         &self,
         proposals_processed: &[geo::ProposalProcessed],
-        created_space_ids: &[String],
+        _created_space_ids: &[String],
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         let proposals = stream::iter(proposals_processed)
@@ -111,9 +111,9 @@ impl EventHandler {
                     })
                     .collect())
             }
-            action_type => {
-                return Err(HandlerError::Other(format!("Invalid proposal action type {action_type:?}").into()))
-            },
+            action_type => Err(HandlerError::Other(
+                format!("Invalid proposal action type {action_type:?}").into(),
+            )),
         }
     }
 }

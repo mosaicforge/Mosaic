@@ -11,12 +11,10 @@ impl EventHandler {
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         match join!(
-            self
-            .kg
-            .get_space_by_voting_plugin_address(&editor_added.main_voting_plugin_address),
-            self
-            .kg
-            .get_space_by_personal_plugin_address(&editor_added.main_voting_plugin_address)
+            self.kg
+                .get_space_by_voting_plugin_address(&editor_added.main_voting_plugin_address),
+            self.kg
+                .get_space_by_personal_plugin_address(&editor_added.main_voting_plugin_address)
         ) {
             // Space found
             (Ok(Some(space)), Ok(_)) | (Ok(None), Ok(Some(space))) => {

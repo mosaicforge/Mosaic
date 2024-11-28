@@ -12,14 +12,14 @@ impl EventHandler {
         match join!(
             self.kg
                 .get_space_by_space_plugin_address(&subspace_added.plugin_address),
-            self.kg
-                .get_space_by_dao_address(&subspace_added.subspace)
+            self.kg.get_space_by_dao_address(&subspace_added.subspace)
         ) {
             (Ok(Some(parent_space)), Ok(Some(subspace))) => {
                 self.kg
                     .add_subspace(block, &parent_space.id, &subspace.id)
                     .await
-                    .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+                    .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
+                // TODO: Convert anyhow::Error to HandlerError properly
             }
             (Ok(None), Ok(_)) => {
                 tracing::warn!(

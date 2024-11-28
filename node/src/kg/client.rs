@@ -1,17 +1,17 @@
 use futures::{stream, StreamExt, TryStreamExt};
 use serde::Deserialize;
 
-use web3_utils::checksum_address;
 use crate::{
     bootstrap,
     neo4j_utils::{serde_value_to_bolt, Neo4jExt},
-    ops::{conversions, ops::Op},
+    ops::{conversions, op::Op},
 };
+use web3_utils::checksum_address;
 
 use kg_core::{
     ids,
-    models::{self, EditProposal, AsProposal, Space},
-    system_ids::{self, INDEXER_SPACE_ID},
+    models::{self, EditProposal, Space},
+    system_ids,
 };
 
 use super::mapping::{Node, Relation};
@@ -38,7 +38,7 @@ impl Client {
         };
 
         stream::iter(bootstrap_ops)
-            .map(|op| Ok(op)) // Convert to Result to be able to use try_for_each
+            .map(Ok) // Convert to Result to be able to use try_for_each
             .try_for_each(|op| async move { op.apply_op(self, ROOT_SPACE_ID).await })
             .await?;
 
@@ -174,7 +174,7 @@ impl Client {
             block,
             Relation::new(
                 &ids::create_geo_id(),
-                &subspace_id,
+                subspace_id,
                 space_id,
                 system_ids::PARENT_SPACE,
                 models::ParentSpace,
@@ -364,8 +364,8 @@ impl Client {
     //     vote_cast: &models::VoteCast,
     // ) -> anyhow::Result<()> {
     //     // self.upsert_relation(
-    //     //     INDEXER_SPACE_ID, 
-    //     //     block, 
+    //     //     INDEXER_SPACE_ID,
+    //     //     block,
     //     //     Relation::new(
     //     //         &ids::create_geo_id(),
     //     //         account_id,
@@ -387,16 +387,16 @@ impl Client {
     //     space_proposal_relation: &models::SpaceProposalRelation,
     // ) -> anyhow::Result<()> {
     //     self.upsert_node(
-    //         system_ids::INDEXER_SPACE_ID, 
-    //         block, 
+    //         system_ids::INDEXER_SPACE_ID,
+    //         block,
     //         Node::new(proposal.as_proposal().id.clone(), proposal)
     //             .with_type(system_ids::PROPOSAL_TYPE)
     //             .with_type(proposal.type_id()),
     //     ).await?;
 
     //     self.upsert_relation(
-    //         system_ids::INDEXER_SPACE_ID, 
-    //         block, 
+    //         system_ids::INDEXER_SPACE_ID,
+    //         block,
     //         Relation::new(
     //             &ids::create_geo_id(),
     //             &proposal.as_proposal().id,
@@ -545,7 +545,7 @@ impl Client {
         let rolled_up_ops = conversions::batch_ops(edit.ops);
 
         stream::iter(rolled_up_ops)
-            .map(|op| Ok(op)) // Convert to Result to be able to use try_for_each
+            .map(Ok) // Convert to Result to be able to use try_for_each
             .try_for_each(|op| async move { op.apply_op(self, space_id).await })
             .await?;
 

@@ -10,12 +10,12 @@ use kg_node::ops::conversions;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
-const ROOT_SPACE_IMPORTS: &str = "bafkreif4acly7y46hx7optzfxtehxotizgqjz5h5vszo7vtmzsnm4ktxjy";
+// const ROOT_SPACE_IMPORTS: &str = "bafkreif4acly7y46hx7optzfxtehxotizgqjz5h5vszo7vtmzsnm4ktxjy";
 // const CONSTRUCTION_SPACE_IMPORTS: &str = "bafkreih3oxxoenvhrcb747ib6rh7gpnho2rzopdljrtiyafoesyxnrhziq";
 // const CONSTRUCTION_SPACE_IMPORTS: &str =
 //     "bafkreiadpdybqrlieaql57fjpcwhy25ut3s742qkhuxz4i6meahhrpvnf4";
-const CONSTRUCTION_SPACE_IMPORTS: &str =
-    "bafkreidgyievktbezgsaxnnuylyn7acgy3kmaderzy4t4lwnfenhrggice";
+// const CONSTRUCTION_SPACE_IMPORTS: &str =
+//     "bafkreidgyievktbezgsaxnnuylyn7acgy3kmaderzy4t4lwnfenhrggice";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -139,7 +139,7 @@ enum Command {
     CreateEntityId {
         #[arg(default_value = "1")]
         n: usize,
-    }, 
+    },
 }
 
 #[derive(Debug, Args)]

@@ -1,4 +1,4 @@
-use kg_core::{models, pb::geo, system_ids::{self, INDEXED_SPACE}};
+use kg_core::{models, pb::geo, system_ids};
 
 use super::{handler::HandlerError, EventHandler};
 

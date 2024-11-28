@@ -25,10 +25,7 @@ impl EventHandler {
                 .upsert_node(
                     system_ids::INDEXER_SPACE_ID,
                     block,
-                    Node::new(
-                        proposal.id.clone(),
-                        proposal,
-                    ),
+                    Node::new(proposal.id.clone(), proposal),
                 )
                 .await
                 .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
