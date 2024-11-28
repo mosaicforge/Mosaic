@@ -34,7 +34,15 @@ impl EventHandler {
                 let metadata = deserialize::<pb::ipfs::IpfsMetadata>(&bytes)?;
 
                 match metadata.r#type() {
-                    pb::ipfs::ActionType::AddEdit => todo!(),
+                    pb::ipfs::ActionType::AddEdit => {
+                        // tracing::warn!(
+                        //     "Block #{} ({}): Edit proposal not supported",
+                        //     block.block_number,
+                        //     block.timestamp
+                        // );
+                        // TODO: Implement edit proposal
+                        // Ok(())
+                    }
                     pb::ipfs::ActionType::AddSubspace | pb::ipfs::ActionType::RemoveSubspace => {
                         let subspace_proposal = deserialize::<pb::ipfs::Subspace>(&bytes)?;
 
