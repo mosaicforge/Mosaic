@@ -42,7 +42,7 @@ impl EventHandler {
                         // );
                         // TODO: Implement edit proposal
                         // Ok(())
-                    },
+                    }
                     pb::ipfs::ActionType::AddSubspace | pb::ipfs::ActionType::RemoveSubspace => {
                         let subspace_proposal = deserialize::<pb::ipfs::Subspace>(&bytes)?;
 
