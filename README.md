@@ -1,53 +1,35 @@
-## Setup
+# GRC20 Neo4j Indexer
+This repo contains a GRC20 indexer that uses Neo4j to store triple data. 
+
+## Running the indexer
+❗Important: Both methods require the `SUBSTREAMS_ENDPOINT_URL` (and optionally `SUBSTREAMS_API_TOKEN` if using a substreams provider with authentication) environment variables to be set.
+
+### With `docker-compose`
+```bash
+cd docker/
+docker compose up
+```
+
+### Without docker
 ### 1. Start Neo4j
 ```bash
 docker run \
     --publish=7474:7474 --publish=7687:7687 \
-    --volume=data:/data \
+    --volume=./data:/data \
     --env=NEO4J_AUTH=none \
     neo4j
 ```
 
-### 2. Download root dump
+### 2. Compile and run the indexer
+In a separate terminal, run the following command:
 ```bash
-wget https://gateway.lighthouse.storage/ipfs/bafkreif4acly7y46hx7optzfxtehxotizgqjz5h5vszo7vtmzsnm4ktxjy
-```
-
-## Run
-Import
-```bash
-cargo run --bin import -- --reset-db --rollup \
-    --neo4j-uri neo4j://localhost:7687 \
-    --neo4j-user neo4j \
-    --neo4j-pass neo4j 
-```
-
-Indexer node
-```bash
-cargo run --bin kg-node -- --rollup --reset-db \
+cargo run --bin kg-node -- \
+    --rollup \
+    --reset-db \
     --neo4j-uri neo4j://localhost:7687 \
     --neo4j-user neo4j \
     --neo4j-pass neo4j
 ```
 
-Codegen
-```bash
-cargo run --package kg-cli -- \
-    --neo4j-uri neo4j://localhost:7687 \
-    --neo4j-user neo4j \
-    --neo4j-pass neo4j \
-    codegen
-```
-
-## Docker compose
-### 1. Start neo4j
-```bash
-cd docker/
-docker compose up neo4j
-```
-
-### 2. Start kg-node
-```bash
-cd docker/
-docker compose up kg-node
-```
+## GRC20 CLI
+Coming soon™️

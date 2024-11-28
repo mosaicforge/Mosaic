@@ -11,23 +11,21 @@ pub const SPACE: &str = "362c1dbddc6444bba3c4652f38a642d7";
 pub const INDEXED_SPACE: &str = "306598522df542f69ad72921c33ad84b";
 pub const ATTRIBUTE: &str = "808a04ceb21c4d888ad12e240613e5ca";
 
-/**
- * Relations are a data model that enable us to create references between some
- * arbitrary id and a set of entity ids.
- *
- * They act similarly to Join Tables in a relational database, but are designed
- * around the graph-based nature of the Geo data model.
- *
- * Relations are themselves entities, so can store any metadata about the relation
- * as triples. Currently Relation entities cannot have their own relations. This is a
- * technical limitation to avoid infinitely creating recursive relations.
- *
- * ┌─────────────────────┐       ┌────────────────────┐      ┌──────────────────────┐
- * │                     │       │                    │      │                      │
- * │      Entity         │◄──────┤     Relation       │─────►│        Entity        │
- * │                     │       │                    │      │                      │
- * └─────────────────────┘       └────────────────────┘      └──────────────────────┘
- */
+// Relations are a data model that enable us to create references between some
+// arbitrary id and a set of entity ids.
+//
+// They act similarly to Join Tables in a relational database, but are designed
+// around the graph-based nature of the Geo data model.
+//
+// Relations are themselves entities, so can store any metadata about the relation
+// as triples. Currently Relation entities cannot have their own relations. This is a
+// technical limitation to avoid infinitely creating recursive relations.
+//
+// ┌─────────────────────┐       ┌────────────────────┐      ┌──────────────────────┐
+// │                     │       │                    │      │                      │
+// │      Entity         │◄──────┤     Relation       │─────►│        Entity        │
+// │                     │       │                    │      │                      │
+// └─────────────────────┘       └────────────────────┘      └──────────────────────┘
 
 /**
  * Relation type. This is the entity representing the Join between the
@@ -239,12 +237,10 @@ pub const PEOPLE_SPACE: &str = "0xb4476A42A66eC1356A58D300555169E17db6756c";
 
 pub const BROADER_SPACES: &str = "03aa11edd69a4d5ea0aea0f197614cfd";
 
-/**
- * Addresses for important contracts on our L3.
- *
- * Note: If you want to test deployments on a different network (e.g. local or Mumbai),
- * you can update these addresses to point to the correct contracts on that network.
- */
+// Addresses for important contracts on our L3.
+//
+// Note: If you want to test deployments on a different network (e.g. local or Mumbai),
+// you can update these addresses to point to the correct contracts on that network.
 
 pub const PROFILE_REGISTRY_ADDRESS: &str = "0xc066E89bF7669b905f869Cb936818b0fd0bc456d";
 pub const MEMBERSHIP_CONTRACT_ADDRESS: &str = "0x34a94160f4B0f86d932927DFfb326354dB279181";

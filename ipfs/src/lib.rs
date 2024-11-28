@@ -151,6 +151,6 @@ mod tests {
 
         let client = super::IpfsClient::from_url("https://gateway.lighthouse.storage/ipfs/");
 
-        let edit = client.get::<Edit>(ipfs_hash, false).await.unwrap();
+        let _ = client.get::<Edit>(ipfs_hash, false).await.unwrap();
     }
 }

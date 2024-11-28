@@ -2,3 +2,4 @@
 **/ipfs-cache
 **/data
 *.json
+.env

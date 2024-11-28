@@ -1,3 +1,5 @@
+use std::env;
+
 use anyhow::Error;
 use clap::{Args, Parser};
 use kg_node::{events::EventHandler, kg};
@@ -5,7 +7,6 @@ use substreams_sink_rust::Sink;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
-const ENDPOINT_URL: &str = "https://geotest.substreams.pinax.network:443";
 const PKG_FILE: &str = "geo-substream.spkg";
 const MODULE_NAME: &str = "geo_out";
 
@@ -16,6 +17,9 @@ const STOP_BLOCK: u64 = 0;
 async fn main() -> Result<(), Error> {
     set_log_level();
     init_tracing();
+    let endpoint_url =
+        env::var("SUBSTREAMS_ENDPOINT_URL").expect("SUBSTREAMS_ENDPOINT_URL not set");
+
     let args = AppArgs::parse();
 
     let kg_client = kg::Client::new(
@@ -31,8 +35,14 @@ async fn main() -> Result<(), Error> {
 
     let sink = EventHandler::new(kg_client);
 
-    sink.run(ENDPOINT_URL, PKG_FILE, MODULE_NAME, START_BLOCK, STOP_BLOCK)
-        .await?;
+    sink.run(
+        &endpoint_url,
+        PKG_FILE,
+        MODULE_NAME,
+        START_BLOCK,
+        STOP_BLOCK,
+    )
+    .await?;
 
     Ok(())
 }
