@@ -2,7 +2,7 @@ use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::deserialize;
 use kg_core::{
     models::{self, EditProposal},
-    pb::{geo, grc20},
+    pb::{self, geo, grc20},
 };
 
 use super::{handler::HandlerError, EventHandler};
@@ -70,9 +70,9 @@ impl EventHandler {
             .get_bytes(&proposal_processed.content_uri.replace("ipfs://", ""), true)
             .await?;
 
-        let metadata = deserialize::<grc20::Metadata>(&bytes)?;
+        let metadata = deserialize::<pb::ipfs::IpfsMetadata>(&bytes)?;
         match metadata.r#type() {
-            grc20::ActionType::AddEdit => {
+            pb::ipfs::ActionType::AddEdit => {
                 let edit = deserialize::<grc20::Edit>(&bytes)?;
                 Ok(vec![EditProposal {
                     name: edit.name,
@@ -85,7 +85,7 @@ impl EventHandler {
                     ops: edit.ops,
                 }])
             }
-            grc20::ActionType::ImportSpace => {
+            pb::ipfs::ActionType::ImportSpace => {
                 let import = deserialize::<grc20::Import>(&bytes)?;
                 let edits = stream::iter(import.edits)
                     .map(|edit| async move {
@@ -111,7 +111,9 @@ impl EventHandler {
                     })
                     .collect())
             }
-            _ => Err(HandlerError::Other("Invalid metadata".into())),
+            action_type => {
+                return Err(HandlerError::Other(format!("Invalid proposal action type {action_type:?}").into()))
+            },
         }
     }
 }

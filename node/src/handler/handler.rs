@@ -102,11 +102,14 @@ impl substreams_sink_rust::Sink for EventHandler {
             .await?;
 
         // Handle proposal creation
-        // TODO: Implement proposal creation
+        stream::iter(&value.proposals_created)
+            .map(Ok)
+            .try_for_each(|event| async { self.handle_proposal_created(event, &block).await })
+            .await?;
 
         // Handle proposal processing
-        self.handle_proposals_processed(&value.proposals_processed, &created_space_ids, &block)
-            .await?;
+        // self.handle_proposals_processed(&value.proposals_processed, &created_space_ids, &block)
+        //     .await?;
 
         // Handle members added
         stream::iter(&value.members_added)
@@ -133,10 +136,16 @@ impl substreams_sink_rust::Sink for EventHandler {
             .await?;
 
         // Handle vote cast
-        // TODO: Implement vote cast
+        stream::iter(&value.votes_cast)
+            .map(Ok)
+            .try_for_each(|event| async { self.handle_vote_cast(event, &block).await })
+            .await?;
 
         // Handle executed proposal
-        // TODO: Implement executed proposal
+        stream::iter(&value.executed_proposals)
+            .map(Ok)
+            .try_for_each(|event| async { self.handle_proposal_executed(event, &block).await })
+            .await?;
 
         Ok(())
     }

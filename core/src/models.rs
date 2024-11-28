@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use web3_utils::checksum_address;
 
-use crate::{ids, pb::grc20};
+use crate::{ids, pb::{self, grc20}, system_ids};
 
 pub struct BlockMetadata {
     pub cursor: String,
@@ -63,12 +63,6 @@ pub struct Space {
     pub personal_space_admin_plugin: Option<String>,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
-pub struct Subspace {
-    pub id: String,
-    pub parent_space: String,
-}
-
 /// Space editor relation.
 #[derive(Deserialize, Serialize)]
 pub struct SpaceEditor;
@@ -76,6 +70,10 @@ pub struct SpaceEditor;
 /// Space member relation.
 #[derive(Deserialize, Serialize)]
 pub struct SpaceMember;
+
+/// Parent space relation (for subspaces).
+#[derive(Deserialize, Serialize)]
+pub struct ParentSpace;
 
 pub struct EditProposal {
     pub name: String,
@@ -92,3 +90,191 @@ pub struct Cursor {
     pub cursor: String,
     pub block_number: u64,
 }
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum VoteType {
+    Accept,
+    Reject,
+}
+
+impl TryFrom<u64> for VoteType {
+    type Error = String;
+    
+    fn try_from(vote: u64) -> Result<Self, Self::Error> {
+        match vote {
+            2 => Ok(Self::Accept),
+            3 => Ok(Self::Reject),
+            _ => Err(format!("Invalid vote type: {}", vote)),
+        }
+    }
+}
+
+
+#[derive(Deserialize, Serialize)]
+pub struct VoteCast {
+    pub id: String,
+    pub vote_type: VoteType,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ProposalType {
+    AddEdit,
+    ImportSpace,
+    AddSubspace,
+    RemoveSubspace,
+    AddEditor,
+    RemoveEditor,
+    AddMember,
+    RemoveMember,
+}
+
+impl TryFrom<pb::ipfs::ActionType> for ProposalType {
+    type Error = String;
+    
+    fn try_from(action_type: pb::ipfs::ActionType) -> Result<Self, Self::Error> {
+        match action_type {
+            pb::ipfs::ActionType::AddMember => Ok(Self::AddMember),
+            pb::ipfs::ActionType::RemoveMember => Ok(Self::RemoveMember),
+            pb::ipfs::ActionType::AddEditor => Ok(Self::AddEditor),
+            pb::ipfs::ActionType::RemoveEditor => Ok(Self::RemoveEditor),
+            pb::ipfs::ActionType::AddSubspace => Ok(Self::AddSubspace),
+            pb::ipfs::ActionType::RemoveSubspace => Ok(Self::RemoveSubspace),
+            pb::ipfs::ActionType::AddEdit => Ok(Self::AddEdit),
+            pb::ipfs::ActionType::ImportSpace => Ok(Self::ImportSpace),
+            _ => Err(format!("Invalid action type: {:?}", action_type)),
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+pub enum ProposalStatus {
+    Proposed,
+    Accepted,
+    Rejected,
+    Canceled,
+    Executed,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct Proposal {
+    pub id: String,
+    pub onchain_proposal_id: String,
+    pub proposal_type: ProposalType,
+    pub status: ProposalStatus,
+    pub plugin_address: String,
+    pub start_time: DateTime<Utc>,
+    pub end_time: DateTime<Utc>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct Proposals;
+
+pub trait AsProposal {
+    fn as_proposal(&self) -> &Proposal;
+
+    fn type_id(&self) -> &'static str;
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MembershipProposalType {
+    AddMember,
+    RemoveMember,
+}
+
+impl TryFrom<pb::ipfs::ActionType> for MembershipProposalType {
+    type Error = String;
+    
+    fn try_from(action_type: pb::ipfs::ActionType) -> Result<Self, Self::Error> {
+        match action_type {
+            pb::ipfs::ActionType::AddMember => Ok(Self::AddMember),
+            pb::ipfs::ActionType::RemoveMember => Ok(Self::RemoveMember),
+            _ => Err(format!("Invalid action type: {:?}", action_type)),
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct MembershipProposal {
+    #[serde(flatten)]
+    pub proposal: Proposal,
+    pub proposal_type: MembershipProposalType,
+}
+
+impl AsProposal for MembershipProposal {
+    fn as_proposal(&self) -> &Proposal {
+        &self.proposal
+    }
+
+    fn type_id(&self) -> &'static str {
+        system_ids::MEMBERSHIP_PROPOSAL_TYPE
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum EditorshipProposalType {
+    AddEditor,
+    RemoveEditor,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct EditorshipProposal {
+    #[serde(flatten)]
+    pub proposal: Proposal,
+    pub proposal_type: MembershipProposalType,
+}
+
+impl AsProposal for EditorshipProposal {
+    fn as_proposal(&self) -> &Proposal {
+        &self.proposal
+    }
+
+    fn type_id(&self) -> &'static str {
+        system_ids::EDITORSHIP_PROPOSAL_TYPE
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct ProposedAccount;
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SubspaceProposalType {
+    AddSubspace,
+    RemoveSubspace,
+}
+
+impl TryFrom<pb::ipfs::ActionType> for SubspaceProposalType {
+    type Error = String;
+    
+    fn try_from(action_type: pb::ipfs::ActionType) -> Result<Self, Self::Error> {
+        match action_type {
+            pb::ipfs::ActionType::AddSubspace => Ok(Self::AddSubspace),
+            pb::ipfs::ActionType::RemoveSubspace => Ok(Self::RemoveSubspace),
+            _ => Err(format!("Invalid action type: {:?}", action_type)),
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct SubspaceProposal {
+    #[serde(flatten)]
+    pub proposal: Proposal,
+    pub proposal_type: SubspaceProposalType,
+}
+
+impl AsProposal for SubspaceProposal {
+    fn as_proposal(&self) -> &Proposal {
+        &self.proposal
+    }
+
+    fn type_id(&self) -> &'static str {
+        system_ids::SUBSPACE_PROPOSAL_TYPE
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct ProposedSubspace;

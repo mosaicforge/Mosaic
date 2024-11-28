@@ -10,8 +10,8 @@ use crate::{
 
 use kg_core::{
     ids,
-    models::{self, EditProposal, Space},
-    system_ids,
+    models::{self, EditProposal, AsProposal, Space},
+    system_ids::{self, INDEXER_SPACE_ID},
 };
 
 use super::mapping::{Node, Relation};
@@ -58,7 +58,7 @@ impl Client {
         Ok(())
     }
 
-    pub async fn create_space(
+    pub async fn add_space(
         &self,
         block: &models::BlockMetadata,
         space: Space,
@@ -116,6 +116,22 @@ impl Client {
         self.neo4j.find_one(query).await
     }
 
+    pub async fn get_space_by_member_access_plugin(
+        &self,
+        member_access_plugin: &str,
+    ) -> anyhow::Result<Option<Space>> {
+        let query = neo4rs::query(&format!(
+            "MATCH (n:`{INDEXED_SPACE}` {{member_access_plugin: $member_access_plugin}}) RETURN n",
+            INDEXED_SPACE = system_ids::INDEXED_SPACE,
+        ))
+        .param(
+            "member_access_plugin",
+            checksum_address(member_access_plugin, None),
+        );
+
+        self.neo4j.find_one(query).await
+    }
+
     pub async fn get_space_by_personal_plugin_address(
         &self,
         personal_space_admin_plugin: &str,
@@ -130,6 +146,43 @@ impl Client {
         );
 
         self.neo4j.find_one(query).await
+    }
+
+    pub async fn get_proposal_by_id_and_address(
+        &self,
+        proposal_id: &str,
+        plugin_address: &str,
+    ) -> anyhow::Result<Option<models::Proposal>> {
+        let query = neo4rs::query(&format!(
+            "MATCH (n:`{PROPOSAL_TYPE}` {{onchain_proposal_id: $proposal_id, plugin_address: $plugin_address}}) RETURN n",
+            PROPOSAL_TYPE = system_ids::PROPOSAL_TYPE,
+        ))
+        .param("proposal_id", proposal_id)
+        .param("plugin_address", plugin_address);
+
+        self.neo4j.find_one(query).await
+    }
+
+    pub async fn add_subspace(
+        &self,
+        block: &models::BlockMetadata,
+        space_id: &str,
+        subspace_id: &str,
+    ) -> anyhow::Result<()> {
+        self.upsert_relation(
+            system_ids::INDEXER_SPACE_ID,
+            block,
+            Relation::new(
+                &ids::create_geo_id(),
+                &subspace_id,
+                space_id,
+                system_ids::PARENT_SPACE,
+                models::ParentSpace,
+            ),
+        )
+        .await?;
+
+        Ok(())
     }
 
     /// Add an editor to a space
@@ -156,6 +209,20 @@ impl Client {
                 space_id,
                 system_ids::EDITOR_RELATION,
                 editor_relation,
+            ),
+        )
+        .await?;
+
+        // Add the editor as a member of the space
+        self.upsert_relation(
+            system_ids::INDEXER_SPACE_ID,
+            block,
+            Relation::new(
+                &ids::create_geo_id(),
+                &account.id,
+                space_id,
+                system_ids::MEMBER_RELATION,
+                models::SpaceMember,
             ),
         )
         .await?;
@@ -287,6 +354,60 @@ impl Client {
 
         Ok(())
     }
+
+    // pub async fn add_vote_cast(
+    //     &self,
+    //     block: &models::BlockMetadata,
+    //     space_id: &str,
+    //     account_id: &str,
+    //     vote: &models::Vote,
+    //     vote_cast: &models::VoteCast,
+    // ) -> anyhow::Result<()> {
+    //     // self.upsert_relation(
+    //     //     INDEXER_SPACE_ID, 
+    //     //     block, 
+    //     //     Relation::new(
+    //     //         &ids::create_geo_id(),
+    //     //         account_id,
+    //     //         &vote.id,
+    //     //         system_ids::VOTE_CAST_RELATION,
+    //     //         vote_cast,
+    //     //     ),
+    //     // ).await?;
+    //     // todo!()
+
+    //     Ok(())
+    // }
+
+    // pub async fn add_proposal<T: AsProposal + serde::Serialize>(
+    //     &self,
+    //     block: &models::BlockMetadata,
+    //     space_id: &str,
+    //     proposal: &T,
+    //     space_proposal_relation: &models::SpaceProposalRelation,
+    // ) -> anyhow::Result<()> {
+    //     self.upsert_node(
+    //         system_ids::INDEXER_SPACE_ID, 
+    //         block, 
+    //         Node::new(proposal.as_proposal().id.clone(), proposal)
+    //             .with_type(system_ids::PROPOSAL_TYPE)
+    //             .with_type(proposal.type_id()),
+    //     ).await?;
+
+    //     self.upsert_relation(
+    //         system_ids::INDEXER_SPACE_ID, 
+    //         block, 
+    //         Relation::new(
+    //             &ids::create_geo_id(),
+    //             &proposal.as_proposal().id,
+    //             space_id,
+    //             system_ids::PROPOSAL_SPACE_RELATION,
+    //             space_proposal_relation,
+    //         ),
+    //     ).await?;
+
+    //     Ok(())
+    // }
 
     pub async fn upsert_relation<T: serde::Serialize>(
         &self,
