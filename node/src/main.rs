@@ -17,7 +17,8 @@ const STOP_BLOCK: u64 = 0;
 async fn main() -> Result<(), Error> {
     set_log_level();
     init_tracing();
-    let endpoint_url = env::var("SUBSTREAMS_ENDPOINT_URL").expect("SUBSTREAMS_ENDPOINT_URL not set");
+    let endpoint_url =
+        env::var("SUBSTREAMS_ENDPOINT_URL").expect("SUBSTREAMS_ENDPOINT_URL not set");
 
     let args = AppArgs::parse();
 
@@ -34,8 +35,14 @@ async fn main() -> Result<(), Error> {
 
     let sink = EventHandler::new(kg_client);
 
-    sink.run(&endpoint_url, PKG_FILE, MODULE_NAME, START_BLOCK, STOP_BLOCK)
-        .await?;
+    sink.run(
+        &endpoint_url,
+        PKG_FILE,
+        MODULE_NAME,
+        START_BLOCK,
+        STOP_BLOCK,
+    )
+    .await?;
 
     Ok(())
 }
