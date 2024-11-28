@@ -237,12 +237,10 @@ pub const PEOPLE_SPACE: &str = "0xb4476A42A66eC1356A58D300555169E17db6756c";
 
 pub const BROADER_SPACES: &str = "03aa11edd69a4d5ea0aea0f197614cfd";
 
-/**
- * Addresses for important contracts on our L3.
- *
- * Note: If you want to test deployments on a different network (e.g. local or Mumbai),
- * you can update these addresses to point to the correct contracts on that network.
- */
+// Addresses for important contracts on our L3.
+//
+// Note: If you want to test deployments on a different network (e.g. local or Mumbai),
+// you can update these addresses to point to the correct contracts on that network.
 
 pub const PROFILE_REGISTRY_ADDRESS: &str = "0xc066E89bF7669b905f869Cb936818b0fd0bc456d";
 pub const MEMBERSHIP_CONTRACT_ADDRESS: &str = "0x34a94160f4B0f86d932927DFfb326354dB279181";
