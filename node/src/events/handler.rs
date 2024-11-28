@@ -63,7 +63,7 @@ impl substreams_sink_rust::Sink for EventHandler {
         let value = GeoOutput::decode(output.value.as_slice())?;
 
         // Handle new space creation
-        let _created_space_ids = self
+        let created_space_ids = self
             .handle_spaces_created(&value.spaces_created, &value.proposals_processed, &block)
             .await?;
 
@@ -108,8 +108,8 @@ impl substreams_sink_rust::Sink for EventHandler {
             .await?;
 
         // Handle proposal processing
-        // self.handle_proposals_processed(&value.proposals_processed, &created_space_ids, &block)
-        //     .await?;
+        self.handle_proposals_processed(&value.proposals_processed, &created_space_ids, &block)
+            .await?;
 
         // Handle members added
         stream::iter(&value.members_added)
