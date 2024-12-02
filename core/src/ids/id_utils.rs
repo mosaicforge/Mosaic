@@ -1,6 +1,8 @@
 use md5::{Digest, Md5};
 use uuid::Uuid;
 
+use super::base58::encode_uuid_to_base58;
+
 pub fn create_merged_version_id(merged_version_ids: Vec<&str>) -> String {
     create_id_from_unique_string(&merged_version_ids.join(","))
 }
@@ -24,9 +26,9 @@ pub fn create_id_from_unique_string(text: &str) -> String {
     let hashed = hasher.finalize();
 
     let uuid = Uuid::from_slice(&hashed[..]).unwrap();
-    uuid.to_string().replace("-", "")
+    encode_uuid_to_base58(&uuid.to_string())
 }
 
 pub fn create_geo_id() -> String {
-    uuid::Uuid::new_v4().to_string().replace("-", "")
+    encode_uuid_to_base58(&uuid::Uuid::new_v4().to_string())
 }

@@ -1,5 +1,6 @@
 pub mod ids;
 pub mod models;
-pub mod network_ids;
 pub mod pb;
-pub mod system_ids;
+
+pub use ids::network_ids;
+pub use ids::system_ids;
