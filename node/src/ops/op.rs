@@ -34,30 +34,20 @@ impl Display for Value {
 impl From<grc20::Value> for Value {
     fn from(value: grc20::Value) -> Self {
         match value.r#type() {
+            grc20::ValueType::Unknown => Value::Null,
             grc20::ValueType::Text => Value::Text(value.value),
             grc20::ValueType::Number => Value::Number(value.value),
-            grc20::ValueType::Entity => Value::Entity(value.value),
-            grc20::ValueType::Uri => Value::Uri(value.value),
             grc20::ValueType::Checkbox => Value::Checkbox(value.value.parse().unwrap_or(false)),
+            grc20::ValueType::Url => Value::Uri(value.value),
             grc20::ValueType::Time => Value::Time(value.value),
-            grc20::ValueType::GeoLocation => Value::GeoLocation(value.value),
-            _ => Value::Null,
+            grc20::ValueType::Point => Value::GeoLocation(value.value),
         }
     }
 }
 
 impl From<&grc20::Value> for Value {
     fn from(value: &grc20::Value) -> Self {
-        match value.r#type() {
-            grc20::ValueType::Text => Value::Text(value.value.clone()),
-            grc20::ValueType::Number => Value::Number(value.value.clone()),
-            grc20::ValueType::Entity => Value::Entity(value.value.clone()),
-            grc20::ValueType::Uri => Value::Uri(value.value.clone()),
-            grc20::ValueType::Checkbox => Value::Checkbox(value.value.parse().unwrap_or(false)),
-            grc20::ValueType::Time => Value::Time(value.value.clone()),
-            grc20::ValueType::GeoLocation => Value::GeoLocation(value.value.clone()),
-            _ => Value::Null,
-        }
+        Value::from(value.clone())
     }
 }
 

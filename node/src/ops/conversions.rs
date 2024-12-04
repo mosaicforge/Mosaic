@@ -7,7 +7,7 @@ use super::{
     set_triple::SetTriple,
     Value,
 };
-use kg_core::{pb::grc20, system_ids};
+use kg_core::{graph_uri::GraphUri, pb::grc20, system_ids};
 
 impl From<grc20::Op> for Op {
     fn from(op: grc20::Op) -> Self {
@@ -21,7 +21,7 @@ impl From<grc20::Op> for Op {
                 entity_id: triple.entity,
                 attribute_id: triple.attribute,
             }),
-            (grc20::OpType::DefaultOpType, _) | (_, None) => op::Op::null(),
+            (grc20::OpType::None, _) | (_, None) => op::Op::null(),
         }
     }
 }
@@ -38,7 +38,7 @@ impl From<&grc20::Op> for Op {
                 entity_id: triple.entity.clone(),
                 attribute_id: triple.attribute.clone(),
             }),
-            (grc20::OpType::DefaultOpType, _) | (_, None) => op::Op::null(),
+            (grc20::OpType::None, _) | (_, None) => op::Op::null(),
         }
     }
 }
@@ -57,12 +57,24 @@ pub fn group_ops(ops: Vec<grc20::Op>) -> EntityOps {
                     attribute,
                     value: Some(grc20::Value { r#type, value }),
                 }),
-            ) if attribute == system_ids::TYPES && *r#type == grc20::ValueType::Entity as i32 => {
+            ) if attribute == system_ids::TYPES
+                && *r#type == grc20::ValueType::Url as i32 =>
+            {
                 // If triple sets the type, set the type of the entity op batch
-                let entry = entity_ops
-                    .entry(entity.clone())
-                    .or_insert((Vec::new(), Some(value.clone())));
-                entry.1 = Some(value.clone());
+                let entry = entity_ops.entry(entity.clone()).or_insert((
+                    Vec::new(),
+                    Some(
+                        GraphUri::from_uri(value)
+                            .expect("URI should be validated by match pattern guard")
+                            .id,
+                    ),
+                ));
+
+                entry.1 = Some(
+                    GraphUri::from_uri(value)
+                        .expect("URI should be validated by match pattern guard")
+                        .id,
+                );
                 entry.0.push(op);
             }
             (_, Some(triple)) => {
@@ -87,14 +99,16 @@ pub fn group_ops(ops: Vec<grc20::Op>) -> EntityOps {
     entity_ops
 }
 
-pub fn batch_ops(ops: Vec<grc20::Op>) -> Vec<Op> {
-    let entity_ops = group_ops(ops);
+pub fn batch_ops(ops: impl IntoIterator<Item = grc20::Op>) -> Vec<Op> {
+    let entity_ops = group_ops(ops.into_iter().collect());
 
     entity_ops
         .into_iter()
         .flat_map(|(entity_id, (ops, r#type))| match r#type.as_deref() {
-            // If the entity has type RELATION, build a CreateRelation batch
-            Some(system_ids::RELATION) => {
+            // If the entity has type RELATION_TYPE, build a CreateRelation batch
+            Some(system_ids::RELATION_TYPE) => {
+                // tracing::info!("Found relation: {}", entity_id);
+
                 let (batch, remaining) = CreateRelationBuilder::new(entity_id).from_ops(&ops);
                 match batch.build() {
                     // If the batch is successfully built, return the batch and the remaining ops

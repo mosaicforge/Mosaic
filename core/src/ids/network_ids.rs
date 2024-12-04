@@ -1,2 +1,3 @@
-pub const POLYGON: &str = "0370cdbd57a946e9a5119c0c1ffc69d7";
-pub const GEO: &str = "GEO_NETWORK_ENTITY_ID";
+pub const POLYGON: &str = "ReFDxuVQ674gHd2kFjsFL";
+pub const ETHEREUM: &str = "JnWfsCw2gqoPWFT1NXmFWW";
+pub const GEO: &str = "KJjKetFsGVSbw9qFpRzRSy";

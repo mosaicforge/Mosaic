@@ -2,7 +2,7 @@ use futures::{stream, StreamExt, TryStreamExt};
 use serde::Deserialize;
 
 use crate::{
-    bootstrap,
+    bootstrap::{self, constants::ROOT_SPACE_ID},
     neo4j_utils::{serde_value_to_bolt, Neo4jExt},
     ops::{conversions, op::Op},
 };
@@ -15,8 +15,6 @@ use kg_core::{
 };
 
 use super::mapping::{Node, Relation};
-
-const ROOT_SPACE_ID: &str = "ab7d4b9e02f840dab9746d352acb0ac6";
 
 #[derive(Clone)]
 pub struct Client {
@@ -34,7 +32,7 @@ impl Client {
         let bootstrap_ops = if rollup {
             conversions::batch_ops(bootstrap::bootstrap())
         } else {
-            bootstrap::bootstrap().into_iter().map(Op::from).collect()
+            bootstrap::bootstrap().map(Op::from).collect()
         };
 
         stream::iter(bootstrap_ops)
