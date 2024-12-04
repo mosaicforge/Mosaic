@@ -10,6 +10,7 @@ pub struct Template {
     name: String,
     blocks: Vec<grc20::Triple>,
     types: Vec<String>,
+    #[allow(dead_code)]
     foreign_types: Vec<String>,
     additional_data: Vec<grc20::Triple>,
 }
