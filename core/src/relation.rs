@@ -106,7 +106,10 @@ pub enum RelationConversionError {
 impl FromTriples for Relation {
     type Error = RelationConversionError;
 
-    fn from_triples(id: Grc20Id, triples: impl IntoIterator<Item = grc20::Triple>) -> Result<Self, Self::Error> {
+    fn from_triples(
+        id: Grc20Id,
+        triples: impl IntoIterator<Item = grc20::Triple>,
+    ) -> Result<Self, Self::Error> {
         let relation = triples
             .into_iter()
             .try_fold::<_, _, Result<RelationBuilder, Self::Error>>(
@@ -120,7 +123,8 @@ impl FromTriples for Relation {
                             ..
                         } if attribute == system_ids::TYPES
                             && r#type == grc20::ValueType::Url as i32
-                            && value == GraphUri::from_id_str(system_ids::RELATION_TYPE).to_string() =>
+                            && value
+                                == GraphUri::from_id_str(system_ids::RELATION_TYPE).to_string() =>
                         {
                             Ok(builder)
                         }

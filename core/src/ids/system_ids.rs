@@ -35,7 +35,6 @@ pub const NUMBER: &str = "SrhnoheQWdZMxvdgynGXiK";
 // │                     │       │                    │      │                      │
 // └─────────────────────┘       └────────────────────┘      └──────────────────────┘
 
-
 /// Relation type. This is the entity representing the Join between the
 /// the Collection and the Entity
 pub const RELATION: &str = "AKDxovGvZaPSWnmKnSoZJY";

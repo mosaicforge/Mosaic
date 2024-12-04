@@ -128,9 +128,7 @@ impl CreateRelationBuilder {
                         value: Some(grc20::Value { r#type, .. }),
                         ..
                     }),
-                ) if attribute == system_ids::TYPES
-                    && *r#type == grc20::ValueType::Url as i32 =>
-                {
+                ) if attribute == system_ids::TYPES && *r#type == grc20::ValueType::Url as i32 => {
                     false
                 }
 
@@ -143,10 +141,11 @@ impl CreateRelationBuilder {
                         ..
                     }),
                 ) if attribute == system_ids::RELATION_FROM_ATTRIBUTE
-                    && *r#type == grc20::ValueType::Url as i32 
+                    && *r#type == grc20::ValueType::Url as i32
                     && GraphUri::is_valid(value) =>
                 {
-                    self.from_entity_id = Some(GraphUri::from_uri(value).expect("Uri should be valid").id);
+                    self.from_entity_id =
+                        Some(GraphUri::from_uri(value).expect("Uri should be valid").id);
                     false
                 }
 
@@ -162,7 +161,8 @@ impl CreateRelationBuilder {
                     && *r#type == grc20::ValueType::Url as i32
                     && GraphUri::is_valid(value) =>
                 {
-                    self.to_entity_id = Some(GraphUri::from_uri(value).expect("Uri should be valid").id);
+                    self.to_entity_id =
+                        Some(GraphUri::from_uri(value).expect("Uri should be valid").id);
                     false
                 }
 
@@ -175,10 +175,11 @@ impl CreateRelationBuilder {
                         ..
                     }),
                 ) if attribute == system_ids::RELATION_TYPE_ATTRIBUTE
-                    && *r#type == grc20::ValueType::Url as i32 
+                    && *r#type == grc20::ValueType::Url as i32
                     && GraphUri::is_valid(value) =>
                 {
-                    self.relation_type_id = Some(GraphUri::from_uri(value).expect("Uri should be valid").id);
+                    self.relation_type_id =
+                        Some(GraphUri::from_uri(value).expect("Uri should be valid").id);
                     false
                 }
 

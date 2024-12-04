@@ -176,40 +176,32 @@ const SCHEMA_TYPES: &[(&str, &[&str])] = &[
 const TYPES: &[(&str, &[&str])] = &[(network_ids::ETHEREUM, &[system_ids::NETWORK_TYPE])];
 
 pub fn name_ops() -> impl Iterator<Item = grc20::Triple> {
-    NAMES
-        .iter()
-        .map(|(id, name)| grc20::Triple {
-            entity: id.to_string(),
-            attribute: system_ids::NAME.to_string(),
-            value: Some(grc20::Value {
-                r#type: grc20::ValueType::Text as i32,
-                value: name.to_string(),
-            }),
-        })
+    NAMES.iter().map(|(id, name)| grc20::Triple {
+        entity: id.to_string(),
+        attribute: system_ids::NAME.to_string(),
+        value: Some(grc20::Value {
+            r#type: grc20::ValueType::Text as i32,
+            value: name.to_string(),
+        }),
+    })
 }
 
 pub fn attribute_ops() -> impl Iterator<Item = grc20::Triple> {
-    ATTRIBUTES
-        .iter()
-        .flat_map(|(attribute_id, _)| {
-            create_relationship(attribute_id, system_ids::ATTRIBUTE, system_ids::TYPES, None)
-        })
+    ATTRIBUTES.iter().flat_map(|(attribute_id, _)| {
+        create_relationship(attribute_id, system_ids::ATTRIBUTE, system_ids::TYPES, None)
+    })
 }
 
 pub fn attribute_value_type_ops() -> impl Iterator<Item = grc20::Triple> {
-    ATTRIBUTES
-        .iter()
-        .flat_map(|(attribute_id, value_type_id)| {
-            create_relationship(attribute_id, value_type_id, system_ids::VALUE_TYPE, None)
-        })
+    ATTRIBUTES.iter().flat_map(|(attribute_id, value_type_id)| {
+        create_relationship(attribute_id, value_type_id, system_ids::VALUE_TYPE, None)
+    })
 }
 
 pub fn type_ops() -> impl Iterator<Item = grc20::Triple> {
-    SCHEMA_TYPES
-        .iter()
-        .flat_map(|(type_id, _)| {
-            create_relationship(type_id, system_ids::SCHEMA_TYPE, system_ids::TYPES, None)
-        })
+    SCHEMA_TYPES.iter().flat_map(|(type_id, _)| {
+        create_relationship(type_id, system_ids::SCHEMA_TYPE, system_ids::TYPES, None)
+    })
 }
 
 pub fn root_space_type() -> impl Iterator<Item = grc20::Triple> {
@@ -222,27 +214,23 @@ pub fn root_space_type() -> impl Iterator<Item = grc20::Triple> {
 }
 
 pub fn type_schema_ops() -> impl Iterator<Item = grc20::Triple> {
-    SCHEMA_TYPES
-        .iter()
-        .flat_map(|(type_id, attributes)| {
-            attributes
-                .iter()
-                .flat_map(|attribute_id| {
-                    create_relationship(type_id, attribute_id, system_ids::ATTRIBUTES, None)
-                })
-                .collect::<Vec<_>>()
-        })
+    SCHEMA_TYPES.iter().flat_map(|(type_id, attributes)| {
+        attributes
+            .iter()
+            .flat_map(|attribute_id| {
+                create_relationship(type_id, attribute_id, system_ids::ATTRIBUTES, None)
+            })
+            .collect::<Vec<_>>()
+    })
 }
 
 pub fn entities_types_ops() -> impl Iterator<Item = grc20::Triple> {
-    TYPES
-        .iter()
-        .flat_map(|(entity_id, types_ids)| {
-            types_ids
-                .iter()
-                .flat_map(|type_id| create_relationship(entity_id, type_id, system_ids::TYPES, None))
-                .collect::<Vec<_>>()
-        })
+    TYPES.iter().flat_map(|(entity_id, types_ids)| {
+        types_ids
+            .iter()
+            .flat_map(|type_id| create_relationship(entity_id, type_id, system_ids::TYPES, None))
+            .collect::<Vec<_>>()
+    })
 }
 
 pub fn bootstrap() -> impl Iterator<Item = grc20::Op> {

@@ -57,9 +57,7 @@ pub fn group_ops(ops: Vec<grc20::Op>) -> EntityOps {
                     attribute,
                     value: Some(grc20::Value { r#type, value }),
                 }),
-            ) if attribute == system_ids::TYPES
-                && *r#type == grc20::ValueType::Url as i32 =>
-            {
+            ) if attribute == system_ids::TYPES && *r#type == grc20::ValueType::Url as i32 => {
                 // If triple sets the type, set the type of the entity op batch
                 let entry = entity_ops.entry(entity.clone()).or_insert((
                     Vec::new(),

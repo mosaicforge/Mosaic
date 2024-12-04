@@ -3,7 +3,10 @@ use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::IpfsClient;
 use kg_core::ids;
 use kg_core::pb::grc20;
-use kg_node::kg::{self, entity::{Entity, EntityNode}};
+use kg_node::kg::{
+    self,
+    entity::{Entity, EntityNode},
+};
 use kg_node::ops::conversions;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;

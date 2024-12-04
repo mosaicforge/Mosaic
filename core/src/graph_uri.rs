@@ -18,25 +18,21 @@ pub struct InvalidGraphUri(String);
 
 impl GraphUri {
     pub fn from_id_str(id: &str) -> Self {
-        Self {
-            id: id.to_string(),
-        }
+        Self { id: id.to_string() }
     }
-    
+
     pub fn from_id(id: Grc20Id) -> Self {
-        Self {
-            id: id.to_string(),
-        }
+        Self { id: id.to_string() }
     }
 
     pub fn to_id(&self) -> Grc20Id {
         Grc20Id(self.id.clone())
     }
-    
+
     pub fn from_uri(uri: &str) -> Result<Self, InvalidGraphUri> {
         if !uri.starts_with("graph://") {
             Err(InvalidGraphUri(uri.to_string()))
-        } else  {
+        } else {
             Ok(Self {
                 id: uri.replace("graph://", ""),
             })

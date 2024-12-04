@@ -10,7 +10,7 @@ pub trait FromTriples: Sized {
     type Error;
 
     fn from_triples(
-        id: Grc20Id, 
+        id: Grc20Id,
         triples: impl IntoIterator<Item = grc20::Triple>,
     ) -> Result<Self, Self::Error>;
 }
@@ -22,8 +22,6 @@ pub trait ToOps {
 pub trait FromOps: Sized {
     type Error;
 
-    fn from_ops(
-        id: Grc20Id,
-        ops: impl IntoIterator<Item = grc20::Op>,
-    ) -> Result<Self, Self::Error>;
+    fn from_ops(id: Grc20Id, ops: impl IntoIterator<Item = grc20::Op>)
+        -> Result<Self, Self::Error>;
 }
