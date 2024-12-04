@@ -1,4 +1,4 @@
-use kg_core::{pb::grc20, system_ids};
+use kg_core::{graph_uri::GraphUri, pb::grc20, system_ids};
 
 use super::KgOp;
 
@@ -128,9 +128,7 @@ impl CreateRelationBuilder {
                         value: Some(grc20::Value { r#type, .. }),
                         ..
                     }),
-                ) if attribute == system_ids::TYPES
-                    && *r#type == grc20::ValueType::Entity as i32 =>
-                {
+                ) if attribute == system_ids::TYPES && *r#type == grc20::ValueType::Url as i32 => {
                     false
                 }
 
@@ -143,9 +141,11 @@ impl CreateRelationBuilder {
                         ..
                     }),
                 ) if attribute == system_ids::RELATION_FROM_ATTRIBUTE
-                    && *r#type == grc20::ValueType::Entity as i32 =>
+                    && *r#type == grc20::ValueType::Url as i32
+                    && GraphUri::is_valid(value) =>
                 {
-                    self.from_entity_id = Some(value.clone());
+                    self.from_entity_id =
+                        Some(GraphUri::from_uri(value).expect("Uri should be valid").id);
                     false
                 }
 
@@ -158,10 +158,11 @@ impl CreateRelationBuilder {
                         ..
                     }),
                 ) if attribute == system_ids::RELATION_TO_ATTRIBUTE
-                    && *r#type == grc20::ValueType::Entity as i32
-                    && !value.is_empty() =>
+                    && *r#type == grc20::ValueType::Url as i32
+                    && GraphUri::is_valid(value) =>
                 {
-                    self.to_entity_id = Some(value.clone());
+                    self.to_entity_id =
+                        Some(GraphUri::from_uri(value).expect("Uri should be valid").id);
                     false
                 }
 
@@ -174,9 +175,11 @@ impl CreateRelationBuilder {
                         ..
                     }),
                 ) if attribute == system_ids::RELATION_TYPE_ATTRIBUTE
-                    && *r#type == grc20::ValueType::Entity as i32 =>
+                    && *r#type == grc20::ValueType::Url as i32
+                    && GraphUri::is_valid(value) =>
                 {
-                    self.relation_type_id = Some(value.clone());
+                    self.relation_type_id =
+                        Some(GraphUri::from_uri(value).expect("Uri should be valid").id);
                     false
                 }
 

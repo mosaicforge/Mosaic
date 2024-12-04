@@ -3,9 +3,10 @@ use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::IpfsClient;
 use kg_core::ids;
 use kg_core::pb::grc20;
-use kg_core::system_ids::ROOT_SPACE_ID;
-use kg_node::kg;
-use kg_node::kg::entity::{Entity, EntityNode};
+use kg_node::kg::{
+    self,
+    entity::{Entity, EntityNode},
+};
 use kg_node::ops::conversions;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -128,7 +129,7 @@ enum Command {
         ipfs_hash: String,
 
         /// Space ID (defaults to root space)
-        #[arg(default_value = ROOT_SPACE_ID)]
+        // #[arg(default_value = ROOT_SPACE_ID)]
         space_id: String,
     },
 

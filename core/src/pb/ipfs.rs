@@ -6,10 +6,10 @@ pub struct IpfsMetadata {
     /// We version the data structured used to represent proposal metadata. Each
     /// proposal type has their own metadata and versioning that we can change
     /// independently of other proposal types.
-    #[prost(enumeration="ActionType", tag="1")]
-    pub r#type: i32,
-    #[prost(string, tag="2")]
+    #[prost(string, tag="1")]
     pub version: ::prost::alloc::string::String,
+    #[prost(enumeration="ActionType", tag="2")]
+    pub r#type: i32,
     #[prost(string, tag="3")]
     pub id: ::prost::alloc::string::String,
     #[prost(string, tag="4")]
