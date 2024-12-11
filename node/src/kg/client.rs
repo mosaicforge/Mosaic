@@ -484,13 +484,13 @@ impl Client {
             UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
         );
 
-        let bolt_data = match serde_value_to_bolt(serde_json::to_value(&node.data)?) {
+        let bolt_data = match serde_value_to_bolt(serde_json::to_value(&node.attributes())?) {
             neo4rs::BoltType::Map(map) => neo4rs::BoltType::Map(map),
             _ => neo4rs::BoltType::Map(Default::default()),
         };
 
         let query = neo4rs::query(UPSERT_NODE_QUERY)
-            .param("id", node.id.clone())
+            .param("id", node.id())
             .param("space_id", space_id)
             .param("created_at", block.timestamp.to_rfc3339())
             .param("created_at_block", block.block_number.to_string())
@@ -507,10 +507,35 @@ impl Client {
     pub async fn find_node_by_id<T: for<'a> Deserialize<'a> + Send>(
         &self,
         id: &str,
-    ) -> anyhow::Result<Option<T>> {
+    ) -> anyhow::Result<Option<Node<T>>> {
         let query = neo4rs::query("MATCH (n { id: $id }) RETURN n").param("id", id);
-        self.neo4j.find_one(query).await
+        self.neo4j.find_one::<neo4rs::Node>(query)
+            .await?
+            .map(|neo4j_node| {
+                Ok(Node::<T>::try_from(neo4j_node)?)
+            })
+            .transpose()
     }
+
+    // pub async fn find_node<T: for<'a> Deserialize<'a> + Send>(
+    //     &self,
+    //     query: neo4rs::Query,
+    // ) -> anyhow::Result<Option<Node<T>>> {
+    //     Ok(self.neo4j
+    //         .execute(query)
+    //         .await?
+    //         .next()
+    //         .await?
+    //         .map(|row| {
+    //             row.to::<neo4rs::Node>()
+    //                 .and_then(|neo4j_node| {
+    //                     let mut node = neo4j_node.to::<Node<T>>()?;
+    //                     node.types = neo4j_node.labels();
+    //                     Ok(node)
+    //                 })
+    //         })
+    //         .transpose()?)
+    // }
 
     pub async fn find_relation_by_id<T: for<'a> Deserialize<'a> + Send>(
         &self,

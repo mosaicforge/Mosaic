@@ -53,7 +53,7 @@ async fn main() -> anyhow::Result<()> {
                 .await?
                 .expect("Entity not found");
 
-            let entity = Entity::from_entity(kg_client.clone(), entity_node);
+            let entity = Entity::from_entity(kg_client.clone(), entity_node.attributes().clone());
 
             println!("Entity: {}", entity);
 

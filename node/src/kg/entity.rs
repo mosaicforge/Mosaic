@@ -67,7 +67,7 @@ impl Entity {
     }
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
 pub struct EntityNode {
     id: String,
     #[serde(default, rename = "a126ca530c8e48d5b88882c734c38935")]

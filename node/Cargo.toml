@@ -27,4 +27,7 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 const_format = "0.2.33"
 
+[dev-dependencies]
+serde_path_to_error = "0.1.16"
+
 

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use futures::TryStreamExt;
 use neo4rs::BoltType;
 use serde::{Deserialize, Serialize};
@@ -42,7 +44,10 @@ impl Neo4jExt for neo4rs::Graph {
             .await?
             .next()
             .await?
-            .map(|row| row.to())
+            .map(|row| {
+                tracing::info!("Row: {:?}", row.to::<neo4rs::Node>());
+                row.to()
+            })
             .transpose()?)
     }
 
