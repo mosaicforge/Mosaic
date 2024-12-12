@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use futures::{stream, StreamExt, TryStreamExt};
 use kg_core::system_ids;
-use kg_node::kg::mapping::{Named, Node};
+use indexer::kg::mapping::{Named, Node};
 use swc::config::SourceMapsConfig;
 use swc::PrintArgs;
 use swc_common::{sync::Lrc, SourceMap, Span};
@@ -39,7 +39,7 @@ pub fn ts_type_from_value_type(value_type: &Node<Named>) -> TsType {
     }
 }
 
-pub fn gen_type_constructor(kg: &kg_node::kg::Client, attributes: &[&(Node<Named>, Option<Node<Named>>)]) -> Constructor {
+pub fn gen_type_constructor(kg: &indexer::kg::Client, attributes: &[&(Node<Named>, Option<Node<Named>>)]) -> Constructor {
     let super_constructor = vec![quote_expr!("super(id, driver)")];
 
     let constuctor_setters = attributes.iter().map(|(attr, _)| {
@@ -159,7 +159,7 @@ impl EntityExt for Node<Named> {
 
 /// Generate a TypeScript class declaration from an entity.
 /// Note: The entity must be a `Type` entity.
-pub async fn gen_type(kg: &kg_node::kg::Client, entity: &Node<Named>) -> anyhow::Result<Decl> {
+pub async fn gen_type(kg: &indexer::kg::Client, entity: &Node<Named>) -> anyhow::Result<Decl> {
     let attrs = kg.attribute_nodes::<Named>(entity.id()).await?;
 
     let typed_attrs = stream::iter(attrs.unique().fix_name_collisions())
@@ -233,7 +233,7 @@ pub async fn gen_type(kg: &kg_node::kg::Client, entity: &Node<Named>) -> anyhow:
 }
 
 /// Generate a TypeScript module containing class definitions from all types in the knowledge graph.
-pub async fn gen_types(kg: &kg_node::kg::Client) -> anyhow::Result<Program> {
+pub async fn gen_types(kg: &indexer::kg::Client) -> anyhow::Result<Program> {
     let import_stmts = vec![
         quote!("import { Driver, Node } from 'neo4j-driver';" as ModuleItem),
         quote!("import { Entity } from './kg';" as ModuleItem),
@@ -266,7 +266,7 @@ pub async fn gen_types(kg: &kg_node::kg::Client) -> anyhow::Result<Program> {
 }
 
 /// Generate and render TypeScript code from the knowledge graph.
-pub async fn codegen(kg: &kg_node::kg::Client) -> anyhow::Result<String> {
+pub async fn codegen(kg: &indexer::kg::Client) -> anyhow::Result<String> {
     let cm: Lrc<SourceMap> = Default::default();
     let compiler = swc::Compiler::new(cm.clone());
 

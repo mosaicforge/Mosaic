@@ -134,10 +134,10 @@ dependencies = [
  "axum",
  "clap",
  "futures",
+ "indexer",
  "juniper",
  "juniper_axum",
  "juniper_graphql_ws",
- "kg-node",
  "serde",
  "serde_json",
  "serde_path_to_error",
@@ -1334,6 +1334,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb56e1aa765b4b4f3aadfab769793b7087bb03a4ea4920644a6d238e2df5b9ed"
 
 [[package]]
+name = "indexer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "const_format",
+ "futures",
+ "heck",
+ "ipfs",
+ "kg-core",
+ "md-5",
+ "neo4rs",
+ "prost",
+ "prost-types",
+ "reqwest 0.12.9",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "substreams-sink-rust",
+ "thiserror 2.0.3",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "web3-utils",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1511,10 +1539,10 @@ dependencies = [
  "anyhow",
  "clap",
  "futures",
+ "indexer",
  "ipfs",
  "kg-codegen",
  "kg-core",
- "kg-node",
  "tokio",
  "tracing-subscriber",
 ]
@@ -1526,8 +1554,8 @@ dependencies = [
  "anyhow",
  "futures",
  "heck",
+ "indexer",
  "kg-core",
- "kg-node",
  "swc",
  "swc_common",
  "swc_core",
@@ -1551,34 +1579,6 @@ dependencies = [
  "thiserror 2.0.3",
  "tracing",
  "uuid",
- "web3-utils",
-]
-
-[[package]]
-name = "kg-node"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "const_format",
- "futures",
- "heck",
- "ipfs",
- "kg-core",
- "md-5",
- "neo4rs",
- "prost",
- "prost-types",
- "reqwest 0.12.9",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "substreams-sink-rust",
- "thiserror 2.0.3",
- "tokio",
- "tracing",
- "tracing-subscriber",
  "web3-utils",
 ]
 

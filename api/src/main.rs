@@ -14,12 +14,12 @@ use juniper::{
     Executor, GraphQLScalar, RootNode, ScalarValue,
 };
 use juniper_axum::{extract::JuniperRequest, graphiql, playground, response::JuniperResponse};
-use kg_node::kg;
+use indexer::kg;
 use tokio::net::TcpListener;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Clone)]
-pub struct KnowledgeGraph(Arc<kg_node::kg::Client>);
+pub struct KnowledgeGraph(Arc<indexer::kg::Client>);
 
 impl juniper::Context for KnowledgeGraph {}
 
@@ -205,7 +205,7 @@ async fn main() -> anyhow::Result<()> {
 
     let args = AppArgs::parse();
 
-    let kg_client = kg_node::kg::Client::new(
+    let kg_client = indexer::kg::Client::new(
         &args.neo4j_args.neo4j_uri,
         &args.neo4j_args.neo4j_user,
         &args.neo4j_args.neo4j_pass,
@@ -233,7 +233,7 @@ async fn main() -> anyhow::Result<()> {
         .layer(Extension(Arc::new(schema)))
         .layer(Extension(KnowledgeGraph(Arc::new(kg_client))));
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
     let listener = TcpListener::bind(addr)
         .await
         .unwrap_or_else(|e| panic!("failed to listen on {addr}: {e}"));

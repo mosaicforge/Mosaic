@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use futures::{stream, StreamExt, TryStreamExt};
-use kg_node::kg::grc20;
-use kg_node::system_ids;
+use indexer::kg::grc20;
+use indexer::system_ids;
 use swc::config::SourceMapsConfig;
 use swc::PrintArgs;
 use swc_common::{sync::Lrc, SourceMap, Span, SyntaxContext};
