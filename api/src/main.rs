@@ -30,13 +30,13 @@ pub struct Query;
 #[graphql_object]
 #[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
 impl Query {
-    async fn node<'a, S: ScalarValue>(
+    async fn entity<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         id: String,
         space_id: Option<String>,
         version_id: Option<String>,
-    ) -> Option<Node> {
+    ) -> Option<Entity> {
         // let query = QueryMapper::default().select_root_node(&id, &executor.look_ahead()).build();
         // tracing::info!("Query: {}", query);
 
@@ -52,16 +52,16 @@ impl Query {
             .find_node::<HashMap<String, serde_json::Value>>(query)
             .await
             .expect("Failed to find node")
-            .map(Node::from)
+            .map(Entity::from)
     }
 }
 
 // Attributes GraphQL scalar
 #[derive(Clone, Debug, GraphQLScalar)]
-#[graphql(with = node_data)]
+#[graphql(with = attributes)]
 pub struct Attributes(HashMap<String, serde_json::Value>);
 
-mod node_data {
+mod attributes {
     use juniper::{InputValue, ParseScalarResult, ScalarToken, ScalarValue, Value};
 
     use super::*;
@@ -100,14 +100,14 @@ mod node_data {
 }
 
 #[derive(Clone, Debug)]
-pub struct Node {
+pub struct Entity {
     id: String,
     space_id: String,
     types: Vec<String>,
     attributes: Attributes,
 }
 
-impl From<kg::mapping::Node<HashMap<String, serde_json::Value>>> for Node {
+impl From<kg::mapping::Node<HashMap<String, serde_json::Value>>> for Entity {
     fn from(node: kg::mapping::Node<HashMap<String, serde_json::Value>>) -> Self {
         Self {
             id: node.id().to_string(),
@@ -120,7 +120,7 @@ impl From<kg::mapping::Node<HashMap<String, serde_json::Value>>> for Node {
 
 #[graphql_object]
 #[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
-impl Node {
+impl Entity {
     fn id(&self) -> &str {
         &self.id
     }
@@ -182,21 +182,21 @@ impl Relation {
         &self.attributes
     }
 
-    async fn from<'a, S: ScalarValue>(&'a self, executor: &'a Executor<'_, '_, KnowledgeGraph, S>) -> Node {
+    async fn from<'a, S: ScalarValue>(&'a self, executor: &'a Executor<'_, '_, KnowledgeGraph, S>) -> Entity {
         executor.context().0
             .find_node_from_relation::<HashMap<String, serde_json::Value>>(&self.id)
             .await
             .expect("Failed to find node")
-            .map(Node::from)
+            .map(Entity::from)
             .unwrap()
     }
 
-    async fn to<'a, S: ScalarValue>(&'a self, executor: &'a Executor<'_, '_, KnowledgeGraph, S>) -> Node {
+    async fn to<'a, S: ScalarValue>(&'a self, executor: &'a Executor<'_, '_, KnowledgeGraph, S>) -> Entity {
         executor.context().0
             .find_node_to_relation::<HashMap<String, serde_json::Value>>(&self.id)
             .await
             .expect("Failed to find node")
-            .map(Node::from)
+            .map(Entity::from)
             .unwrap()
     }
 }
