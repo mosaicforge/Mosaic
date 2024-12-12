@@ -38,7 +38,7 @@ impl EventHandler {
                 );
             }
             (Err(e), _) | (_, Err(e)) => {
-                return Err(HandlerError::Other(format!("{e:?}").into()));
+                Err(HandlerError::from(e))?;
             }
         };
 

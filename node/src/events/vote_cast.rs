@@ -61,9 +61,9 @@ impl EventHandler {
 
                         self.kg
                             .upsert_relation(
-                                INDEXER_SPACE_ID,
                                 block,
                                 Relation::new(
+                                    INDEXER_SPACE_ID,
                                     &vote_cast.id.clone(),
                                     &account.id,
                                     &proposal.id,

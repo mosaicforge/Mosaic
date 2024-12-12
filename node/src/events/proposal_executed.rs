@@ -23,9 +23,9 @@ impl EventHandler {
             proposal.status = models::ProposalStatus::Executed;
             self.kg
                 .upsert_node(
-                    system_ids::INDEXER_SPACE_ID,
+                    
                     block,
-                    Node::new(proposal.id.clone(), proposal),
+                    Node::new(&proposal.id, system_ids::INDEXER_SPACE_ID, proposal.clone()),
                 )
                 .await
                 .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;

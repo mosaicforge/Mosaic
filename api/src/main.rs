@@ -1,39 +1,53 @@
 //! This example demonstrates simple default integration with [`axum`].
 
-use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
+// use api::query_mapping::QueryMapper;
 use axum::{
     response::Html,
     routing::{get, on, MethodFilter},
     Extension, Router,
 };
 use clap::{Args, Parser};
-use futures::stream::{BoxStream, StreamExt as _};
 use juniper::{
-    graphql_object, graphql_subscription, graphql_value, EmptyMutation, EmptySubscription, FieldError, GraphQLInterface, GraphQLObject, GraphQLScalar, RootNode
+    graphql_object,EmptyMutation, EmptySubscription,
+    Executor, GraphQLScalar, RootNode, ScalarValue,
 };
-use juniper_axum::{graphiql, graphql, playground};
+use juniper_axum::{extract::JuniperRequest, graphiql, playground, response::JuniperResponse};
 use kg_node::kg;
-// use juniper_graphql_ws::ConnectionConfig;
-use tokio::{net::TcpListener, time::interval};
+use tokio::net::TcpListener;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-// use tokio_stream::wrappers::IntervalStream;
 
 #[derive(Clone)]
-pub struct Query {
-    kg_client: Arc<kg_node::kg::Client>,
-}
+pub struct KnowledgeGraph(Arc<kg_node::kg::Client>);
+
+impl juniper::Context for KnowledgeGraph {}
+
+
+#[derive(Clone)]
+pub struct Query;
 
 #[graphql_object]
+#[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
 impl Query {
-    async fn node(&self, id: String) -> Option<Node> {
-        self.kg_client.find_node_by_id::<HashMap<String, serde_json::Value>>(&id)
+    async fn node<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        id: String,
+        // context: &'a KnowledgeGraph,
+    ) -> Option<Node> {
+        // let query = QueryMapper::default().select_root_node(&id, &executor.look_ahead()).build();
+        // tracing::info!("Query: {}", query);
+
+        executor.context().0
+            .find_node_by_id::<HashMap<String, serde_json::Value>>(&id)
             .await
             .expect("Failed to find node")
             .map(Node::from)
     }
 }
 
+// Attributes GraphQL scalar
 #[derive(Clone, Debug, GraphQLScalar)]
 #[graphql(with = node_data)]
 pub struct Attributes(HashMap<String, serde_json::Value>);
@@ -76,35 +90,105 @@ mod node_data {
     }
 }
 
-#[derive(Clone, Debug, GraphQLObject)]
+#[derive(Clone, Debug)]
 pub struct Node {
     id: String,
+    space_id: String,
     types: Vec<String>,
     attributes: Attributes,
-    // relations_to: Vec<Relation>,
-    // relations_from: Vec<Relation>,
 }
 
-impl From<kg::mapping::Node<HashMap<String, serde_json::Value>>> for Node 
-{
+impl From<kg::mapping::Node<HashMap<String, serde_json::Value>>> for Node {
     fn from(node: kg::mapping::Node<HashMap<String, serde_json::Value>>) -> Self {
         Self {
             id: node.id().to_string(),
+            space_id: node.space_id().to_string(),
             types: node.types,
             attributes: Attributes(node.attributes.attributes),
         }
     }
 }
 
-pub struct Relation {
-    id: String,
-    type_id: String,
-    attributes: Attributes,
-    to: Node,
-    from: Node,
+#[graphql_object]
+#[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
+impl Node {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn types(&self) -> &[String] {
+        &self.types
+    }
+
+    fn attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    async fn relations<'a, S: ScalarValue>(&'a self, executor: &'a Executor<'_, '_, KnowledgeGraph, S>) -> Vec<Relation> {
+        executor.context().0
+            .find_relation_from_node::<HashMap<String, serde_json::Value>>(&self.id)
+            .await
+            .expect("Failed to find relations")
+            .into_iter()
+            .map(|rel| rel.into())
+            .collect::<Vec<_>>()
+    }
 }
 
-type Schema = RootNode<'static, Query, EmptyMutation, EmptySubscription>;
+#[derive(Clone, Debug)]
+pub struct Relation {
+    id: String,
+    r#type: String,
+    attributes: Attributes,
+    // to: Node,
+    // from: Node,
+}
+
+impl From<kg::mapping::Relation<HashMap<String, serde_json::Value>>> for Relation {
+    fn from(node: kg::mapping::Relation<HashMap<String, serde_json::Value>>) -> Self {
+        Self {
+            id: node.id().to_string(),
+            r#type: node.relation_type,
+            attributes: Attributes(node.attributes.attributes),
+        }
+    }
+}
+
+#[graphql_object]
+#[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
+impl Relation {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn r#type(&self) -> &str {
+        &self.r#type
+    }
+
+    fn attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    async fn from<'a, S: ScalarValue>(&'a self, executor: &'a Executor<'_, '_, KnowledgeGraph, S>) -> Node {
+        executor.context().0
+            .find_node_from_relation::<HashMap<String, serde_json::Value>>(&self.id)
+            .await
+            .expect("Failed to find node")
+            .map(Node::from)
+            .unwrap()
+    }
+
+    async fn to<'a, S: ScalarValue>(&'a self, executor: &'a Executor<'_, '_, KnowledgeGraph, S>) -> Node {
+        executor.context().0
+            .find_node_to_relation::<HashMap<String, serde_json::Value>>(&self.id)
+            .await
+            .expect("Failed to find node")
+            .map(Node::from)
+            .unwrap()
+    }
+}
+
+type Schema = RootNode<'static, Query, EmptyMutation<KnowledgeGraph>, EmptySubscription<KnowledgeGraph>>;
 
 async fn homepage() -> Html<&'static str> {
     "<html><h1>juniper_axum/simple example</h1>\
@@ -129,20 +213,15 @@ async fn main() -> anyhow::Result<()> {
     .await?;
 
     let schema = Schema::new(
-        Query {
-            kg_client: Arc::new(kg_client),
-        },
-        EmptyMutation::new(),
-        EmptySubscription::new(),
+        Query,
+        EmptyMutation::<KnowledgeGraph>::new(),
+        EmptySubscription::<KnowledgeGraph>::new(),
     );
 
     let app = Router::new()
         .route(
             "/graphql",
-            on(
-                MethodFilter::GET.or(MethodFilter::POST),
-                graphql::<Arc<Schema>>,
-            ),
+            on(MethodFilter::GET.or(MethodFilter::POST), custom_graphql),
         )
         // .route(
         //     "/subscriptions",
@@ -151,7 +230,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/graphiql", get(graphiql("/graphql", "/subscriptions")))
         .route("/playground", get(playground("/graphql", "/subscriptions")))
         .route("/", get(homepage))
-        .layer(Extension(Arc::new(schema)));
+        .layer(Extension(Arc::new(schema)))
+        .layer(Extension(KnowledgeGraph(Arc::new(kg_client))));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
     let listener = TcpListener::bind(addr)
@@ -163,6 +243,14 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or_else(|e| panic!("failed to run `axum::serve`: {e}"));
 
     Ok(())
+}
+
+async fn custom_graphql(
+    Extension(schema): Extension<Arc<Schema>>,
+    Extension(kg): Extension<KnowledgeGraph>,
+    JuniperRequest(request): JuniperRequest,
+) -> JuniperResponse {
+    JuniperResponse(request.execute(&*schema, &kg).await)
 }
 
 #[derive(Debug, Parser)]

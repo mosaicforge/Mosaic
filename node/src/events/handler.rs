@@ -5,7 +5,7 @@ use kg_core::{ids::create_geo_id, models::BlockMetadata, pb::geo::GeoOutput};
 use prost::Message;
 use substreams_sink_rust::pb::sf::substreams::rpc::v2::BlockScopedData;
 
-use crate::kg;
+use crate::kg::{self, client::DatabaseError};
 
 #[derive(thiserror::Error, Debug)]
 pub enum HandlerError {
@@ -14,6 +14,9 @@ pub enum HandlerError {
 
     #[error("prost error: {0}")]
     Prost(#[from] prost::DecodeError),
+
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] DatabaseError),
 
     // #[error("KG error: {0}")]
     // KgError(#[from] kg::Error),

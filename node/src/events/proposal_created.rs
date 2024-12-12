@@ -48,10 +48,10 @@ impl EventHandler {
 
                         self.kg
                             .upsert_node(
-                                INDEXER_SPACE_ID,
                                 block,
                                 Node::new(
-                                    subspace_proposal.id.clone(),
+                                    &subspace_proposal.id,
+                                    INDEXER_SPACE_ID,
                                     models::SubspaceProposal {
                                         proposal: Proposal {
                                             id: subspace_proposal.id.clone(),
@@ -109,10 +109,10 @@ impl EventHandler {
                         // Create relation between the proposal and the subspace
                         self.kg
                             .upsert_relation(
-                                INDEXER_SPACE_ID,
                                 block,
                                 Relation::new(
                                     &ids::create_geo_id(),
+                                    INDEXER_SPACE_ID,
                                     &subspace_proposal.id,
                                     &subspace.id,
                                     system_ids::PROPOSED_SUBSPACE,
@@ -125,10 +125,10 @@ impl EventHandler {
                         // Create relation between the proposal and the space
                         self.kg
                             .upsert_relation(
-                                INDEXER_SPACE_ID,
                                 block,
                                 Relation::new(
                                     &ids::create_geo_id(),
+                                    INDEXER_SPACE_ID,
                                     &space.id,
                                     &subspace_proposal.id,
                                     system_ids::PROPOSALS,
@@ -151,10 +151,10 @@ impl EventHandler {
 
                         self.kg
                             .upsert_node(
-                                INDEXER_SPACE_ID,
                                 block,
                                 Node::new(
-                                    editor_proposal.id.clone(),
+                                    &editor_proposal.id,
+                                    INDEXER_SPACE_ID,
                                     EditorshipProposal {
                                         proposal: Proposal {
                                             id: editor_proposal.id.clone(),
@@ -194,9 +194,9 @@ impl EventHandler {
                         // Create relation between the proposal and the editor
                         self.kg
                             .upsert_relation(
-                                INDEXER_SPACE_ID,
                                 block,
                                 Relation::new(
+                                    INDEXER_SPACE_ID,
                                     &ids::create_geo_id(),
                                     &editor_proposal.id,
                                     &GeoAccount::id_from_address(&editor_proposal.user),
@@ -210,9 +210,9 @@ impl EventHandler {
                         // Create relation between the space and the proposal
                         self.kg
                             .upsert_relation(
-                                INDEXER_SPACE_ID,
                                 block,
                                 Relation::new(
+                                    INDEXER_SPACE_ID,
                                     &ids::create_geo_id(),
                                     &space.id,
                                     &editor_proposal.id,
@@ -236,10 +236,10 @@ impl EventHandler {
 
                         self.kg
                             .upsert_node(
-                                INDEXER_SPACE_ID,
                                 block,
                                 Node::new(
-                                    member_proposal.id.clone(),
+                                    &member_proposal.id,
+                                    INDEXER_SPACE_ID,
                                     MembershipProposal {
                                         proposal: Proposal {
                                             id: member_proposal.id.clone(),
@@ -279,9 +279,9 @@ impl EventHandler {
                         // Create relation between the proposal and the member
                         self.kg
                             .upsert_relation(
-                                INDEXER_SPACE_ID,
                                 block,
                                 Relation::new(
+                                    INDEXER_SPACE_ID,
                                     &ids::create_geo_id(),
                                     &member_proposal.id,
                                     &GeoAccount::id_from_address(&member_proposal.user),
@@ -295,9 +295,9 @@ impl EventHandler {
                         // Create relation between the space and the proposal
                         self.kg
                             .upsert_relation(
-                                INDEXER_SPACE_ID,
                                 block,
                                 Relation::new(
+                                    INDEXER_SPACE_ID,
                                     &ids::create_geo_id(),
                                     &space.id,
                                     &member_proposal.id,

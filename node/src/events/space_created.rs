@@ -76,10 +76,10 @@ impl EventHandler {
 
                 self.kg
                     .upsert_node(
-                        system_ids::INDEXER_SPACE_ID,
                         block,
                         Node::new(
-                            space_id.to_string(),
+                            &space_id,
+                            system_ids::INDEXER_SPACE_ID,
                             Space {
                                 id: space_id.to_string(),
                                 network: network_ids::GEO.to_string(),
@@ -119,10 +119,10 @@ impl EventHandler {
         if let Some(space) = &space {
             self.kg
                 .upsert_node(
-                    system_ids::INDEXER_SPACE_ID,
                     block,
                     Node::new(
-                        space.id.clone(),
+                        &space.id,
+                        system_ids::INDEXER_SPACE_ID,
                         Space {
                             r#type: SpaceType::Personal,
                             personal_space_admin_plugin: Some(checksum_address(
@@ -185,10 +185,10 @@ impl EventHandler {
 
             self.kg
                 .upsert_node(
-                    system_ids::INDEXER_SPACE_ID,
                     block,
                     Node::new(
-                        space.id.clone(),
+                        &space.id.clone(),
+                        system_ids::INDEXER_SPACE_ID,
                         Space {
                             voting_plugin_address: Some(checksum_address(
                                 &governance_plugin_created.main_voting_address,

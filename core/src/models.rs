@@ -120,7 +120,7 @@ pub struct VoteCast {
     pub vote_type: VoteType,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ProposalType {
     AddEdit,
@@ -151,7 +151,7 @@ impl TryFrom<pb::ipfs::ActionType> for ProposalType {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub enum ProposalStatus {
     Proposed,
     Accepted,
@@ -160,7 +160,7 @@ pub enum ProposalStatus {
     Executed,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Proposal {
     pub id: String,
     pub onchain_proposal_id: String,
