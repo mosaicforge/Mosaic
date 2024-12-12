@@ -14,12 +14,12 @@ use juniper::{
     Executor, GraphQLScalar, RootNode, ScalarValue,
 };
 use juniper_axum::{extract::JuniperRequest, graphiql, playground, response::JuniperResponse};
-use indexer::kg;
+use sink::kg;
 use tokio::net::TcpListener;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Clone)]
-pub struct KnowledgeGraph(Arc<indexer::kg::Client>);
+pub struct KnowledgeGraph(Arc<sink::kg::Client>);
 
 impl juniper::Context for KnowledgeGraph {}
 
@@ -205,7 +205,7 @@ async fn main() -> anyhow::Result<()> {
 
     let args = AppArgs::parse();
 
-    let kg_client = indexer::kg::Client::new(
+    let kg_client = sink::kg::Client::new(
         &args.neo4j_args.neo4j_uri,
         &args.neo4j_args.neo4j_user,
         &args.neo4j_args.neo4j_pass,

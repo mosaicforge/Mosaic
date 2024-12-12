@@ -1,13 +1,11 @@
 use clap::{Args, Parser, Subcommand};
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::IpfsClient;
-use kg_core::ids;
-use kg_core::pb::grc20;
-use indexer::kg::{
+use sdk::{ids, pb::grc20};
+use sink::{kg::{
     self,
     entity::{Entity, EntityNode},
-};
-use indexer::ops::conversions;
+}, ops::conversions};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -67,7 +65,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         Command::Codegen => {
-            let code = kg_codegen::codegen(&kg_client).await?;
+            let code = codegen::codegen(&kg_client).await?;
             std::fs::write("./src/space.ts", code)?;
             println!("Generated code has been written to ./src/space.ts");
         }

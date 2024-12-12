@@ -17,7 +17,7 @@ tokio = { version = "1.42.0", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 
-indexer = { version = "0.1.0", path = "../indexer" }
+sink = { version = "0.1.0", path = "../sink" }
 
 [dev-dependencies]
 serde_path_to_error = "0.1.16"

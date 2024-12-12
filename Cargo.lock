@@ -134,13 +134,13 @@ dependencies = [
  "axum",
  "clap",
  "futures",
- "indexer",
  "juniper",
  "juniper_axum",
  "juniper_graphql_ws",
  "serde",
  "serde_json",
  "serde_path_to_error",
+ "sink",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -544,6 +544,24 @@ name = "clap_lex"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6"
+
+[[package]]
+name = "codegen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "heck",
+ "sdk",
+ "sink",
+ "swc",
+ "swc_common",
+ "swc_core",
+ "swc_ecma_ast",
+ "swc_ecma_codegen",
+ "swc_ecma_parser",
+ "tracing",
+]
 
 [[package]]
 name = "colorchoice"
@@ -1334,34 +1352,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb56e1aa765b4b4f3aadfab769793b7087bb03a4ea4920644a6d238e2df5b9ed"
 
 [[package]]
-name = "indexer"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "const_format",
- "futures",
- "heck",
- "ipfs",
- "kg-core",
- "md-5",
- "neo4rs",
- "prost",
- "prost-types",
- "reqwest 0.12.9",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "substreams-sink-rust",
- "thiserror 2.0.3",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "web3-utils",
-]
-
-[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1538,48 +1528,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "codegen",
  "futures",
- "indexer",
  "ipfs",
- "kg-codegen",
- "kg-core",
+ "sdk",
+ "sink",
  "tokio",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "kg-codegen"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "futures",
- "heck",
- "indexer",
- "kg-core",
- "swc",
- "swc_common",
- "swc_core",
- "swc_ecma_ast",
- "swc_ecma_codegen",
- "swc_ecma_parser",
- "tracing",
-]
-
-[[package]]
-name = "kg-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "md-5",
- "neo4rs",
- "prost",
- "rand",
- "serde",
- "thiserror 2.0.3",
- "tracing",
- "uuid",
- "web3-utils",
 ]
 
 [[package]]
@@ -2557,6 +2512,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
+name = "sdk"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "md-5",
+ "neo4rs",
+ "prost",
+ "rand",
+ "serde",
+ "thiserror 2.0.3",
+ "tracing",
+ "uuid",
+ "web3-utils",
+]
+
+[[package]]
 name = "security-framework"
 version = "2.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2712,6 +2684,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "sink"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "const_format",
+ "futures",
+ "heck",
+ "ipfs",
+ "md-5",
+ "neo4rs",
+ "prost",
+ "prost-types",
+ "reqwest 0.12.9",
+ "sdk",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "substreams-utils",
+ "thiserror 2.0.3",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "web3-utils",
+]
+
+[[package]]
 name = "siphasher"
 version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2849,7 +2849,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
-name = "substreams-sink-rust"
+name = "substreams-utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
