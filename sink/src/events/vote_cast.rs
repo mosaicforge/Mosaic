@@ -6,7 +6,7 @@ use sdk::{
 };
 use web3_utils::checksum_address;
 
-use crate::{kg::mapping::Relation, neo4j_utils::Neo4jExt};
+use crate::kg::mapping::Relation;
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -24,8 +24,8 @@ impl EventHandler {
         ) {
             // Space found
             (Ok(Some(space)), Ok(_)) | (Ok(None), Ok(Some(space))) => {
-                let proposal = self.kg.neo4j
-                    .find_one::<models::Proposal>(neo4rs::query(&format!(
+                let proposal = self.kg
+                    .find_node::<models::Proposal>(neo4rs::query(&format!(
                         "MATCH (p:`{PROPOSAL_TYPE}` {{onchain_proposal_id: $onchain_proposal_id}})<-[:`{PROPOSALS}`]-(:`{INDEXED_SPACE}` {{id: $space_id}}) RETURN p",
                         PROPOSAL_TYPE = system_ids::PROPOSAL_TYPE,
                         PROPOSALS = system_ids::PROPOSALS,
@@ -38,8 +38,7 @@ impl EventHandler {
 
                 let account = self
                     .kg
-                    .neo4j
-                    .find_one::<models::GeoAccount>(
+                    .find_node::<models::GeoAccount>(
                         neo4rs::query(&format!(
                             "MATCH (a:`{ACCOUNT}` {{address: $address}}) RETURN a",
                             ACCOUNT = system_ids::GEO_ACCOUNT,
@@ -65,8 +64,8 @@ impl EventHandler {
                                 Relation::new(
                                     INDEXER_SPACE_ID,
                                     &vote_cast.id.clone(),
-                                    &account.id,
-                                    &proposal.id,
+                                    &account.id(),
+                                    &proposal.id(),
                                     system_ids::VOTE_CAST,
                                     vote_cast,
                                 ),

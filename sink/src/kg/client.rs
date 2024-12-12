@@ -632,7 +632,7 @@ impl Client {
         self.find_nodes::<T>(query).await
     }
 
-    pub async fn value_type_nodes<T: for<'a> Deserialize<'a> + Send>(&self, id: &str) -> Result<Option<Node<T>>, DatabaseError> {
+    pub async fn value_type_node<T: for<'a> Deserialize<'a> + Send>(&self, id: &str) -> Result<Option<Node<T>>, DatabaseError> {
         let query = neo4rs::query(&format!(
             r#"
             MATCH (a {{id: $id}}) -[:`{value_type_attr}`]-> (t:`{type_type}`)
@@ -699,30 +699,5 @@ impl Client {
             .await?;
 
         Ok(())
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Entity {
-    pub id: String,
-    pub name: Option<String>,
-    pub description: Option<String>,
-    pub cover: Option<String>,
-    pub content: Option<String>,
-}
-
-impl Entity {
-    pub fn new(id: &str, name: &str) -> Self {
-        Self {
-            id: id.to_string(),
-            name: Some(name.to_string()),
-            description: None,
-            cover: None,
-            content: None,
-        }
-    }
-
-    pub fn find_by_id_query(id: &str) -> neo4rs::Query {
-        neo4rs::query("MATCH (n { id: $id }) RETURN n").param("id", id)
     }
 }

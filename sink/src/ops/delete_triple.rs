@@ -1,6 +1,4 @@
-use crate::kg::client::Entity;
-
-use crate::neo4j_utils::Neo4jExt;
+use crate::kg::mapping::DefaultAttributes;
 use crate::ops::KgOp;
 
 pub struct DeleteTriple {
@@ -11,10 +9,9 @@ pub struct DeleteTriple {
 impl KgOp for DeleteTriple {
     async fn apply_op(&self, kg: &crate::kg::client::Client, space_id: &str) -> anyhow::Result<()> {
         let entity_name = kg
-            .neo4j
-            .find_one::<Entity>(Entity::find_by_id_query(&self.entity_id))
+            .find_node_by_id::<DefaultAttributes>(&self.entity_id)
             .await?
-            .and_then(|entity| entity.name)
+            .and_then(|entity| entity.name())
             .unwrap_or(self.entity_id.to_string());
 
         let attribute_name = kg

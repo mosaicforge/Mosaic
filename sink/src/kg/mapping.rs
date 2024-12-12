@@ -161,6 +161,10 @@ impl Node<DefaultAttributes> {
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
     }
+
+    pub fn name_or_id(&self) -> String {
+        self.name().unwrap_or_else(|| self.id().to_string())
+    }
 }
 
 pub type DefaultAttributes = HashMap<String, serde_json::Value>;

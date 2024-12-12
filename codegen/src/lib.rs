@@ -164,7 +164,7 @@ pub async fn gen_type(kg: &sink::kg::Client, entity: &Node<Named>) -> anyhow::Re
 
     let typed_attrs = stream::iter(attrs.unique().fix_name_collisions())
         .then(|attr| async move {
-            let value_type = kg.value_type_nodes(attr.id()).await?;
+            let value_type = kg.value_type_node(attr.id()).await?;
             Ok::<_, anyhow::Error>((attr, value_type))
         })
         .try_collect::<Vec<_>>()

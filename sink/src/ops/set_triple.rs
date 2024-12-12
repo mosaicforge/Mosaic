@@ -1,8 +1,6 @@
 use sdk::system_ids;
 
-use crate::kg::entity::EntityNode;
-
-use crate::ops::{KgOp, Value};
+use crate::{kg::mapping::DefaultAttributes, ops::{KgOp, Value}};
 
 pub struct SetTriple {
     pub entity_id: String,
@@ -40,7 +38,7 @@ impl KgOp for SetTriple {
         match (self.attribute_id.as_str(), &self.value) {
             (system_ids::TYPES, Value::Entity(value)) => {
                 if kg
-                    .find_relation_by_id::<EntityNode>(&self.entity_id)
+                    .find_relation_by_id::<DefaultAttributes>(&self.entity_id)
                     .await?
                     .is_some()
                 {
@@ -101,7 +99,7 @@ impl KgOp for SetTriple {
                 }
 
                 if kg
-                    .find_relation_by_id::<EntityNode>(&self.entity_id)
+                    .find_relation_by_id::<DefaultAttributes>(&self.entity_id)
                     .await?
                     .is_some()
                 {
@@ -125,7 +123,7 @@ impl KgOp for SetTriple {
             }
             (attribute_id, value) => {
                 if kg
-                    .find_relation_by_id::<EntityNode>(&self.entity_id)
+                    .find_relation_by_id::<DefaultAttributes>(&self.entity_id)
                     .await?
                     .is_some()
                 {
