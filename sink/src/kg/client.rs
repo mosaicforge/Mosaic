@@ -608,7 +608,6 @@ impl Client {
             .next()
             .await?
             .map(|row| {
-                tracing::info!("Row: {:?}", row.to::<neo4rs::Relation>());
                 Ok::<_, DatabaseError>(Relation::<T>::try_from(row.to::<neo4rs::Relation>()?)?)
             })
             .transpose()?)

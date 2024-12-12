@@ -137,6 +137,7 @@ dependencies = [
  "juniper",
  "juniper_axum",
  "juniper_graphql_ws",
+ "sdk",
  "serde",
  "serde_json",
  "serde_path_to_error",

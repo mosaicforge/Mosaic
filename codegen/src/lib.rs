@@ -39,7 +39,7 @@ pub fn ts_type_from_value_type(value_type: &Node<Named>) -> TsType {
     }
 }
 
-pub fn gen_type_constructor(kg: &sink::kg::Client, attributes: &[&(Node<Named>, Option<Node<Named>>)]) -> Constructor {
+pub fn gen_type_constructor(attributes: &[&(Node<Named>, Option<Node<Named>>)]) -> Constructor {
     let super_constructor = vec![quote_expr!("super(id, driver)")];
 
     let constuctor_setters = attributes.iter().map(|(attr, _)| {
@@ -225,7 +225,7 @@ pub async fn gen_type(kg: &sink::kg::Client, entity: &Node<Named>) -> anyhow::Re
     Ok(Decl::Class(class(
         entity.type_name(),
         attribute_class_props,
-        Some(gen_type_constructor(kg, &attributes)),
+        Some(gen_type_constructor(&attributes)),
         relation_methods,
         vec![],
         Some(ident("Entity")),

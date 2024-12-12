@@ -34,13 +34,22 @@ impl Query {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         id: String,
-        // context: &'a KnowledgeGraph,
+        space_id: Option<String>,
+        version_id: Option<String>,
     ) -> Option<Node> {
         // let query = QueryMapper::default().select_root_node(&id, &executor.look_ahead()).build();
         // tracing::info!("Query: {}", query);
 
+        let query = match (space_id, version_id) {
+            (Some(space_id), _) => sdk::neo4rs::query("MATCH (n {id: $id, space_id: $space_id}) RETURN n")
+                .param("id", id)
+                .param("space_id", space_id),
+            (None, _) => sdk::neo4rs::query("MATCH (n {id: $id}) RETURN n")
+                .param("id", id)
+        };
+
         executor.context().0
-            .find_node_by_id::<HashMap<String, serde_json::Value>>(&id)
+            .find_node::<HashMap<String, serde_json::Value>>(query)
             .await
             .expect("Failed to find node")
             .map(Node::from)
@@ -114,6 +123,10 @@ impl From<kg::mapping::Node<HashMap<String, serde_json::Value>>> for Node {
 impl Node {
     fn id(&self) -> &str {
         &self.id
+    }
+
+    fn space_id(&self) -> &str {
+        &self.space_id
     }
 
     fn types(&self) -> &[String] {
