@@ -1,8 +1,8 @@
 use chrono::DateTime;
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::IpfsClient;
-use sdk::{ids::create_geo_id, models::BlockMetadata, pb::geo::GeoOutput};
 use prost::Message;
+use sdk::{ids::create_geo_id, models::BlockMetadata, pb::geo::GeoOutput};
 use substreams_utils::pb::sf::substreams::rpc::v2::BlockScopedData;
 
 use crate::kg::{self, client::DatabaseError};

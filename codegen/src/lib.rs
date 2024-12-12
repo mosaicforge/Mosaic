@@ -116,7 +116,8 @@ impl<I: IntoIterator<Item = Node<Named>>> EntitiesExt<Named> for I {
             .map(|mut entity| {
                 let count = name_counts.get(&entity.name_or_id()).unwrap();
                 if *count > 1 {
-                    entity.attributes_mut().name = Some(format!("{}_{}", entity.name_or_id(), entity.id()));
+                    entity.attributes_mut().name =
+                        Some(format!("{}_{}", entity.name_or_id(), entity.id()));
                 }
                 entity
             })

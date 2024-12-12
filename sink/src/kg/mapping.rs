@@ -30,13 +30,24 @@ where
 }
 
 impl<T> Relation<T> {
-    pub fn new(id: &str, space_id: &str, from: &str, to: &str, relation_type: &str, data: T) -> Self {
+    pub fn new(
+        id: &str,
+        space_id: &str,
+        from: &str,
+        to: &str,
+        relation_type: &str,
+        data: T,
+    ) -> Self {
         Self {
             // id: id.to_string(),
             from: from.to_string(),
             to: to.to_string(),
             relation_type: relation_type.to_string(),
-            attributes: Attributes { id: id.to_string(), space_id: space_id.to_string(), attributes: data },
+            attributes: Attributes {
+                id: id.to_string(),
+                space_id: space_id.to_string(),
+                attributes: data,
+            },
         }
     }
 
@@ -149,15 +160,15 @@ impl Node<HashMap<String, neo4rs::BoltType>> {
     where
         T: Into<neo4rs::BoltType>,
     {
-        self.attributes_mut()
-            .insert(attribute_id, value.into());
+        self.attributes_mut().insert(attribute_id, value.into());
         self
     }
 }
 
 impl Node<DefaultAttributes> {
     pub fn name(&self) -> Option<String> {
-        self.attributes().get("name")
+        self.attributes()
+            .get("name")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
     }
@@ -229,9 +240,10 @@ mod tests {
             },
         });
 
-        let node: Node<HashMap<String, serde_json::Value>> = node.try_into()
+        let node: Node<HashMap<String, serde_json::Value>> = node
+            .try_into()
             .expect("Failed to convert neo4rs::Node to Node<HashMap<String, neo4rs::BoltType>>");
-    
+
         assert_eq!(
             node,
             Node {
@@ -239,12 +251,10 @@ mod tests {
                 attributes: Attributes {
                     id: "98wgvodwzidmVA4ryVzGX6".to_string(),
                     space_id: "NBDtpHimvrkmVu7vVBXX7b".to_string(),
-                    attributes: HashMap::from([
-                        (
-                            "GG8Z4cSkjv8CywbkLqVU5M".to_string(),
-                            serde_json::Value::String("Person Posts Page Template".to_string())
-                        ),
-                    ])
+                    attributes: HashMap::from([(
+                        "GG8Z4cSkjv8CywbkLqVU5M".to_string(),
+                        serde_json::Value::String("Person Posts Page Template".to_string())
+                    ),])
                 }
             }
         )

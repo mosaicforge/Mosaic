@@ -73,7 +73,8 @@ impl Client {
     ) -> Result<(), DatabaseError> {
         self.upsert_node(
             block,
-            Node::new(&space.id, system_ids::INDEXER_SPACE_ID, space.clone()).with_type(system_ids::INDEXED_SPACE),
+            Node::new(&space.id, system_ids::INDEXER_SPACE_ID, space.clone())
+                .with_type(system_ids::INDEXED_SPACE),
         )
         .await
     }
@@ -88,7 +89,8 @@ impl Client {
         ))
         .param("dao_contract_address", checksum_address(dao_address, None));
 
-        Ok(self.find_node::<Space>(query)
+        Ok(self
+            .find_node::<Space>(query)
             .await?
             .map(|node| node.attributes.attributes))
     }
@@ -106,7 +108,8 @@ impl Client {
             checksum_address(plugin_address, None),
         );
 
-        Ok(self.find_node::<Space>(query)
+        Ok(self
+            .find_node::<Space>(query)
             .await?
             .map(|node| node.attributes.attributes))
     }
@@ -124,7 +127,8 @@ impl Client {
             checksum_address(voting_plugin_address, None),
         );
 
-        Ok(self.find_node::<Space>(query)
+        Ok(self
+            .find_node::<Space>(query)
             .await?
             .map(|node| node.attributes.attributes))
     }
@@ -142,7 +146,8 @@ impl Client {
             checksum_address(member_access_plugin, None),
         );
 
-        Ok(self.find_node::<Space>(query)
+        Ok(self
+            .find_node::<Space>(query)
             .await?
             .map(|node| node.attributes.attributes))
     }
@@ -160,7 +165,8 @@ impl Client {
             checksum_address(personal_space_admin_plugin, None),
         );
 
-        Ok(self.find_node::<Space>(query)
+        Ok(self
+            .find_node::<Space>(query)
             .await?
             .map(|node| node.attributes.attributes))
     }
@@ -177,7 +183,8 @@ impl Client {
         .param("proposal_id", proposal_id)
         .param("plugin_address", plugin_address);
 
-        Ok(self.find_node::<Proposal>(query)
+        Ok(self
+            .find_node::<Proposal>(query)
             .await?
             .map(|node| node.attributes.attributes))
     }
@@ -214,7 +221,8 @@ impl Client {
     ) -> anyhow::Result<()> {
         self.upsert_node(
             block,
-            Node::new(&account.id, system_ids::INDEXER_SPACE_ID,account.clone()).with_type(system_ids::GEO_ACCOUNT),
+            Node::new(&account.id, system_ids::INDEXER_SPACE_ID, account.clone())
+                .with_type(system_ids::GEO_ACCOUNT),
         )
         .await?;
 
@@ -304,7 +312,8 @@ impl Client {
     ) -> anyhow::Result<()> {
         self.upsert_node(
             block,
-            Node::new(&account.id, system_ids::INDEXER_SPACE_ID, account.clone()).with_type(system_ids::GEO_ACCOUNT),
+            Node::new(&account.id, system_ids::INDEXER_SPACE_ID, account.clone())
+                .with_type(system_ids::GEO_ACCOUNT),
         )
         .await?;
 
@@ -453,7 +462,7 @@ impl Client {
             UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
         );
 
-        let bolt_data = match serde_value_to_bolt(serde_json::to_value(&relation.attributes())?) {
+        let bolt_data = match serde_value_to_bolt(serde_json::to_value(relation.attributes())?) {
             neo4rs::BoltType::Map(map) => neo4rs::BoltType::Map(map),
             _ => neo4rs::BoltType::Map(Default::default()),
         };
@@ -501,7 +510,7 @@ impl Client {
             UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
         );
 
-        let bolt_data = match serde_value_to_bolt(serde_json::to_value(&node.attributes())?) {
+        let bolt_data = match serde_value_to_bolt(serde_json::to_value(node.attributes())?) {
             neo4rs::BoltType::Map(map) => neo4rs::BoltType::Map(map),
             _ => neo4rs::BoltType::Map(Default::default()),
         };
@@ -526,15 +535,14 @@ impl Client {
         id: &str,
     ) -> Result<Option<Node<T>>, DatabaseError> {
         let query = neo4rs::query("MATCH (n { id: $id }) RETURN n").param("id", id);
-        self.find_node::<T>(query)
-            .await
+        self.find_node::<T>(query).await
     }
 
     pub async fn find_node<T: for<'a> Deserialize<'a> + Send>(
         &self,
         query: neo4rs::Query,
     ) -> Result<Option<Node<T>>, DatabaseError> {
-        Ok(self.neo4j
+        self.neo4j
             .execute(query)
             .await?
             .next()
@@ -543,41 +551,39 @@ impl Client {
                 tracing::info!("Row: {:?}", row.to::<neo4rs::Node>());
                 Ok::<_, DatabaseError>(Node::<T>::try_from(row.to::<neo4rs::Node>()?)?)
             })
-            .transpose()?)
+            .transpose()
     }
 
     pub async fn find_nodes<T: for<'a> Deserialize<'a> + Send>(
         &self,
         query: neo4rs::Query,
     ) -> anyhow::Result<Vec<Node<T>>, DatabaseError> {
-        Ok(self.neo4j
+        self.neo4j
             .execute(query)
             .await?
             .into_stream_as::<neo4rs::Node>()
             .map_err(DatabaseError::from)
-            .and_then(|neo4j_node| async move {
-                Ok(Node::<T>::try_from(neo4j_node)?)
-            })
+            .and_then(|neo4j_node| async move { Ok(Node::<T>::try_from(neo4j_node)?) })
             .try_collect::<Vec<_>>()
-            .await?)
+            .await
     }
 
     pub async fn find_node_from_relation<T: for<'a> Deserialize<'a> + Send>(
         &self,
         relation_id: &str,
     ) -> Result<Option<Node<T>>, DatabaseError> {
-        let query = neo4rs::query("MATCH (n) -[r {id: $id}]-> () RETURN n").param("id", relation_id);
-        self.find_node::<T>(query)
-            .await
+        let query =
+            neo4rs::query("MATCH (n) -[r {id: $id}]-> () RETURN n").param("id", relation_id);
+        self.find_node::<T>(query).await
     }
 
     pub async fn find_node_to_relation<T: for<'a> Deserialize<'a> + Send>(
         &self,
         relation_id: &str,
     ) -> Result<Option<Node<T>>, DatabaseError> {
-        let query = neo4rs::query("MATCH () -[r {id: $id}]-> (n) RETURN n").param("id", relation_id);
-        self.find_node::<T>(query)
-            .await
+        let query =
+            neo4rs::query("MATCH () -[r {id: $id}]-> (n) RETURN n").param("id", relation_id);
+        self.find_node::<T>(query).await
     }
 
     pub async fn find_relation_by_id<T: for<'a> Deserialize<'a> + Send>(
@@ -585,8 +591,7 @@ impl Client {
         id: &str,
     ) -> Result<Option<Relation<T>>, DatabaseError> {
         let query = neo4rs::query("MATCH () -[r]-> () WHERE r.id = $id RETURN r").param("id", id);
-        self.find_relation::<T>(query)
-            .await
+        self.find_relation::<T>(query).await
     }
 
     pub async fn find_relation_from_node<T: for<'a> Deserialize<'a> + Send>(
@@ -594,15 +599,14 @@ impl Client {
         node_id: &str,
     ) -> Result<Vec<Relation<T>>, DatabaseError> {
         let query = neo4rs::query("MATCH (n {id: $id}) -[r]-> () RETURN r").param("id", node_id);
-        self.find_relations::<T>(query)
-            .await
+        self.find_relations::<T>(query).await
     }
 
     pub async fn find_relation<T: for<'a> Deserialize<'a> + Send>(
         &self,
         query: neo4rs::Query,
     ) -> Result<Option<Relation<T>>, DatabaseError> {
-        Ok(self.neo4j
+        self.neo4j
             .execute(query)
             .await?
             .next()
@@ -610,7 +614,7 @@ impl Client {
             .map(|row| {
                 Ok::<_, DatabaseError>(Relation::<T>::try_from(row.to::<neo4rs::Relation>()?)?)
             })
-            .transpose()?)
+            .transpose()
     }
 
     pub async fn attribute_nodes<T: for<'a> Deserialize<'a> + Send>(
@@ -631,7 +635,10 @@ impl Client {
         self.find_nodes::<T>(query).await
     }
 
-    pub async fn value_type_node<T: for<'a> Deserialize<'a> + Send>(&self, id: &str) -> Result<Option<Node<T>>, DatabaseError> {
+    pub async fn value_type_node<T: for<'a> Deserialize<'a> + Send>(
+        &self,
+        id: &str,
+    ) -> Result<Option<Node<T>>, DatabaseError> {
         let query = neo4rs::query(&format!(
             r#"
             MATCH (a {{id: $id}}) -[:`{value_type_attr}`]-> (t:`{type_type}`)
@@ -643,7 +650,7 @@ impl Client {
             name_attr = system_ids::NAME,
         ))
         .param("id", id);
-        
+
         self.find_node::<T>(query).await
     }
 
@@ -651,16 +658,14 @@ impl Client {
         &self,
         query: neo4rs::Query,
     ) -> anyhow::Result<Vec<Relation<T>>, DatabaseError> {
-        Ok(self.neo4j
+        self.neo4j
             .execute(query)
             .await?
             .into_stream_as::<neo4rs::Relation>()
             .map_err(DatabaseError::from)
-            .and_then(|neo4j_rel| async move {
-                Ok(Relation::<T>::try_from(neo4j_rel)?)
-            })
+            .and_then(|neo4j_rel| async move { Ok(Relation::<T>::try_from(neo4j_rel)?) })
             .try_collect::<Vec<_>>()
-            .await?)
+            .await
     }
 
     pub async fn get_name(&self, entity_id: &str) -> anyhow::Result<Option<String>> {
@@ -670,7 +675,7 @@ impl Client {
         }
 
         let query = neo4rs::query("MATCH (n { id: $id }) RETURN n.name").param("id", entity_id);
-        
+
         match self
             .find_node::<Named>(query)
             .await?
@@ -683,7 +688,9 @@ impl Client {
         }
     }
 
-    pub async fn find_types<T: for<'a> Deserialize<'a> + Send>(&self) -> Result<Vec<Node<T>>, DatabaseError> {
+    pub async fn find_types<T: for<'a> Deserialize<'a> + Send>(
+        &self,
+    ) -> Result<Vec<Node<T>>, DatabaseError> {
         let query = neo4rs::query(&format!("MATCH (t:`{}`) RETURN t", system_ids::SCHEMA_TYPE));
         self.find_nodes::<T>(query).await
     }

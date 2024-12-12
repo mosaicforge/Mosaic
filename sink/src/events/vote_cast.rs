@@ -64,8 +64,8 @@ impl EventHandler {
                                 Relation::new(
                                     INDEXER_SPACE_ID,
                                     &vote_cast.id.clone(),
-                                    &account.id(),
-                                    &proposal.id(),
+                                    account.id(),
+                                    proposal.id(),
                                     system_ids::VOTE_CAST,
                                     vote_cast,
                                 ),

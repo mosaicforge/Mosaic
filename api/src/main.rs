@@ -10,8 +10,8 @@ use axum::{
 };
 use clap::{Args, Parser};
 use juniper::{
-    graphql_object,EmptyMutation, EmptySubscription,
-    Executor, GraphQLScalar, RootNode, ScalarValue,
+    graphql_object, EmptyMutation, EmptySubscription, Executor, GraphQLScalar, RootNode,
+    ScalarValue,
 };
 use juniper_axum::{extract::JuniperRequest, graphiql, playground, response::JuniperResponse};
 use sink::kg;
@@ -22,7 +22,6 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 pub struct KnowledgeGraph(Arc<sink::kg::Client>);
 
 impl juniper::Context for KnowledgeGraph {}
-
 
 #[derive(Clone)]
 pub struct Query;
@@ -41,14 +40,17 @@ impl Query {
         // tracing::info!("Query: {}", query);
 
         let query = match (space_id, version_id) {
-            (Some(space_id), _) => sdk::neo4rs::query("MATCH (n {id: $id, space_id: $space_id}) RETURN n")
-                .param("id", id)
-                .param("space_id", space_id),
-            (None, _) => sdk::neo4rs::query("MATCH (n {id: $id}) RETURN n")
-                .param("id", id)
+            (Some(space_id), _) => {
+                sdk::neo4rs::query("MATCH (n {id: $id, space_id: $space_id}) RETURN n")
+                    .param("id", id)
+                    .param("space_id", space_id)
+            }
+            (None, _) => sdk::neo4rs::query("MATCH (n {id: $id}) RETURN n").param("id", id),
         };
 
-        executor.context().0
+        executor
+            .context()
+            .0
             .find_node::<HashMap<String, serde_json::Value>>(query)
             .await
             .expect("Failed to find node")
@@ -86,7 +88,7 @@ mod attributes {
         ))
     }
 
-    pub(super) fn from_input<S: ScalarValue>(v: &InputValue<S>) -> Result<Attributes, String> {
+    pub(super) fn from_input<S: ScalarValue>(_v: &InputValue<S>) -> Result<Attributes, String> {
         // v.as_string_value()
         //     .map(|s| StringOrInt::String(s.into()))
         //     .or_else(|| v.as_int_value().map(StringOrInt::Int))
@@ -94,7 +96,7 @@ mod attributes {
         unimplemented!()
     }
 
-    pub(super) fn parse_token<S: ScalarValue>(t: ScalarToken<'_>) -> ParseScalarResult<S> {
+    pub(super) fn parse_token<S: ScalarValue>(_t: ScalarToken<'_>) -> ParseScalarResult<S> {
         unimplemented!()
     }
 }
@@ -137,8 +139,13 @@ impl Entity {
         &self.attributes
     }
 
-    async fn relations<'a, S: ScalarValue>(&'a self, executor: &'a Executor<'_, '_, KnowledgeGraph, S>) -> Vec<Relation> {
-        executor.context().0
+    async fn relations<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> Vec<Relation> {
+        executor
+            .context()
+            .0
             .find_relation_from_node::<HashMap<String, serde_json::Value>>(&self.id)
             .await
             .expect("Failed to find relations")
@@ -182,8 +189,13 @@ impl Relation {
         &self.attributes
     }
 
-    async fn from<'a, S: ScalarValue>(&'a self, executor: &'a Executor<'_, '_, KnowledgeGraph, S>) -> Entity {
-        executor.context().0
+    async fn from<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> Entity {
+        executor
+            .context()
+            .0
             .find_node_from_relation::<HashMap<String, serde_json::Value>>(&self.id)
             .await
             .expect("Failed to find node")
@@ -191,8 +203,13 @@ impl Relation {
             .unwrap()
     }
 
-    async fn to<'a, S: ScalarValue>(&'a self, executor: &'a Executor<'_, '_, KnowledgeGraph, S>) -> Entity {
-        executor.context().0
+    async fn to<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> Entity {
+        executor
+            .context()
+            .0
             .find_node_to_relation::<HashMap<String, serde_json::Value>>(&self.id)
             .await
             .expect("Failed to find node")
@@ -201,7 +218,8 @@ impl Relation {
     }
 }
 
-type Schema = RootNode<'static, Query, EmptyMutation<KnowledgeGraph>, EmptySubscription<KnowledgeGraph>>;
+type Schema =
+    RootNode<'static, Query, EmptyMutation<KnowledgeGraph>, EmptySubscription<KnowledgeGraph>>;
 
 async fn homepage() -> Html<&'static str> {
     "<html><h1>juniper_axum/simple example</h1>\

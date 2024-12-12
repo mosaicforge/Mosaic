@@ -2,8 +2,10 @@ use clap::{Args, Parser, Subcommand};
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::IpfsClient;
 use sdk::{ids, pb::grc20};
-use sink::{kg::{
-    self, mapping::DefaultAttributes,}, ops::conversions};
+use sink::{
+    kg::{self, mapping::DefaultAttributes},
+    ops::conversions,
+};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -51,11 +53,16 @@ async fn main() -> anyhow::Result<()> {
 
             println!("Entity: {}", entity.name_or_id());
 
-            let attributes = kg_client.attribute_nodes::<DefaultAttributes>(entity.id()).await?;
+            let attributes = kg_client
+                .attribute_nodes::<DefaultAttributes>(entity.id())
+                .await?;
 
             for attribute in attributes {
                 println!("\tAttribute: {}", attribute.name_or_id());
-                if let Some(value_type) = kg_client.value_type_node::<DefaultAttributes>(attribute.id()).await? {
+                if let Some(value_type) = kg_client
+                    .value_type_node::<DefaultAttributes>(attribute.id())
+                    .await?
+                {
                     println!("\t\tValue type: {}", value_type.name_or_id());
                 }
             }
