@@ -9,12 +9,11 @@ use crate::{
 use web3_utils::checksum_address;
 
 use sdk::{
-    ids,
+    ids::{self, id},
     models::{self, EditProposal, Proposal, Space},
     system_ids,
+    mapping::{Node, Relation},
 };
-
-use super::mapping::{Node, Relation};
 
 #[derive(Clone)]
 pub struct Client {
@@ -69,12 +68,11 @@ impl Client {
     pub async fn add_space(
         &self,
         block: &models::BlockMetadata,
-        space: Space,
+        space: Node<Space>,
     ) -> Result<(), DatabaseError> {
         self.upsert_node(
             block,
-            Node::new(&space.id, system_ids::INDEXER_SPACE_ID, space.clone())
-                .with_type(system_ids::INDEXED_SPACE),
+            space,
         )
         .await
     }
@@ -82,23 +80,21 @@ impl Client {
     pub async fn get_space_by_dao_address(
         &self,
         dao_address: &str,
-    ) -> Result<Option<Space>, DatabaseError> {
+    ) -> Result<Option<Node<Space>>, DatabaseError> {
         let query = neo4rs::query(&format!(
             "MATCH (n:`{INDEXED_SPACE}` {{dao_contract_address: $dao_contract_address}}) RETURN n",
             INDEXED_SPACE = system_ids::INDEXED_SPACE,
         ))
         .param("dao_contract_address", checksum_address(dao_address, None));
-
-        Ok(self
-            .find_node::<Space>(query)
-            .await?
-            .map(|node| node.attributes.attributes))
+        
+        self.find_node::<Space>(query)
+            .await
     }
 
     pub async fn get_space_by_space_plugin_address(
         &self,
         plugin_address: &str,
-    ) -> Result<Option<Space>, DatabaseError> {
+    ) -> Result<Option<Node<Space>>, DatabaseError> {
         let query = neo4rs::query(&format!(
             "MATCH (n:`{INDEXED_SPACE}` {{space_plugin_address: $space_plugin_address}}) RETURN n",
             INDEXED_SPACE = system_ids::INDEXED_SPACE,
@@ -108,16 +104,15 @@ impl Client {
             checksum_address(plugin_address, None),
         );
 
-        Ok(self
+        self
             .find_node::<Space>(query)
-            .await?
-            .map(|node| node.attributes.attributes))
+            .await
     }
 
     pub async fn get_space_by_voting_plugin_address(
         &self,
         voting_plugin_address: &str,
-    ) -> Result<Option<Space>, DatabaseError> {
+    ) -> Result<Option<Node<Space>>, DatabaseError> {
         let query = neo4rs::query(&format!(
             "MATCH (n:`{INDEXED_SPACE}` {{voting_plugin_address: $voting_plugin_address}}) RETURN n",
             INDEXED_SPACE = system_ids::INDEXED_SPACE,
@@ -127,16 +122,15 @@ impl Client {
             checksum_address(voting_plugin_address, None),
         );
 
-        Ok(self
+        self
             .find_node::<Space>(query)
-            .await?
-            .map(|node| node.attributes.attributes))
+            .await
     }
 
     pub async fn get_space_by_member_access_plugin(
         &self,
         member_access_plugin: &str,
-    ) -> Result<Option<Space>, DatabaseError> {
+    ) -> Result<Option<Node<Space>>, DatabaseError> {
         let query = neo4rs::query(&format!(
             "MATCH (n:`{INDEXED_SPACE}` {{member_access_plugin: $member_access_plugin}}) RETURN n",
             INDEXED_SPACE = system_ids::INDEXED_SPACE,
@@ -146,16 +140,15 @@ impl Client {
             checksum_address(member_access_plugin, None),
         );
 
-        Ok(self
+        self
             .find_node::<Space>(query)
-            .await?
-            .map(|node| node.attributes.attributes))
+            .await
     }
 
     pub async fn get_space_by_personal_plugin_address(
         &self,
         personal_space_admin_plugin: &str,
-    ) -> Result<Option<Space>, DatabaseError> {
+    ) -> Result<Option<Node<Space>>, DatabaseError> {
         let query = neo4rs::query(&format!(
             "MATCH (n:`{INDEXED_SPACE}` {{personal_space_admin_plugin: $personal_space_admin_plugin}}) RETURN n",
             INDEXED_SPACE = system_ids::INDEXED_SPACE,
@@ -165,17 +158,16 @@ impl Client {
             checksum_address(personal_space_admin_plugin, None),
         );
 
-        Ok(self
+        self
             .find_node::<Space>(query)
-            .await?
-            .map(|node| node.attributes.attributes))
+            .await
     }
 
     pub async fn get_proposal_by_id_and_address(
         &self,
         proposal_id: &str,
         plugin_address: &str,
-    ) -> Result<Option<Proposal>, DatabaseError> {
+    ) -> Result<Option<Node<Proposal>>, DatabaseError> {
         let query = neo4rs::query(&format!(
             "MATCH (n:`{PROPOSAL_TYPE}` {{onchain_proposal_id: $proposal_id, plugin_address: $plugin_address}}) RETURN n",
             PROPOSAL_TYPE = system_ids::PROPOSAL_TYPE,
@@ -183,10 +175,9 @@ impl Client {
         .param("proposal_id", proposal_id)
         .param("plugin_address", plugin_address);
 
-        Ok(self
+        self
             .find_node::<Proposal>(query)
-            .await?
-            .map(|node| node.attributes.attributes))
+            .await
     }
 
     pub async fn add_subspace(
@@ -194,7 +185,7 @@ impl Client {
         block: &models::BlockMetadata,
         space_id: &str,
         subspace_id: &str,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), DatabaseError> {
         self.upsert_relation(
             block,
             Relation::new(
@@ -206,9 +197,7 @@ impl Client {
                 models::ParentSpace,
             ),
         )
-        .await?;
-
-        Ok(())
+        .await
     }
 
     /// Add an editor to a space
@@ -347,7 +336,7 @@ impl Client {
         member_id: &str,
         space_id: &str,
         block: &models::BlockMetadata,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), DatabaseError> {
         const REMOVE_MEMBER_QUERY: &str = const_format::formatcp!(
             r#"
             MATCH (m:`{GEO_ACCOUNT}` {{id: $member_id}}) -[r:`{MEMBER_RELATION}`]-> (s:`{INDEXED_SPACE}` {{id: $space_id}})
@@ -439,7 +428,7 @@ impl Client {
         &self,
         block: &models::BlockMetadata,
         relation: Relation<T>,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), DatabaseError> {
         let query_string = format!(
             r#"
             MERGE (from {{id: $from_id}}) -[r:`{relation_type}` {{id: $id}}]-> (to {{id: $to_id}})
@@ -448,14 +437,12 @@ impl Client {
                 `{CREATED_AT_BLOCK}`: $created_at_block
             }}
             SET r += {{
-                `{SPACE}`: $space_id,
                 `{UPDATED_AT}`: datetime($updated_at),
                 `{UPDATED_AT_BLOCK}`: $updated_at_block
             }}
             SET r += $data
             "#,
             relation_type = relation.relation_type,
-            SPACE = system_ids::SPACE,
             CREATED_AT = system_ids::CREATED_AT_TIMESTAMP,
             CREATED_AT_BLOCK = system_ids::CREATED_AT_BLOCK,
             UPDATED_AT = system_ids::UPDATED_AT_TIMESTAMP,
@@ -497,27 +484,28 @@ impl Client {
             }}
             SET n:$($labels)
             SET n += {{
-                `{SPACE}`: $space_id,
                 `{UPDATED_AT}`: datetime($updated_at),
                 `{UPDATED_AT_BLOCK}`: $updated_at_block
             }}
             SET n += $data
             "#,
-            SPACE = system_ids::SPACE,
+            // SPACE = system_ids::SPACE,
             CREATED_AT = system_ids::CREATED_AT_TIMESTAMP,
             CREATED_AT_BLOCK = system_ids::CREATED_AT_BLOCK,
             UPDATED_AT = system_ids::UPDATED_AT_TIMESTAMP,
             UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
         );
 
-        let bolt_data = match serde_value_to_bolt(serde_json::to_value(node.attributes())?) {
+        let id = node.id().to_string();
+
+        let bolt_data = match serde_value_to_bolt(serde_json::to_value(node.attributes)?) {
             neo4rs::BoltType::Map(map) => neo4rs::BoltType::Map(map),
             _ => neo4rs::BoltType::Map(Default::default()),
         };
 
         let query = neo4rs::query(UPSERT_NODE_QUERY)
-            .param("id", node.id())
-            .param("space_id", node.space_id())
+            .param("id", id)
+            // .param("space_id", node.space_id())
             .param("created_at", block.timestamp.to_rfc3339())
             .param("created_at_block", block.block_number.to_string())
             .param("updated_at", block.timestamp.to_rfc3339())
@@ -548,7 +536,7 @@ impl Client {
             .next()
             .await?
             .map(|row| {
-                tracing::info!("Row: {:?}", row.to::<neo4rs::Node>());
+                // tracing::info!("Row: {:?}", row);
                 Ok::<_, DatabaseError>(Node::<T>::try_from(row.to::<neo4rs::Node>()?)?)
             })
             .transpose()
@@ -671,10 +659,11 @@ impl Client {
     pub async fn get_name(&self, entity_id: &str) -> anyhow::Result<Option<String>> {
         #[derive(Debug, Deserialize)]
         struct Named {
+            #[serde(default)]
             name: Option<String>,
         }
 
-        let query = neo4rs::query("MATCH (n { id: $id }) RETURN n.name").param("id", entity_id);
+        let query = neo4rs::query("MATCH (n { id: $id }) RETURN n").param("id", entity_id);
 
         match self
             .find_node::<Named>(query)

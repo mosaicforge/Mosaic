@@ -18,7 +18,7 @@ impl EventHandler {
             self.kg
                 .remove_editor(
                     &models::GeoAccount::id_from_address(&editor_removed.editor_address),
-                    &space.id,
+                    &space.id(),
                     block,
                 )
                 .await

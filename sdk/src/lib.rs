@@ -4,6 +4,7 @@ pub mod graph_uri;
 pub mod ids;
 pub mod models;
 pub mod pb;
+pub mod mapping;
 pub mod relation;
 
 pub use ids::network_ids;

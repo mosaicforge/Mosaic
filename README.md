@@ -23,8 +23,7 @@ docker run \
 ### 2. Compile and run the indexer
 In a separate terminal, run the following commands:
 ```bash
-cargo run --bin kg-node -- \
-    --rollup \
+cargo run --bin sink -- \
     --reset-db \
     --neo4j-uri neo4j://localhost:7687 \
     --neo4j-user neo4j \

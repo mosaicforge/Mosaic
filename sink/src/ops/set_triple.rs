@@ -1,9 +1,6 @@
-use sdk::system_ids;
+use sdk::{mapping::DefaultAttributes, system_ids};
 
-use crate::{
-    kg::mapping::DefaultAttributes,
-    ops::{KgOp, Value},
-};
+use crate::ops::{KgOp, Value};
 
 pub struct SetTriple {
     pub entity_id: String,

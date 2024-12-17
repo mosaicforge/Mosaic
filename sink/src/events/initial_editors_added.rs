@@ -21,7 +21,7 @@ impl EventHandler {
                 .try_for_each(|editor| async move {
                     let editor = models::GeoAccount::new(editor.clone());
                     self.kg
-                        .add_editor(&space.id, &editor, &models::SpaceEditor, block)
+                        .add_editor(&space.id(), &editor, &models::SpaceEditor, block)
                         .await
                         .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
 
@@ -34,7 +34,7 @@ impl EventHandler {
                 block.block_number,
                 block.timestamp,
                 initial_editor_added.addresses.len(),
-                space.id
+                space.id()
             );
         } else {
             tracing::warn!(

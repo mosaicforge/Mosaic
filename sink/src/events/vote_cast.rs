@@ -3,10 +3,9 @@ use sdk::{
     ids, models,
     pb::geo,
     system_ids::{self, INDEXER_SPACE_ID},
+    mapping::Relation,
 };
 use web3_utils::checksum_address;
-
-use crate::kg::mapping::Relation;
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -32,7 +31,7 @@ impl EventHandler {
                         INDEXED_SPACE = system_ids::INDEXED_SPACE,
                     ))
                     .param("onchain_proposal_id", vote.onchain_proposal_id.clone())
-                    .param("space_id", space.id))
+                    .param("space_id", space.id()))
                     .await
                     .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
 

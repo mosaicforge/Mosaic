@@ -5,9 +5,7 @@ use serde::{Deserialize, Serialize};
 use web3_utils::checksum_address;
 
 use crate::{
-    ids,
-    pb::{self, grc20},
-    system_ids,
+    ids, mapping::Node, pb::{self, grc20}, system_ids
 };
 
 pub struct BlockMetadata {
@@ -47,9 +45,9 @@ pub enum SpaceType {
 #[derive(Clone, Default, Deserialize, Serialize)]
 #[serde(rename = "306598522df542f69ad72921c33ad84b", tag = "$type")]
 pub struct Space {
-    pub id: String,
+    // pub id: String,
     pub network: String,
-    #[serde(rename = "`65da3fab6e1c48b7921a6a3260119b48`")]
+    // #[serde(rename = "`65da3fab6e1c48b7921a6a3260119b48`")]
     pub r#type: SpaceType,
     /// The address of the space's DAO contract.
     pub dao_contract_address: String,

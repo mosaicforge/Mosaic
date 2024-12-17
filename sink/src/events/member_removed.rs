@@ -18,7 +18,7 @@ impl EventHandler {
             self.kg
                 .remove_member(
                     &models::GeoAccount::id_from_address(&member_removed.member_address),
-                    &space.id,
+                    &space.id(),
                     block,
                 )
                 .await

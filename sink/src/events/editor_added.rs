@@ -21,7 +21,7 @@ impl EventHandler {
                 let editor = models::GeoAccount::new(editor_added.editor_address.clone());
 
                 self.kg
-                    .add_editor(&space.id, &editor, &models::SpaceEditor, block)
+                    .add_editor(&space.id(), &editor, &models::SpaceEditor, block)
                     .await
                     .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
             }

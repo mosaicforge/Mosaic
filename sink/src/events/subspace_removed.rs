@@ -19,7 +19,7 @@ impl EventHandler {
                 .run(neo4rs::query(&format!(
                     "MATCH (subspace:`{INDEXED_SPACE}` {{parent_space: $space_id}}) DELETE subspace",
                     INDEXED_SPACE = system_ids::INDEXED_SPACE,
-                )).param("space_id", space.id.clone()))
+                )).param("space_id", space.id()))
                 .await
                 .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
 
@@ -28,7 +28,7 @@ impl EventHandler {
                 block.block_number,
                 block.timestamp,
                 subspace_removed.subspace,
-                space.id.clone()
+                space.id()
             );
         } else {
             tracing::warn!(

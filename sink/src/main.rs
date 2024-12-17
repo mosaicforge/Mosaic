@@ -10,7 +10,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 const PKG_FILE: &str = "geo-substream.spkg";
 const MODULE_NAME: &str = "geo_out";
 
-const START_BLOCK: i64 = 25327;
+const START_BLOCK: i64 = 28410;
 const STOP_BLOCK: u64 = 0;
 
 #[tokio::main]

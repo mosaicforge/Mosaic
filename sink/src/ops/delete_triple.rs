@@ -1,4 +1,4 @@
-use crate::kg::mapping::DefaultAttributes;
+use sdk::mapping::DefaultAttributes;
 use crate::ops::KgOp;
 
 pub struct DeleteTriple {

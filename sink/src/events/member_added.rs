@@ -20,7 +20,7 @@ impl EventHandler {
                 let member = models::GeoAccount::new(member_added.member_address.clone());
 
                 self.kg
-                    .add_member(&space.id, &member, &models::SpaceMember, block)
+                    .add_member(&space.id(), &member, &models::SpaceMember, block)
                     .await
                     .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
             }

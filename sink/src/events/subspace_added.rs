@@ -16,7 +16,7 @@ impl EventHandler {
         ) {
             (Ok(Some(parent_space)), Ok(Some(subspace))) => {
                 self.kg
-                    .add_subspace(block, &parent_space.id, &subspace.id)
+                    .add_subspace(block, &parent_space.id(), &subspace.id())
                     .await
                     .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
                 // TODO: Convert anyhow::Error to HandlerError properly

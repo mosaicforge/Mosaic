@@ -1,6 +1,4 @@
-use sdk::{models, pb::geo, system_ids};
-
-use crate::kg::mapping::Node;
+use sdk::{models, pb::geo};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -20,11 +18,11 @@ impl EventHandler {
             .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
 
         if let Some(mut proposal) = proposal {
-            proposal.status = models::ProposalStatus::Executed;
+            proposal.attributes_mut().status = models::ProposalStatus::Executed;
             self.kg
                 .upsert_node(
                     block,
-                    Node::new(&proposal.id, system_ids::INDEXER_SPACE_ID, proposal.clone()),
+                    proposal,
                 )
                 .await
                 .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;

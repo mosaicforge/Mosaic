@@ -1,22 +1,21 @@
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::deserialize;
 use sdk::{
-    models::{self, EditProposal},
-    pb::{self, geo, grc20},
+    mapping::Node, models::{self, EditProposal}, pb::{self, geo, grc20}
 };
 
 use super::{handler::HandlerError, EventHandler};
 
 impl EventHandler {
-    pub async fn handle_proposals_processed(
+    pub async fn handle_edits_published(
         &self,
-        proposals_processed: &[geo::ProposalProcessed],
+        edits_published: &[geo::EditPublished],
         _created_space_ids: &[String],
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let proposals = stream::iter(proposals_processed)
+        let proposals = stream::iter(edits_published)
             .then(|proposal| async {
-                let edits = self.fetch_edit_proposals(proposal).await?;
+                let edits = self.fetch_edit(proposal).await?;
                 anyhow::Ok(edits)
             })
             .try_collect::<Vec<_>>()
@@ -46,36 +45,36 @@ impl EventHandler {
         Ok(())
     }
 
-    async fn fetch_edit_proposals(
+    async fn fetch_edit(
         &self,
-        proposal_processed: &geo::ProposalProcessed,
+        edit: &geo::EditPublished,
     ) -> Result<Vec<EditProposal>, HandlerError> {
         let space = if let Some(space) = self
             .kg
-            .get_space_by_space_plugin_address(&proposal_processed.plugin_address)
+            .get_space_by_space_plugin_address(&edit.plugin_address)
             .await
             .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?
         {
             space
         } else {
             tracing::warn!(
-                "Matching space in Proposal not found for plugin address {}",
-                proposal_processed.plugin_address
+                "Matching space in edit not found for plugin address {}",
+                edit.plugin_address
             );
             return Ok(vec![]);
         };
 
         let bytes = self
             .ipfs
-            .get_bytes(&proposal_processed.content_uri.replace("ipfs://", ""), true)
+            .get_bytes(&edit.content_uri.replace("ipfs://", ""), true)
             .await?;
 
         let metadata = if let Ok(metadata) = deserialize::<pb::ipfs::IpfsMetadata>(&bytes) {
             metadata
         } else {
             tracing::warn!(
-                "Invalid metadata for proposal {}",
-                proposal_processed.content_uri
+                "Invalid metadata for edit {}",
+                edit.content_uri
             );
             return Ok(vec![]);
         };
@@ -86,9 +85,11 @@ impl EventHandler {
                 Ok(vec![EditProposal {
                     name: edit.name,
                     proposal_id: edit.id,
-                    space: space.id,
+                    space: space.id().to_string(),
                     space_address: space
+                        .attributes()
                         .space_plugin_address
+                        .clone()
                         .expect("Space plugin address not found"),
                     creator: edit.authors[0].clone(),
                     ops: edit.ops,
@@ -110,8 +111,9 @@ impl EventHandler {
                     .map(|edit| EditProposal {
                         name: edit.name,
                         proposal_id: edit.id,
-                        space: space.id.clone(),
+                        space: space.id().to_string(),
                         space_address: space
+                            .attributes()
                             .space_plugin_address
                             .clone()
                             .expect("Space plugin address not found"),
