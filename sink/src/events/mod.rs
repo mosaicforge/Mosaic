@@ -5,7 +5,7 @@ mod editor_removed;
 mod initial_editors_added;
 mod member_added;
 mod member_removed;
-// mod proposal_created;
+mod proposal_created;
 mod proposal_executed;
 mod edit_published;
 mod space_created;

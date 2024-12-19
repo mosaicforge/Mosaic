@@ -1,5 +1,5 @@
 use futures::{stream, StreamExt, TryStreamExt};
-use sdk::{models, pb::geo};
+use sdk::{models::{self, GeoAccount, Space, SpaceEditor}, pb::geo};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -11,7 +11,8 @@ impl EventHandler {
     ) -> Result<(), HandlerError> {
         let space = self
             .kg
-            .get_space_by_voting_plugin_address(&initial_editor_added.plugin_address)
+            // .get_space_by_voting_plugin_address(&initial_editor_added.plugin_address)
+            .find_node(Space::find_by_voting_plugin_address(&initial_editor_added.plugin_address))
             .await
             .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
 
@@ -19,9 +20,20 @@ impl EventHandler {
             stream::iter(&initial_editor_added.addresses)
                 .map(Result::<_, HandlerError>::Ok)
                 .try_for_each(|editor| async move {
-                    let editor = models::GeoAccount::new(editor.clone());
+                    let editor = GeoAccount::new(editor.clone());
+                    
+                    // Add geo account
                     self.kg
-                        .add_editor(&space.id(), &editor, &models::SpaceEditor, block)
+                        .upsert_entity(block, &editor)
+                        .await
+                        .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+                    
+                    // Add space editor relation
+                    self.kg
+                        .upsert_relation(block, &SpaceEditor::new(
+                            editor.id(),
+                            space.id(),
+                        ))
                         .await
                         .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
 

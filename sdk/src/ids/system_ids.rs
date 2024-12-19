@@ -297,9 +297,13 @@ pub const VOTE_CAST: &str = "PfgzdxPYwDUTBCzkXCT9ga";
 
 // Proposal
 pub const PROPOSAL_TYPE: &str = "9No6qfEutiKg1WLeXDv73x";
-pub const MEMBERSHIP_PROPOSAL_TYPE: &str = "6dJ23LRTHRdwqoWhtivRrM";
-pub const EDITORSHIP_PROPOSAL_TYPE: &str = "7W7SE2UTj5YTsQvqSmCfLN";
-pub const SUBSPACE_PROPOSAL_TYPE: &str = "DcEZrRpmAuwxfw7C5G7gjC";
+pub const ADD_MEMBER_PROPOSAL: &str = "6dJ23LRTHRdwqoWhtivRrM";
+pub const REMOVE_MEMBER_PROPOSAL: &str = "8dJ23LRTHRdwqoWhtivRrM";
+pub const ADD_EDITOR_PROPOSAL: &str = "7W7SE2UTj5YTsQvqSmCfLN";
+pub const REMOVE_EDITOR_PROPOSAL: &str = "9W7SE2UTj5YTsQvqSmCfLN";
+pub const ADD_SUBSPACE_PROPOSAL: &str = "DcEZrRpmAuwxfw7C5G7gjC";
+pub const REMOVE_SUBSPACE_PROPOSAL: &str = "FcEZrRpmAuwxfw7C5G7gjC";
+pub const EDIT_PROPOSAL: &str = "GcEZrRpmAuwxfw7C5G7gjC";
 
 /// MEMBERSHIP_PROPOSAL_TYPE > PROPOSED_ACCOUNT > GEO_ACCOUNT
 /// EDITORSHIP_PROPOSAL_TYPE > PROPOSED_ACCOUNT > GEO_ACCOUNT
@@ -310,3 +314,6 @@ pub const PROPOSED_SUBSPACE: &str = "5ZVrZv7S3Mk2ATV9LAZAha";
 
 /// INDEXED_SPACE > PROPOSALS > PROPOSAL
 pub const PROPOSALS: &str = "3gmeTonVCB6B11p3YF8mj5";
+
+/// PROPOSAL > CREATOR > ACCOUNT
+pub const PROPOSAL_CREATOR: &str = "213";

@@ -1,4 +1,4 @@
-use sdk::{models, pb::geo};
+use sdk::{models::{self, SpaceMember}, pb::geo};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -10,16 +10,17 @@ impl EventHandler {
     ) -> Result<(), HandlerError> {
         let space = self
             .kg
-            .get_space_by_dao_address(&member_removed.dao_address)
+            .find_node(models::Space::find_by_dao_address_query(&member_removed.dao_address))
             .await
             .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
 
         if let Some(space) = space {
             self.kg
-                .remove_member(
-                    &models::GeoAccount::id_from_address(&member_removed.member_address),
-                    &space.id(),
-                    block,
+                .run(
+                    SpaceMember::remove_query(
+                        &models::GeoAccount::new_id(&member_removed.member_address),
+                        space.id(),
+                    ),
                 )
                 .await
                 .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;

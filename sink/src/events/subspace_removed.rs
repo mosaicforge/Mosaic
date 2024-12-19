@@ -10,7 +10,7 @@ impl EventHandler {
     ) -> Result<(), HandlerError> {
         let space = self
             .kg
-            .get_space_by_space_plugin_address(&subspace_removed.plugin_address)
+            .find_node(models::Space::find_by_space_plugin_address(&subspace_removed.plugin_address))
             .await
             .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
 

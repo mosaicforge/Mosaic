@@ -1,8 +1,9 @@
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::deserialize;
 use sdk::{
-    mapping::Node, models::{self, EditProposal}, pb::{self, geo, grc20}
+    models::{self, EditProposal, Space}, network_ids, pb::{self, geo, grc20}
 };
+use web3_utils::checksum_address;
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -25,19 +26,23 @@ impl EventHandler {
             .flatten()
             .collect::<Vec<_>>();
 
+        // let space_id = Space::new_id(network_ids::GEO, address)
+
+
         // TODO: Create "synthetic" proposals for newly created spaces and
         // personal spaces
 
         stream::iter(proposals)
             .map(Ok) // Need to wrap the proposal in a Result to use try_for_each
-            .try_for_each(|proposal| async {
+            .try_for_each(|proposal| async move {
                 tracing::info!(
-                    "Block #{} ({}): Creating edit proposal {}",
+                    "Block #{} ({}): Processing ops for proposal {}",
                     block.block_number,
                     block.timestamp,
                     proposal.proposal_id
                 );
-                self.kg.process_edit(proposal).await
+
+                self.kg.process_ops(block, &proposal.space, proposal.ops).await
             })
             .await
             .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
@@ -51,9 +56,12 @@ impl EventHandler {
     ) -> Result<Vec<EditProposal>, HandlerError> {
         let space = if let Some(space) = self
             .kg
-            .get_space_by_space_plugin_address(&edit.plugin_address)
+            .find_node(Space::find_by_space_plugin_address(&edit.plugin_address))
             .await
-            .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?
+            .map_err(|e| HandlerError::Other(format!(
+                "Error querying space with plugin address {} {e:?}",
+                checksum_address(&edit.plugin_address, None)
+            ).into()))?
         {
             space
         } else {

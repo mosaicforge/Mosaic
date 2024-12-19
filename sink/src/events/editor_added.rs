@@ -1,5 +1,5 @@
 use futures::join;
-use sdk::{models, pb::geo};
+use sdk::{models::{self, SpaceEditor, Space}, pb::geo};
 use web3_utils::checksum_address;
 
 use super::{handler::HandlerError, EventHandler};
@@ -12,18 +12,29 @@ impl EventHandler {
     ) -> Result<(), HandlerError> {
         match join!(
             self.kg
-                .get_space_by_voting_plugin_address(&editor_added.main_voting_plugin_address),
+                .find_node(Space::find_by_voting_plugin_address(&editor_added.main_voting_plugin_address)),
             self.kg
-                .get_space_by_personal_plugin_address(&editor_added.main_voting_plugin_address)
+                .find_node(Space::find_by_personal_plugin_address(&editor_added.main_voting_plugin_address))
         ) {
             // Space found
             (Ok(Some(space)), Ok(_)) | (Ok(None), Ok(Some(space))) => {
                 let editor = models::GeoAccount::new(editor_added.editor_address.clone());
 
+                // Add geo account
                 self.kg
-                    .add_editor(&space.id(), &editor, &models::SpaceEditor, block)
+                    .upsert_entity(block, &editor)
                     .await
                     .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
+
+                // Add space editor relation
+                self.kg
+                    .upsert_relation(block, &SpaceEditor::new(
+                        editor.id(),
+                        space.id(),
+                    ))
+                    .await
+                    .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
+
             }
             // Space not found
             (Ok(None), Ok(None)) => {
