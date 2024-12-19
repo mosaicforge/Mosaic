@@ -2,10 +2,10 @@ use chrono::DateTime;
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::IpfsClient;
 use prost::Message;
-use sdk::{ids::create_geo_id, models::BlockMetadata, pb::geo::GeoOutput};
+use sdk::{error::DatabaseError, ids::create_geo_id, models::BlockMetadata, pb::geo::GeoOutput};
 use substreams_utils::pb::sf::substreams::rpc::v2::BlockScopedData;
 
-use crate::kg::{self, client::DatabaseError};
+use crate::kg::{self};
 
 #[derive(thiserror::Error, Debug)]
 pub enum HandlerError {
@@ -201,7 +201,9 @@ impl substreams_utils::Sink for EventHandler {
         );
         stream::iter(&value.proposed_added_members)
             .map(Ok)
-            .try_for_each(|event| async { self.handle_add_member_proposal_created(event, &block).await })
+            .try_for_each(|event| async {
+                self.handle_add_member_proposal_created(event, &block).await
+            })
             .await?;
 
         // Handle RemoveMemberProposalCreated events
@@ -213,7 +215,10 @@ impl substreams_utils::Sink for EventHandler {
         );
         stream::iter(&value.proposed_removed_members)
             .map(Ok)
-            .try_for_each(|event| async { self.handle_remove_member_proposal_created(event, &block).await })
+            .try_for_each(|event| async {
+                self.handle_remove_member_proposal_created(event, &block)
+                    .await
+            })
             .await?;
 
         // Handle AddEditorProposalCreated events
@@ -225,7 +230,9 @@ impl substreams_utils::Sink for EventHandler {
         );
         stream::iter(&value.proposed_added_editors)
             .map(Ok)
-            .try_for_each(|event| async { self.handle_add_editor_proposal_created(event, &block).await })
+            .try_for_each(|event| async {
+                self.handle_add_editor_proposal_created(event, &block).await
+            })
             .await?;
 
         // Handle RemoveEditorProposalCreated events
@@ -237,7 +244,10 @@ impl substreams_utils::Sink for EventHandler {
         );
         stream::iter(&value.proposed_removed_editors)
             .map(Ok)
-            .try_for_each(|event| async { self.handle_remove_editor_proposal_created(event, &block).await })
+            .try_for_each(|event| async {
+                self.handle_remove_editor_proposal_created(event, &block)
+                    .await
+            })
             .await?;
 
         // Handle AddSubspaceProposalCreated events
@@ -249,7 +259,10 @@ impl substreams_utils::Sink for EventHandler {
         );
         stream::iter(&value.proposed_added_subspaces)
             .map(Ok)
-            .try_for_each(|event| async { self.handle_add_subspace_proposal_created(event, &block).await })
+            .try_for_each(|event| async {
+                self.handle_add_subspace_proposal_created(event, &block)
+                    .await
+            })
             .await?;
 
         // Handle RemoveSubspaceProposalCreated events
@@ -261,7 +274,10 @@ impl substreams_utils::Sink for EventHandler {
         );
         stream::iter(&value.proposed_removed_subspaces)
             .map(Ok)
-            .try_for_each(|event| async { self.handle_remove_subspace_proposal_created(event, &block).await })
+            .try_for_each(|event| async {
+                self.handle_remove_subspace_proposal_created(event, &block)
+                    .await
+            })
             .await?;
 
         // Handle PublishEditProposalCreated events

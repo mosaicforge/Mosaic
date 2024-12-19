@@ -1,10 +1,7 @@
-use std::collections::HashMap;
-
-use futures::{stream, StreamExt, TryStreamExt};
 use sdk::{
     models::{self, GeoAccount, Space, SpaceType},
     network_ids,
-    pb::{geo, grc20},
+    pb::geo,
 };
 use web3_utils::checksum_address;
 
@@ -63,13 +60,15 @@ impl EventHandler {
             space_id
         );
 
-        self.kg.upsert_entity(
-            block, 
-            &Space::builder(&space_id, &space_created.dao_address)
-                .network(network_ids::GEO.to_string())
-                .space_plugin_address(&space_created.space_address)
-                .build()
-        ).await?;
+        self.kg
+            .upsert_entity(
+                block,
+                &Space::builder(&space_id, &space_created.dao_address)
+                    .network(network_ids::GEO.to_string())
+                    .space_plugin_address(&space_created.space_address)
+                    .build(),
+            )
+            .await?;
 
         // Create the spaces
         // let created_ids: Vec<_> = stream::iter(spaces_created)
@@ -78,7 +77,6 @@ impl EventHandler {
         //             .get(&event.space_address)
         //             .cloned()
         //             .unwrap_or(Space::new_id(network_ids::GEO, &event.dao_address));
-
 
         //         anyhow::Ok(space_id)
         //     })
@@ -94,24 +92,21 @@ impl EventHandler {
         personal_space_created: &geo::GeoPersonalSpaceAdminPluginCreated,
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space = self
-            .kg
-            .find_node(Space::find_by_dao_address_query(&personal_space_created.dao_address))
+        let space = Space::find_by_dao_address(&self.kg.neo4j, &personal_space_created.dao_address)
             .await
             .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
 
         if let Some(space) = &space {
-            self.kg.upsert_entity(
-                block, 
-                &Space::builder(space.id(), &space.attributes().dao_contract_address)
-                    .r#type(SpaceType::Personal)
-                    .personal_space_admin_plugin(
-                        &personal_space_created.personal_admin_address,
-                    )
-                    .build()
-            )
-            .await
-            .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+            self.kg
+                .upsert_entity(
+                    block,
+                    &Space::builder(space.id(), &space.attributes().dao_contract_address)
+                        .r#type(SpaceType::Personal)
+                        .personal_space_admin_plugin(&personal_space_created.personal_admin_address)
+                        .build(),
+                )
+                .await
+                .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
 
             // Add initial editors to the personal space
             let editor = GeoAccount::new(personal_space_created.initial_editor.clone());
@@ -145,11 +140,18 @@ impl EventHandler {
         governance_plugin_created: &geo::GeoGovernancePluginCreated,
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space = self
-            .kg
-            .find_node(Space::find_by_dao_address_query(&governance_plugin_created.dao_address))
-            .await
-            .map_err(|e| HandlerError::Other(format!("Error fetching space with dao address = {}: {e:?}", checksum_address(&governance_plugin_created.dao_address, None)).into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+        let space =
+            Space::find_by_dao_address(&self.kg.neo4j, &governance_plugin_created.dao_address)
+                .await
+                .map_err(|e| {
+                    HandlerError::Other(
+                        format!(
+                            "Error fetching space with dao address = {}: {e:?}",
+                            checksum_address(&governance_plugin_created.dao_address, None)
+                        )
+                        .into(),
+                    )
+                })?; // TODO: Convert anyhow::Error to HandlerError properly
 
         if let Some(space) = space {
             tracing::info!(
@@ -159,12 +161,17 @@ impl EventHandler {
                 space.id()
             );
 
-            self.kg.upsert_entity(block, &Space::builder(space.id(), &space.attributes().dao_contract_address)
-                .voting_plugin_address(&governance_plugin_created.main_voting_address)
-                .member_access_plugin(&governance_plugin_created.member_access_address)
-                .build()
-            ).await
-            .map_err(|e| HandlerError::Other(format!("Error updating space: {e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+            self.kg
+                .upsert_entity(
+                    block,
+                    &Space::builder(space.id(), &space.attributes().dao_contract_address)
+                        .voting_plugin_address(&governance_plugin_created.main_voting_address)
+                        .member_access_plugin(&governance_plugin_created.member_access_address)
+                        .build(),
+                )
+                .await
+                .map_err(|e| HandlerError::Other(format!("Error updating space: {e:?}").into()))?;
+        // TODO: Convert anyhow::Error to HandlerError properly
         } else {
             tracing::warn!(
                 "Block #{} ({}): Could not create governance plugin for unknown space with dao_address = {}",

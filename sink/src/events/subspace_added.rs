@@ -1,5 +1,8 @@
 use futures::join;
-use sdk::{models::{self, space::ParentSpace}, pb::geo};
+use sdk::{
+    models::{self, space::ParentSpace},
+    pb::geo,
+};
 use web3_utils::checksum_address;
 
 use super::{handler::HandlerError, EventHandler};
@@ -11,19 +14,18 @@ impl EventHandler {
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         match join!(
-            self.kg
-                .find_node(models::Space::find_by_space_plugin_address(&subspace_added.plugin_address)),
-            self.kg
-                .find_node(models::Space::find_by_dao_address_query(&subspace_added.subspace))
+            models::Space::find_by_space_plugin_address(
+                &self.kg.neo4j,
+                &subspace_added.plugin_address
+            ),
+            models::Space::find_by_dao_address(&self.kg.neo4j, &subspace_added.subspace)
         ) {
             (Ok(Some(parent_space)), Ok(Some(subspace))) => {
                 self.kg
-                    .upsert_relation(block, &ParentSpace::new(
-                        subspace.id(),
-                        parent_space.id(),
-                    ))
+                    .upsert_relation(block, &ParentSpace::new(subspace.id(), parent_space.id()))
                     .await
-                    .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+                    .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
+                // TODO: Convert anyhow::Error to HandlerError properly
             }
             (Ok(None), Ok(_)) => {
                 tracing::warn!(

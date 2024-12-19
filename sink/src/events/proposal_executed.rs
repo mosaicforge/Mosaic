@@ -8,12 +8,11 @@ impl EventHandler {
         proposal_executed: &geo::ProposalExecuted,
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
-        Ok(self.kg.run(
-            models::Proposal::set_status_query(
-                block,
-                &proposal_executed.proposal_id, 
-                models::proposal::ProposalStatus::Executed,
-            )
+        Ok(models::Proposal::set_status(
+            &self.kg.neo4j,
+            block,
+            &proposal_executed.proposal_id,
+            models::proposal::ProposalStatus::Executed,
         )
         .await?)
     }

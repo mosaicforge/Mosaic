@@ -17,13 +17,7 @@ pub struct Relation<T> {
 }
 
 impl<T> Relation<T> {
-    pub fn new(
-        id: &str,
-        space_id: &str,
-        from: &str,
-        to: &str,
-        data: T,
-    ) -> Self {
+    pub fn new(id: &str, space_id: &str, from: &str, to: &str, data: T) -> Self {
         Self {
             id: id.to_string(),
             from: from.to_string(),
@@ -71,7 +65,7 @@ impl<T> Relation<T> {
     }
 }
 
-impl<T> Relation<T> 
+impl<T> Relation<T>
 where
     T: Serialize,
 {

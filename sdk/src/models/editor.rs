@@ -1,16 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{ids, mapping::{Query, Relation}, system_ids};
+use crate::{error::DatabaseError, ids, mapping::Relation, system_ids};
 
 /// Space editor relation.
 #[derive(Deserialize, Serialize)]
 pub struct SpaceEditor;
 
 impl SpaceEditor {
-    pub fn new(
-        editor_id: &str,
-        space_id: &str,
-    ) -> Relation<Self> {
+    pub fn new(editor_id: &str, space_id: &str) -> Relation<Self> {
         Relation::new(
             &ids::create_geo_id(),
             system_ids::INDEXER_SPACE_ID,
@@ -22,10 +19,11 @@ impl SpaceEditor {
     }
 
     /// Returns a query to delete a relation between an editor and a space.
-    pub fn remove_query(
+    pub async fn remove(
+        neo4j: &neo4rs::Graph,
         editor_id: &str,
         space_id: &str,
-    ) -> Query<()> {
+    ) -> Result<(), DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
                 MATCH ({{id: $from}})<-[:`{FROM_ENTITY}`]-(r:`{EDITOR_RELATION}`)-[:`{TO_ENTITY}`]->({{id: $to}})
@@ -36,8 +34,10 @@ impl SpaceEditor {
             EDITOR_RELATION = system_ids::EDITOR_RELATION,
         );
 
-        Query::new(QUERY)
+        let query = neo4rs::query(QUERY)
             .param("from", editor_id)
-            .param("to", space_id)
+            .param("to", space_id);
+
+        Ok(neo4j.run(query).await?)
     }
 }

@@ -2,10 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    ids, mapping::{Relation}, system_ids
-};
-
+use crate::{ids, mapping::Relation, system_ids};
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -27,7 +24,7 @@ impl TryFrom<u64> for VoteType {
 }
 
 /// A vote cast by a user on a proposal.
-/// 
+///
 /// `Person > VOTE_CAST > Proposal`
 #[derive(Deserialize, Serialize)]
 pub struct VoteCast {
@@ -35,28 +32,18 @@ pub struct VoteCast {
 }
 
 impl VoteCast {
-    pub fn new_id(
-        account_id: &str,
-        proposal_id: &str,
-
-    ) -> String {
+    pub fn new_id(account_id: &str, proposal_id: &str) -> String {
         ids::create_id_from_unique_string(&format!("{account_id}-{proposal_id}"))
     }
 
     /// Creates a new vote cast with the given vote type.
-    pub fn new(
-        account_id: &str,
-        proposal_id: &str,
-        vote_type: VoteType
-    ) -> Relation<Self> {
+    pub fn new(account_id: &str, proposal_id: &str, vote_type: VoteType) -> Relation<Self> {
         Relation::new(
             &Self::new_id(account_id, proposal_id),
             system_ids::INDEXER_SPACE_ID,
             account_id,
             proposal_id,
-            Self {
-                vote_type,
-            },
+            Self { vote_type },
         )
     }
 }

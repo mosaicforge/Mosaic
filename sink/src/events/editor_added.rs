@@ -1,5 +1,8 @@
 use futures::join;
-use sdk::{models::{self, SpaceEditor, Space}, pb::geo};
+use sdk::{
+    models::{self, Space, SpaceEditor},
+    pb::geo,
+};
 use web3_utils::checksum_address;
 
 use super::{handler::HandlerError, EventHandler};
@@ -11,10 +14,14 @@ impl EventHandler {
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         match join!(
-            self.kg
-                .find_node(Space::find_by_voting_plugin_address(&editor_added.main_voting_plugin_address)),
-            self.kg
-                .find_node(Space::find_by_personal_plugin_address(&editor_added.main_voting_plugin_address))
+            Space::find_by_voting_plugin_address(
+                &self.kg.neo4j,
+                &editor_added.main_voting_plugin_address,
+            ),
+            Space::find_by_personal_plugin_address(
+                &self.kg.neo4j,
+                &editor_added.main_voting_plugin_address
+            )
         ) {
             // Space found
             (Ok(Some(space)), Ok(_)) | (Ok(None), Ok(Some(space))) => {
@@ -28,13 +35,9 @@ impl EventHandler {
 
                 // Add space editor relation
                 self.kg
-                    .upsert_relation(block, &SpaceEditor::new(
-                        editor.id(),
-                        space.id(),
-                    ))
+                    .upsert_relation(block, &SpaceEditor::new(editor.id(), space.id()))
                     .await
                     .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
-
             }
             // Space not found
             (Ok(None), Ok(None)) => {

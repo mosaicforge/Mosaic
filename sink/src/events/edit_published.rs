@@ -1,7 +1,8 @@
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::deserialize;
 use sdk::{
-    models::{self, EditProposal, Space}, network_ids, pb::{self, geo, grc20}
+    models::{self, EditProposal, Space},
+    pb::{self, geo, grc20},
 };
 use web3_utils::checksum_address;
 
@@ -28,7 +29,6 @@ impl EventHandler {
 
         // let space_id = Space::new_id(network_ids::GEO, address)
 
-
         // TODO: Create "synthetic" proposals for newly created spaces and
         // personal spaces
 
@@ -42,7 +42,9 @@ impl EventHandler {
                     proposal.proposal_id
                 );
 
-                self.kg.process_ops(block, &proposal.space, proposal.ops).await
+                self.kg
+                    .process_ops(block, &proposal.space, proposal.ops)
+                    .await
             })
             .await
             .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
@@ -54,15 +56,18 @@ impl EventHandler {
         &self,
         edit: &geo::EditPublished,
     ) -> Result<Vec<EditProposal>, HandlerError> {
-        let space = if let Some(space) = self
-            .kg
-            .find_node(Space::find_by_space_plugin_address(&edit.plugin_address))
-            .await
-            .map_err(|e| HandlerError::Other(format!(
-                "Error querying space with plugin address {} {e:?}",
-                checksum_address(&edit.plugin_address, None)
-            ).into()))?
-        {
+        let space = if let Some(space) =
+            Space::find_by_space_plugin_address(&self.kg.neo4j, &edit.plugin_address)
+                .await
+                .map_err(|e| {
+                    HandlerError::Other(
+                        format!(
+                            "Error querying space with plugin address {} {e:?}",
+                            checksum_address(&edit.plugin_address, None)
+                        )
+                        .into(),
+                    )
+                })? {
             space
         } else {
             tracing::warn!(
@@ -80,10 +85,7 @@ impl EventHandler {
         let metadata = if let Ok(metadata) = deserialize::<pb::ipfs::IpfsMetadata>(&bytes) {
             metadata
         } else {
-            tracing::warn!(
-                "Invalid metadata for edit {}",
-                edit.content_uri
-            );
+            tracing::warn!("Invalid metadata for edit {}", edit.content_uri);
             return Ok(vec![]);
         };
 

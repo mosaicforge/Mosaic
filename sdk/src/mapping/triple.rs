@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{hash_map, HashMap};
 
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 
@@ -6,6 +6,35 @@ use crate::pb;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Triples(pub(crate) HashMap<String, Triple>);
+
+impl IntoIterator for Triples {
+    type Item = (String, Triple);
+    type IntoIter = std::collections::hash_map::IntoIter<String, Triple>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl Triples {
+    pub fn iter(&self) -> Iter<'_> {
+        Iter {
+            items: self.0.iter(),
+        }
+    }
+}
+
+pub struct Iter<'a> {
+    items: hash_map::Iter<'a, String, Triple>,
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = (&'a String, &'a Triple);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.items.next()
+    }
+}
 
 impl Serialize for Triples {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -15,7 +44,7 @@ impl Serialize for Triples {
         let mut map = serializer.serialize_map(None)?;
         for (key, value) in &self.0 {
             map.serialize_entry(key, &value.value)?;
-            map.serialize_entry(&format!("{}.type", key), &value.r#type)?;
+            map.serialize_entry(&format!("{}.type", key), &value.value_type)?;
             if let Some(ref format) = value.options.format {
                 map.serialize_entry(&format!("{}.options.format", key), format)?;
             }
@@ -25,7 +54,7 @@ impl Serialize for Triples {
             if let Some(ref language) = value.options.language {
                 map.serialize_entry(&format!("{}.options.language", key), language)?;
             }
-       }
+        }
         map.end()
     }
 }
@@ -54,23 +83,41 @@ impl<'de> Deserialize<'de> for Triples {
                     match key.split('.').collect::<Vec<_>>()[..] {
                         [key] => {
                             let value = map.next_value::<String>()?;
-                            triples.entry(key.to_string()).or_insert(Triple::default()).value = value;
+                            triples
+                                .entry(key.to_string())
+                                .or_insert(Triple::default())
+                                .value = value;
                         }
                         [key, "type"] => {
                             let value = map.next_value::<ValueType>()?;
-                            triples.entry(key.to_string()).or_insert(Triple::default()).r#type = value;
+                            triples
+                                .entry(key.to_string())
+                                .or_insert(Triple::default())
+                                .value_type = value;
                         }
                         [key, "options", "format"] => {
                             let value = map.next_value::<String>()?;
-                            triples.entry(key.to_string()).or_insert(Triple::default()).options.format = Some(value);
+                            triples
+                                .entry(key.to_string())
+                                .or_insert(Triple::default())
+                                .options
+                                .format = Some(value);
                         }
                         [key, "options", "unit"] => {
                             let value = map.next_value::<String>()?;
-                            triples.entry(key.to_string()).or_insert(Triple::default()).options.unit = Some(value);
+                            triples
+                                .entry(key.to_string())
+                                .or_insert(Triple::default())
+                                .options
+                                .unit = Some(value);
                         }
                         [key, "options", "language"] => {
                             let value = map.next_value::<String>()?;
-                            triples.entry(key.to_string()).or_insert(Triple::default()).options.language = Some(value);
+                            triples
+                                .entry(key.to_string())
+                                .or_insert(Triple::default())
+                                .options
+                                .language = Some(value);
                         }
                         _ => return Err(serde::de::Error::custom(format!("Invalid key: {}", key))),
                     }
@@ -87,7 +134,7 @@ impl<'de> Deserialize<'de> for Triples {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Triple {
     pub value: String,
-    pub r#type: ValueType,
+    pub value_type: ValueType,
     pub options: Options,
 }
 
@@ -98,7 +145,7 @@ impl Serialize for Triple {
     {
         let mut map = serializer.serialize_map(None)?;
         map.serialize_entry("", &self.value)?;
-        map.serialize_entry(".type", &self.r#type)?;
+        map.serialize_entry(".type", &self.value_type)?;
         if let Some(ref format) = self.options.format {
             map.serialize_entry(".options.format", format)?;
         }
@@ -134,7 +181,7 @@ impl<'de> Deserialize<'de> for Triple {
         let helper = TripleHelper::deserialize(deserializer)?;
         Ok(Triple {
             value: helper.value,
-            r#type: helper.r#type,
+            value_type: helper.r#type,
             options: Options {
                 format: helper.format,
                 unit: helper.unit,
@@ -179,9 +226,9 @@ impl From<pb::grc20::ValueType> for Option<ValueType> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use serde_with::with_prefix;
     use super::*;
+    use serde_with::with_prefix;
+    use std::collections::HashMap;
 
     #[test]
     pub fn test_serialize_triple() {
@@ -195,7 +242,7 @@ mod tests {
         let value = Foo {
             foo: Triple {
                 value: "Hello, World!".to_string(),
-                r#type: ValueType::Text,
+                value_type: ValueType::Text,
                 options: Options {
                     format: Some("text".to_string()),
                     unit: Some("unit".to_string()),
@@ -216,7 +263,8 @@ mod tests {
             })
         );
 
-        let deserialized: Foo = serde_json::from_value(serialized).expect("Failed to deserialize Value");
+        let deserialized: Foo =
+            serde_json::from_value(serialized).expect("Failed to deserialize Value");
 
         assert_eq!(deserialized, value);
     }
@@ -239,7 +287,7 @@ mod tests {
         let value = Foo {
             foo: Triple {
                 value: "Hello, World!".to_string(),
-                r#type: ValueType::Text,
+                value_type: ValueType::Text,
                 options: Options {
                     format: Some("text".to_string()),
                     ..Default::default()
@@ -247,7 +295,7 @@ mod tests {
             },
             bar: Triple {
                 value: "123".to_string(),
-                r#type: ValueType::Number,
+                value_type: ValueType::Number,
                 options: Options {
                     unit: Some("int".to_string()),
                     ..Default::default()
@@ -271,7 +319,8 @@ mod tests {
             })
         );
 
-        let deserialized: Foo = serde_json::from_value(serialized).expect("Failed to deserialize Value");
+        let deserialized: Foo =
+            serde_json::from_value(serialized).expect("Failed to deserialize Value");
 
         assert_eq!(deserialized, value);
     }
@@ -283,7 +332,7 @@ mod tests {
                 "foo".to_string(),
                 Triple {
                     value: "Hello, World!".to_string(),
-                    r#type: ValueType::Text,
+                    value_type: ValueType::Text,
                     options: Options {
                         format: Some("text".to_string()),
                         ..Default::default()
@@ -294,7 +343,7 @@ mod tests {
                 "bar".to_string(),
                 Triple {
                     value: "123".to_string(),
-                    r#type: ValueType::Number,
+                    value_type: ValueType::Number,
                     options: Options {
                         unit: Some("int".to_string()),
                         ..Default::default()
@@ -317,7 +366,8 @@ mod tests {
             })
         );
 
-        let deserialized: Triples = serde_json::from_value(serialized).expect("Failed to deserialize Value");
+        let deserialized: Triples =
+            serde_json::from_value(serialized).expect("Failed to deserialize Value");
 
         assert_eq!(deserialized, triples);
     }

@@ -1,15 +1,23 @@
+use futures::stream::TryStreamExt;
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{graph_uri::{self, GraphUri}, mapping, models::BlockMetadata, neo4j_utils::serde_value_to_bolt, pb, system_ids};
+use crate::{
+    error::DatabaseError,
+    graph_uri::{self, GraphUri},
+    mapping,
+    models::BlockMetadata,
+    neo4j_utils::serde_value_to_bolt,
+    pb, system_ids,
+};
 
-use super::{attributes::Attributes, query::Query};
+use super::{attributes::Attributes, Relation};
 
 /// GRC20 Node
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct Entity<T = ()> {
-    #[serde(rename = "labels")]
+    #[serde(rename = "labels", default)]
     pub types: Vec<String>,
     #[serde(flatten)]
     pub attributes: Attributes<T>,
@@ -49,22 +57,62 @@ impl<T> Entity<T> {
         self
     }
 
-    /// Returns a query to find a node by its ID
-    pub fn find_by_id_query(id: &str) -> Query<T> {
+    pub async fn find_relations_query<R>(
+        neo4j: &neo4rs::Graph,
+        id: &str,
+        space_id: &str,
+    ) -> Result<Vec<Relation<R>>, DatabaseError>
+    where
+        R: for<'a> Deserialize<'a>,
+    {
         const QUERY: &str = const_format::formatcp!(
-            "MATCH (n) WHERE n.id = $id RETURN n",
+            r#"
+            MATCH ({{ id: $id, space_id: $space_id }}) <-[:`{FROM_ENTITY}`]- (r) -[:`{TO_ENTITY}`]-> (n)
+            RETURN n, r
+            "#,
+            FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
+            TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
         );
 
-        Query::new(QUERY).param("id", id)
+        let query = neo4rs::query(QUERY)
+            .param("id", id)
+            .param("space_id", space_id);
+
+        #[derive(Debug, Deserialize)]
+        struct RowResult {
+            r: neo4rs::Node,
+            to: neo4rs::Node,
+        }
+
+        neo4j
+            .execute(query)
+            .await?
+            .into_stream_as::<RowResult>()
+            .map_err(DatabaseError::from)
+            .and_then(|row| async move {
+                let rel: Entity<R> = row.r.try_into()?;
+                let entity: Entity<()> = row.to.try_into()?;
+
+                Ok(Relation::new(
+                    &rel.attributes.id,
+                    &rel.attributes.space_id,
+                    id,
+                    &entity.attributes.id,
+                    rel.attributes.attributes,
+                ))
+            })
+            .try_collect::<Vec<_>>()
+            .await
     }
 
-    pub fn set_triple(
-        block: &BlockMetadata, 
+    pub async fn set_triple(
+        neo4j: &neo4rs::Graph,
+        block: &BlockMetadata,
         space_id: &str,
         entity_id: &str,
-        attribute_id: &str, 
+        attribute_id: &str,
         value: &pb::grc20::Value,
-    ) -> Result<Query<()>, SetTripleError> {
+    ) -> Result<(), DatabaseError> {
         match (attribute_id, value.r#type(), value.value.as_str()) {
             // Setting the type of the entity
             (system_ids::TYPES, pb::grc20::ValueType::Url, value) => {
@@ -86,21 +134,27 @@ impl<T> Entity<T> {
                     UPDATED_AT = system_ids::UPDATED_AT_TIMESTAMP,
                     UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
                 );
-                
-                let uri = GraphUri::from_uri(&value)?;
 
-                Ok(Query::new(SET_TYPE_QUERY)
+                let uri = GraphUri::from_uri(value).map_err(SetTripleError::InvalidGraphUri)?;
+
+                let query = neo4rs::query(SET_TYPE_QUERY)
                     .param("id", entity_id)
                     .param("space_id", space_id)
                     .param("created_at", block.timestamp.to_rfc3339())
                     .param("created_at_block", block.block_number.to_string())
                     .param("updated_at", block.timestamp.to_rfc3339())
                     .param("updated_at_block", block.block_number.to_string())
-                    .param("labels", uri.id))
+                    .param("labels", uri.id);
+
+                Ok(neo4j.run(query).await?)
             }
 
             // Setting the FROM_ENTITY or TO_ENTITY relation
-            (system_ids::RELATION_FROM_ATTRIBUTE | system_ids::RELATION_TO_ATTRIBUTE, pb::grc20::ValueType::Url, value) => {
+            (
+                system_ids::RELATION_FROM_ATTRIBUTE | system_ids::RELATION_TO_ATTRIBUTE,
+                pb::grc20::ValueType::Url,
+                value,
+            ) => {
                 let query = format!(
                     r#"
                     MATCH (n {{ id: $other, space_id: $space_id }})
@@ -122,46 +176,46 @@ impl<T> Entity<T> {
                     UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
                 );
 
-                let uri = GraphUri::from_uri(&value)?;
+                let uri = GraphUri::from_uri(value).map_err(SetTripleError::InvalidGraphUri)?;
 
-                Ok(Query::new(&query)
+                let query = neo4rs::query(&query)
                     .param("id", entity_id)
                     .param("other", uri.id)
                     .param("space_id", space_id)
                     .param("created_at", block.timestamp.to_rfc3339())
                     .param("created_at_block", block.block_number.to_string())
                     .param("updated_at", block.timestamp.to_rfc3339())
-                    .param("updated_at_block", block.block_number.to_string()))
+                    .param("updated_at_block", block.block_number.to_string());
 
+                Ok(neo4j.run(query).await?)
             }
 
             (attribute_id, _, value) => {
                 let entity = Entity::<mapping::Triples>::new(
                     entity_id,
                     space_id,
-                    mapping::Triples(HashMap::from([
-                        (
-                            attribute_id.to_string(),
-                            mapping::Triple {
-                                value: value.to_string(),
-                                r#type: mapping::ValueType::Text,
-                                options: Default::default(),
-                            },
-                        ),
-                    ])),
+                    mapping::Triples(HashMap::from([(
+                        attribute_id.to_string(),
+                        mapping::Triple {
+                            value: value.to_string(),
+                            value_type: mapping::ValueType::Text,
+                            options: Default::default(),
+                        },
+                    )])),
                 );
 
-                Ok(entity.upsert_query(block)?)
+                Ok(entity.upsert_query(neo4j, block).await?)
             }
         }
     }
 
-    pub fn delete_triple(
-        block: &BlockMetadata, 
+    pub async fn delete_triple(
+        neo4j: &neo4rs::Graph,
+        block: &BlockMetadata,
         space_id: &str,
         triple: pb::grc20::Triple,
-    ) -> Query<()> {
-        let query = format!(
+    ) -> Result<(), DatabaseError> {
+        let delete_triple_query = format!(
             r#"
             MATCH (n {{ id: $id, space_id: $space_id }})
             REMOVE n.`{attribute_label}`
@@ -175,13 +229,15 @@ impl<T> Entity<T> {
             UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
         );
 
-        Query::new(&query)
+        let query = neo4rs::query(&delete_triple_query)
             .param("id", triple.entity)
             .param("space_id", space_id)
             .param("created_at", block.timestamp.to_rfc3339())
             .param("created_at_block", block.block_number.to_string())
             .param("updated_at", block.timestamp.to_rfc3339())
-            .param("updated_at_block", block.block_number.to_string())
+            .param("updated_at_block", block.block_number.to_string());
+
+        Ok(neo4j.run(query).await?)
     }
 }
 
@@ -193,12 +249,16 @@ pub enum SetTripleError {
     SerdeJson(#[from] serde_json::Error),
 }
 
-impl<T> Entity<T> 
+impl<T> Entity<T>
 where
     T: Serialize,
 {
     /// Returns a query to upsert the current entity
-    pub fn upsert_query(&self, block: &BlockMetadata) -> Result<Query<()>, serde_json::Error> {
+    pub async fn upsert_query(
+        &self,
+        neo4j: &neo4rs::Graph,
+        block: &BlockMetadata,
+    ) -> Result<(), DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
             MERGE (n {{id: $id, space_id: $space_id}})
@@ -224,7 +284,7 @@ where
             _ => neo4rs::BoltType::Map(Default::default()),
         };
 
-        let query = Query::new(QUERY)
+        let query = neo4rs::query(QUERY)
             .param("id", self.id())
             .param("space_id", self.space_id())
             .param("created_at", block.timestamp.to_rfc3339())
@@ -234,7 +294,38 @@ where
             .param("labels", self.types.clone())
             .param("data", bolt_data);
 
-        Ok(query)
+        Ok(neo4j.run(query).await?)
+    }
+}
+
+impl<T> Entity<T>
+where
+    T: for<'a> Deserialize<'a>,
+{
+    /// Returns the entity with the given ID, if it exists
+    pub async fn find_by_id(
+        neo4j: &neo4rs::Graph,
+        id: &str,
+    ) -> Result<Option<Self>, DatabaseError> {
+        const QUERY: &str = const_format::formatcp!("MATCH (n) WHERE n.id = $id RETURN n",);
+
+        let query = neo4rs::query(QUERY).param("id", id);
+
+        #[derive(Debug, Deserialize)]
+        struct ResultRow {
+            n: neo4rs::Node,
+        }
+
+        Ok(neo4j
+            .execute(query)
+            .await?
+            .next()
+            .await?
+            .map(|row| {
+                let row = row.to::<ResultRow>()?;
+                row.n.try_into()
+            })
+            .transpose()?)
     }
 }
 
@@ -359,18 +450,120 @@ mod tests {
                 attributes: Attributes {
                     id: "98wgvodwzidmVA4ryVzGX6".to_string(),
                     space_id: "NBDtpHimvrkmVu7vVBXX7b".to_string(),
-                    attributes: Triples(HashMap::from([
-                        (
-                            "GG8Z4cSkjv8CywbkLqVU5M".to_string(),
-                            Triple {
-                                value: "Person Posts Page Template".to_string(),
-                                r#type: ValueType::Text,
-                                options: Default::default(),
-                            },
-                        ),
-                    ]))
+                    attributes: Triples(HashMap::from([(
+                        "GG8Z4cSkjv8CywbkLqVU5M".to_string(),
+                        Triple {
+                            value: "Person Posts Page Template".to_string(),
+                            value_type: ValueType::Text,
+                            options: Default::default(),
+                        },
+                    ),]))
                 }
             }
         )
+    }
+
+    use testcontainers::{
+        core::{IntoContainerPort, WaitFor},
+        runners::AsyncRunner,
+        GenericImage, ImageExt,
+    };
+
+    const BOLT_PORT: u16 = 7687;
+    const HTTP_PORT: u16 = 7474;
+
+    #[tokio::test]
+    async fn test_find_by_id_no_types() {
+        // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
+        let container = GenericImage::new("neo4j", "latest")
+            .with_wait_for(WaitFor::Duration {
+                length: std::time::Duration::from_secs(5),
+            })
+            .with_exposed_port(BOLT_PORT.tcp())
+            .with_exposed_port(HTTP_PORT.tcp())
+            .with_env_var("NEO4J_AUTH", "none")
+            .start()
+            .await
+            .expect("Failed to start Neo 4J container");
+
+        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
+        let host = container.get_host().await.unwrap().to_string();
+
+        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
+            .await
+            .unwrap();
+
+        #[derive(Debug, Deserialize, Serialize, PartialEq)]
+        struct Foo {
+            foo: String,
+        }
+
+        let entity = Entity::new(
+            "test_id",
+            "test_space_id",
+            Foo {
+                foo: "bar".to_string(),
+            },
+        );
+
+        entity
+            .upsert_query(&neo4j, &BlockMetadata::default())
+            .await
+            .unwrap();
+
+        let found_entity = Entity::<Foo>::find_by_id(&neo4j, "test_id")
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(entity, found_entity);
+    }
+
+    #[tokio::test]
+    async fn test_find_by_id_with_types() {
+        // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
+        let container = GenericImage::new("neo4j", "latest")
+            .with_wait_for(WaitFor::Duration {
+                length: std::time::Duration::from_secs(5),
+            })
+            .with_exposed_port(BOLT_PORT.tcp())
+            .with_exposed_port(HTTP_PORT.tcp())
+            .with_env_var("NEO4J_AUTH", "none")
+            .start()
+            .await
+            .expect("Failed to start Neo 4J container");
+
+        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
+        let host = container.get_host().await.unwrap().to_string();
+
+        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
+            .await
+            .unwrap();
+
+        #[derive(Debug, Deserialize, Serialize, PartialEq)]
+        struct Foo {
+            foo: String,
+        }
+
+        let entity = Entity::new(
+            "test_id",
+            "test_space_id",
+            Foo {
+                foo: "bar".to_string(),
+            },
+        )
+        .with_type("TestType");
+
+        entity
+            .upsert_query(&neo4j, &BlockMetadata::default())
+            .await
+            .unwrap();
+
+        let found_entity = Entity::<Foo>::find_by_id(&neo4j, "test_id")
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(entity, found_entity);
     }
 }

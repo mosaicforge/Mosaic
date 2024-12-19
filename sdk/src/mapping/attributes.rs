@@ -31,7 +31,7 @@ mod tests {
             attributes: Foo {
                 foo: Triple {
                     value: "Hello, World!".to_string(),
-                    r#type: ValueType::Text,
+                    value_type: ValueType::Text,
                     options: Options {
                         format: Some("text".to_string()),
                         unit: Some("unit".to_string()),
@@ -81,7 +81,7 @@ mod tests {
             attributes: Foo {
                 foo: Triple {
                     value: "Hello, World!".to_string(),
-                    r#type: ValueType::Text,
+                    value_type: ValueType::Text,
                     options: Options {
                         format: Some("text".to_string()),
                         ..Default::default()
@@ -89,14 +89,14 @@ mod tests {
                 },
                 bar: Triple {
                     value: "123".to_string(),
-                    r#type: ValueType::Number,
+                    value_type: ValueType::Number,
                     options: Options {
                         unit: Some("int".to_string()),
                         ..Default::default()
                     },
                 },
                 other_field: "other".to_string(),
-            }
+            },
         };
 
         let serialized = serde_json::to_value(&attributes).unwrap();
@@ -131,7 +131,7 @@ mod tests {
                     "foo".to_string(),
                     Triple {
                         value: "Hello, World!".to_string(),
-                        r#type: ValueType::Text,
+                        value_type: ValueType::Text,
                         options: Options {
                             format: Some("text".to_string()),
                             ..Default::default()
@@ -142,18 +142,18 @@ mod tests {
                     "bar".to_string(),
                     Triple {
                         value: "123".to_string(),
-                        r#type: ValueType::Number,
+                        value_type: ValueType::Number,
                         options: Options {
                             unit: Some("int".to_string()),
                             ..Default::default()
                         },
                     },
                 ),
-            ]))
+            ])),
         };
-    
+
         let serialized = serde_json::to_value(&attributes).expect("Failed to serialize Value");
-    
+
         assert_eq!(
             serialized,
             serde_json::json!({
@@ -167,9 +167,10 @@ mod tests {
                 "bar.options.unit": "int",
             })
         );
-    
-        let deserialized: Attributes<Triples> = serde_json::from_value(serialized).expect("Failed to deserialize Value");
-    
+
+        let deserialized: Attributes<Triples> =
+            serde_json::from_value(serialized).expect("Failed to deserialize Value");
+
         assert_eq!(deserialized, attributes);
     }
 }

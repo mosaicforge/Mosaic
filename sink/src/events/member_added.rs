@@ -1,5 +1,8 @@
 use futures::join;
-use sdk::{models::{self, BlockMetadata, GeoAccount, Space, SpaceMember}, pb::geo};
+use sdk::{
+    models::{BlockMetadata, GeoAccount, Space, SpaceMember},
+    pb::geo,
+};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -10,10 +13,14 @@ impl EventHandler {
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         match join!(
-            self.kg
-                .find_node(Space::find_by_voting_plugin_address(&member_added.main_voting_plugin_address)),
-            self.kg
-                .find_node(Space::find_by_personal_plugin_address(&member_added.main_voting_plugin_address))
+            Space::find_by_voting_plugin_address(
+                &self.kg.neo4j,
+                &member_added.main_voting_plugin_address
+            ),
+            Space::find_by_personal_plugin_address(
+                &self.kg.neo4j,
+                &member_added.main_voting_plugin_address
+            )
         ) {
             // Space found
             (Ok(Some(space)), Ok(_)) | (Ok(None), Ok(Some(space))) => {
@@ -27,10 +34,7 @@ impl EventHandler {
 
                 // Add space member relation
                 self.kg
-                    .upsert_relation(block, &SpaceMember::new(
-                        member.id(),
-                        space.id(),
-                    ))
+                    .upsert_relation(block, &SpaceMember::new(member.id(), space.id()))
                     .await
                     .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
             }

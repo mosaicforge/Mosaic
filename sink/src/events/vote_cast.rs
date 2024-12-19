@@ -1,6 +1,10 @@
 use futures::join;
 use sdk::{
-    ids, mapping::{Entity, Relation}, models::{self, Space}, pb::geo, system_ids::{self, INDEXER_SPACE_ID}
+    ids,
+    mapping::{Entity, Relation},
+    models::{self, Space},
+    pb::geo,
+    system_ids,
 };
 use web3_utils::checksum_address;
 
@@ -13,24 +17,23 @@ impl EventHandler {
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         match join!(
-            self.kg
-                .find_node(Space::find_by_voting_plugin_address(&vote.plugin_address)),
-            self.kg
-                .find_node(Space::find_by_member_access_plugin(&vote.plugin_address))
+            Space::find_by_voting_plugin_address(&self.kg.neo4j, &vote.plugin_address),
+            Space::find_by_member_access_plugin(&self.kg.neo4j, &vote.plugin_address)
         ) {
             // Space found
-            (Ok(Some(space)), Ok(_)) | (Ok(None), Ok(Some(space))) => {
-                let maybe_proposal = self.kg
-                    .find_node(models::Proposal::find_by_id_and_address(&vote.onchain_proposal_id, &vote.plugin_address))
-                    .await?;
+            (Ok(Some(_space)), Ok(_)) | (Ok(None), Ok(Some(_space))) => {
+                let maybe_proposal = models::Proposal::find_by_id_and_address(
+                    &self.kg.neo4j,
+                    &vote.onchain_proposal_id,
+                    &vote.plugin_address,
+                )
+                .await?;
 
-                let account = self
-                    .kg
-                    .find_node(
-                        Entity::<models::GeoAccount>::find_by_id_query(
-                            &models::GeoAccount::new_id(&vote.voter),
-                        ))
-                        .await?;
+                let account = Entity::<models::GeoAccount>::find_by_id(
+                    &self.kg.neo4j,
+                    &models::GeoAccount::new_id(&vote.voter),
+                )
+                .await?;
 
                 match (maybe_proposal, account) {
                     (Some(proposal), Some(account)) => {
@@ -46,7 +49,7 @@ impl EventHandler {
                                 block,
                                 &Relation::new(
                                     &ids::create_geo_id(),
-                                    INDEXER_SPACE_ID,
+                                    system_ids::INDEXER_SPACE_ID,
                                     account.id(),
                                     proposal.id(),
                                     vote_cast,

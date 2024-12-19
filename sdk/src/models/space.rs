@@ -1,9 +1,11 @@
+use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
 use web3_utils::checksum_address;
 
 use crate::{
+    error::DatabaseError,
     ids,
-    mapping::{query::Query, Entity, Relation},
+    mapping::{Entity, Relation},
     network_ids, system_ids,
 };
 
@@ -40,64 +42,174 @@ impl Space {
         Entity::new(id, system_ids::INDEXER_SPACE_ID, space).with_type(system_ids::INDEXED_SPACE)
     }
 
-    /// Returns a query to find a space by its DAO contract address.
-    pub fn find_by_dao_address_query(dao_contract_address: &str) -> Query<Self> {
+    /// Find a space by its DAO contract address.
+    pub async fn find_by_dao_address(
+        neo4j: &neo4rs::Graph,
+        dao_contract_address: &str,
+    ) -> Result<Option<Entity<Self>>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             "MATCH (n:`{INDEXED_SPACE}` {{dao_contract_address: $dao_contract_address}}) RETURN n",
             INDEXED_SPACE = system_ids::INDEXED_SPACE,
         );
 
-        Query::new(QUERY).param("dao_contract_address", dao_contract_address)
+        let query = neo4rs::query(QUERY).param("dao_contract_address", dao_contract_address);
+
+        #[derive(Debug, Deserialize)]
+        struct ResultRow {
+            n: neo4rs::Node,
+        }
+
+        Ok(neo4j
+            .execute(query)
+            .await?
+            .next()
+            .await?
+            .map(|row| {
+                let row = row.to::<ResultRow>()?;
+                row.n.try_into()
+            })
+            .transpose()?)
     }
 
-    /// Returns a query to find a space by its space plugin address.
-    pub fn find_by_space_plugin_address(space_plugin_address: &str) -> Query<Self> {
+    /// Find a space by its space plugin address.
+    pub async fn find_by_space_plugin_address(
+        neo4j: &neo4rs::Graph,
+        space_plugin_address: &str,
+    ) -> Result<Option<Entity<Self>>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             "MATCH (n:`{INDEXED_SPACE}` {{space_plugin_address: $space_plugin_address}}) RETURN n",
             INDEXED_SPACE = system_ids::INDEXED_SPACE,
         );
 
-        Query::new(QUERY).param("space_plugin_address", checksum_address(space_plugin_address, None))
+        let query = neo4rs::query(QUERY).param("space_plugin_address", space_plugin_address);
+
+        #[derive(Debug, Deserialize)]
+        struct ResultRow {
+            n: neo4rs::Node,
+        }
+
+        Ok(neo4j
+            .execute(query)
+            .await?
+            .next()
+            .await?
+            .map(|row| {
+                let row = row.to::<ResultRow>()?;
+                row.n.try_into()
+            })
+            .transpose()?)
     }
 
-    /// Returns a query to find a space by its voting plugin address.
-    pub fn find_by_voting_plugin_address(voting_plugin_address: &str) -> Query<Self> {
+    /// Find a space by its voting plugin address.
+    pub async fn find_by_voting_plugin_address(
+        neo4j: &neo4rs::Graph,
+        voting_plugin_address: &str,
+    ) -> Result<Option<Entity<Self>>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             "MATCH (n:`{INDEXED_SPACE}` {{voting_plugin_address: $voting_plugin_address}}) RETURN n",
             INDEXED_SPACE = system_ids::INDEXED_SPACE,
         );
 
-        Query::new(QUERY).param("voting_plugin_address", checksum_address(voting_plugin_address, None))
+        let query = neo4rs::query(QUERY).param("voting_plugin_address", voting_plugin_address);
+
+        #[derive(Debug, Deserialize)]
+        struct ResultRow {
+            n: neo4rs::Node,
+        }
+
+        Ok(neo4j
+            .execute(query)
+            .await?
+            .next()
+            .await?
+            .map(|row| {
+                let row = row.to::<ResultRow>()?;
+                row.n.try_into()
+            })
+            .transpose()?)
     }
 
-    /// Returns a query to find a space by its member access plugin address.
-    pub fn find_by_member_access_plugin(member_access_plugin: &str) -> Query<Self> {
+    /// Find a space by its member access plugin address.
+    pub async fn find_by_member_access_plugin(
+        neo4j: &neo4rs::Graph,
+        member_access_plugin: &str,
+    ) -> Result<Option<Entity<Self>>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             "MATCH (n:`{INDEXED_SPACE}` {{member_access_plugin: $member_access_plugin}}) RETURN n",
             INDEXED_SPACE = system_ids::INDEXED_SPACE,
         );
 
-        Query::new(QUERY).param("member_access_plugin", checksum_address(member_access_plugin, None))
+        let query = neo4rs::query(QUERY).param("member_access_plugin", member_access_plugin);
+
+        #[derive(Debug, Deserialize)]
+        struct ResultRow {
+            n: neo4rs::Node,
+        }
+
+        Ok(neo4j
+            .execute(query)
+            .await?
+            .next()
+            .await?
+            .map(|row| {
+                let row = row.to::<ResultRow>()?;
+                row.n.try_into()
+            })
+            .transpose()?)
     }
 
-    /// Returns a query to find a space by its personal space admin plugin address.
-    pub fn find_by_personal_plugin_address(personal_space_admin_plugin: &str) -> Query<Self> {
+    /// Find a space by its personal space admin plugin address.
+    pub async fn find_by_personal_plugin_address(
+        neo4j: &neo4rs::Graph,
+        personal_space_admin_plugin: &str,
+    ) -> Result<Option<Entity<Self>>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             "MATCH (n:`{INDEXED_SPACE}` {{personal_space_admin_plugin: $personal_space_admin_plugin}}) RETURN n",
             INDEXED_SPACE = system_ids::INDEXED_SPACE,
         );
 
-        Query::new(QUERY).param("personal_space_admin_plugin", checksum_address(personal_space_admin_plugin, None))
+        let query =
+            neo4rs::query(QUERY).param("personal_space_admin_plugin", personal_space_admin_plugin);
+
+        #[derive(Debug, Deserialize)]
+        struct ResultRow {
+            n: neo4rs::Node,
+        }
+
+        Ok(neo4j
+            .execute(query)
+            .await?
+            .next()
+            .await?
+            .map(|row| {
+                let row = row.to::<ResultRow>()?;
+                row.n.try_into()
+            })
+            .transpose()?)
     }
 
-    /// Returns a query to find all spaces.
-    pub fn find_all() -> Query<Self> {
+    /// Returns all spaces
+    pub async fn find_all(neo4j: &neo4rs::Graph) -> Result<Vec<Entity<Self>>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             "MATCH (n:`{INDEXED_SPACE}`) RETURN n",
             INDEXED_SPACE = system_ids::INDEXED_SPACE,
         );
 
-        Query::new(QUERY)
+        let query = neo4rs::query(QUERY);
+
+        #[derive(Debug, Deserialize)]
+        struct ResultRow {
+            n: neo4rs::Node,
+        }
+
+        neo4j
+            .execute(query)
+            .await?
+            .into_stream_as::<ResultRow>()
+            .map_err(DatabaseError::from)
+            .and_then(|neo4j_node| async move { Ok(neo4j_node.n.try_into()?) })
+            .try_collect::<Vec<_>>()
+            .await
     }
 }
 
@@ -164,7 +276,8 @@ impl SpaceBuilder {
     }
 
     pub fn personal_space_admin_plugin(mut self, personal_space_admin_plugin: &str) -> Self {
-        self.personal_space_admin_plugin = Some(checksum_address(personal_space_admin_plugin, None));
+        self.personal_space_admin_plugin =
+            Some(checksum_address(personal_space_admin_plugin, None));
         self
     }
 

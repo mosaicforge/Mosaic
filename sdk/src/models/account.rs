@@ -3,7 +3,6 @@ use web3_utils::checksum_address;
 
 use crate::{ids, mapping::Entity, system_ids};
 
-
 #[derive(Clone, Deserialize, Serialize, PartialEq)]
 pub struct GeoAccount {
     pub address: String,
@@ -17,7 +16,7 @@ impl GeoAccount {
             system_ids::INDEXER_SPACE_ID,
             Self {
                 address: checksummed_address,
-            }
+            },
         )
         .with_type(system_ids::GEO_ACCOUNT)
     }

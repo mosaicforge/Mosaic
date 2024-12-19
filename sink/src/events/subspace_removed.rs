@@ -8,11 +8,12 @@ impl EventHandler {
         subspace_removed: &geo::SubspaceRemoved,
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space = self
-            .kg
-            .find_node(models::Space::find_by_space_plugin_address(&subspace_removed.plugin_address))
-            .await
-            .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+        let space = models::Space::find_by_space_plugin_address(
+            &self.kg.neo4j,
+            &subspace_removed.plugin_address,
+        )
+        .await
+        .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
 
         if let Some(space) = space {
             self.kg.neo4j

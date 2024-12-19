@@ -1,28 +1,19 @@
-use futures::{stream, StreamExt, TryStreamExt};
+use futures::TryStreamExt;
 use serde::Deserialize;
 
 use crate::bootstrap::{self, constants};
 // use web3_utils::checksum_address;
 
 use sdk::{
-    mapping::{self, Entity, Named, Relation}, models::{self, BlockMetadata, EditProposal}, pb, system_ids
+    error::DatabaseError,
+    mapping::{self, Entity, Relation},
+    models::{self, BlockMetadata},
+    pb, system_ids,
 };
 
 #[derive(Clone)]
 pub struct Client {
     pub neo4j: neo4rs::Graph,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum DatabaseError {
-    #[error("Neo4j error: {0}")]
-    Neo4jError(#[from] neo4rs::Error),
-    #[error("Deserialization error: {0}")]
-    DeserializationError(#[from] neo4rs::DeError),
-    #[error("Serialization Error: {0}")]
-    SerializationError(#[from] serde_json::Error),
-    #[error("SetTripleError: {0}")]
-    SetTripleError(#[from] mapping::entity::SetTripleError),
 }
 
 impl Client {
@@ -32,7 +23,7 @@ impl Client {
     }
 
     /// Bootstrap the database with the initial data
-    pub async fn bootstrap(&self, rollup: bool) -> Result<(), DatabaseError> {
+    pub async fn bootstrap(&self, _rollup: bool) -> Result<(), DatabaseError> {
         // let bootstrap_ops = if rollup {
         //     conversions::batch_ops(bootstrap::bootstrap())
         // } else {
@@ -45,17 +36,20 @@ impl Client {
         //     .await?;
         self.upsert_entity(
             &BlockMetadata::default(),
-            &models::Space::builder(
-                constants::ROOT_SPACE_ID,
-                constants::ROOT_SPACE_DAO_ADDRESS,
-            )
-            .space_plugin_address(constants::ROOT_SPACE_PLUGIN_ADDRESS)
-            .voting_plugin_address(constants::ROOT_SPACE_MAIN_VOTING_ADDRESS)
-            .member_access_plugin(constants::ROOT_SPACE_MEMBER_ACCESS_ADDRESS)
-            .build()
-        ).await?;
+            &models::Space::builder(constants::ROOT_SPACE_ID, constants::ROOT_SPACE_DAO_ADDRESS)
+                .space_plugin_address(constants::ROOT_SPACE_PLUGIN_ADDRESS)
+                .voting_plugin_address(constants::ROOT_SPACE_MAIN_VOTING_ADDRESS)
+                .member_access_plugin(constants::ROOT_SPACE_MEMBER_ACCESS_ADDRESS)
+                .build(),
+        )
+        .await?;
 
-        Ok(self.process_ops(&BlockMetadata::default(), constants::ROOT_SPACE_ID, bootstrap::bootstrap()).await?)
+        self.process_ops(
+            &BlockMetadata::default(),
+            constants::ROOT_SPACE_ID,
+            bootstrap::bootstrap(),
+        )
+        .await
     }
 
     /// Reset the database by deleting all nodes and relations and re-bootstrapping it
@@ -86,7 +80,7 @@ impl Client {
         block: &models::BlockMetadata,
         entity: &Entity<T>,
     ) -> Result<(), DatabaseError> {
-        self.run(entity.upsert_query(block)?).await?;
+        entity.upsert_query(&self.neo4j, block).await?;
 
         Ok(())
     }
@@ -96,13 +90,13 @@ impl Client {
         Ok(())
     }
 
-    pub async fn find_node_by_id<T: for<'a> Deserialize<'a> + Send>(
-        &self,
-        id: &str,
-    ) -> Result<Option<Entity<T>>, DatabaseError> {
-        let query = Entity::<T>::find_by_id_query(id);
-        self.find_node(query).await
-    }
+    // pub async fn find_node_by_id<T: for<'a> Deserialize<'a> + Send>(
+    //     &self,
+    //     id: &str,
+    // ) -> Result<Option<Entity<T>>, DatabaseError> {
+    //     let query = Entity::<T>::find_by_id_query(id);
+    //     self.find_node(query).await
+    // }
 
     pub async fn find_node<T: for<'a> Deserialize<'a> + Send>(
         &self,
@@ -113,9 +107,7 @@ impl Client {
             .await?
             .next()
             .await?
-            .map(|row| {
-                Ok::<_, DatabaseError>(Entity::<T>::try_from(row.to::<neo4rs::Node>()?)?)
-            })
+            .map(|row| Ok::<_, DatabaseError>(Entity::<T>::try_from(row.to::<neo4rs::Node>()?)?))
             .transpose()
     }
 
@@ -158,24 +150,33 @@ impl Client {
         self.find_nodes::<T>(query).await
     }
 
-    pub async fn process_ops(&self, block: &models::BlockMetadata, space_id: &str, ops: impl IntoIterator<Item = pb::grc20::Op>) -> Result<(), DatabaseError> {
+    pub async fn process_ops(
+        &self,
+        block: &models::BlockMetadata,
+        space_id: &str,
+        ops: impl IntoIterator<Item = pb::grc20::Op>,
+    ) -> Result<(), DatabaseError> {
         for op in ops {
             match (op.r#type(), op.triple) {
-                (pb::grc20::OpType::SetTriple, Some(pb::grc20::Triple { entity, attribute, value: Some(value) })) => {
-                    tracing::info!(
-                        "SetTriple: {}, {}, {:?}",
+                (
+                    pb::grc20::OpType::SetTriple,
+                    Some(pb::grc20::Triple {
                         entity,
                         attribute,
-                        value,
-                    );
+                        value: Some(value),
+                    }),
+                ) => {
+                    tracing::info!("SetTriple: {}, {}, {:?}", entity, attribute, value,);
 
-                    self.run(Entity::<()>::set_triple(
-                        block, 
-                        space_id, 
+                    Entity::<()>::set_triple(
+                        &self.neo4j,
+                        block,
+                        space_id,
                         &entity,
-                        &attribute, 
-                        &value
-                    )?).await?
+                        &attribute,
+                        &value,
+                    )
+                    .await?
                 }
                 (pb::grc20::OpType::DeleteTriple, Some(triple)) => {
                     tracing::info!(
@@ -185,7 +186,7 @@ impl Client {
                         triple.value,
                     );
 
-                    self.run(Entity::<()>::delete_triple(block, space_id, triple)).await?
+                    Entity::<()>::delete_triple(&self.neo4j, block, space_id, triple).await?
                 }
                 (typ, maybe_triple) => {
                     tracing::warn!("Unhandled case: {:?} {:?}", typ, maybe_triple);
