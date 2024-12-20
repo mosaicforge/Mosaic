@@ -1,8 +1,7 @@
 //! This example demonstrates simple default integration with [`axum`].
 
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc};
 
-// use api::query_mapping::QueryMapper;
 use axum::{
     response::Html,
     routing::{get, on, MethodFilter},
@@ -11,7 +10,8 @@ use axum::{
 use chrono::{DateTime, Utc};
 use clap::{Args, Parser};
 use juniper::{
-    graphql_object, EmptyMutation, EmptySubscription, Executor, GraphQLEnum, GraphQLInputObject, GraphQLObject, GraphQLScalar, RootNode, ScalarValue
+    graphql_object, EmptyMutation, EmptySubscription, Executor, GraphQLEnum, GraphQLInputObject,
+    GraphQLObject, RootNode, ScalarValue,
 };
 use juniper_axum::{extract::JuniperRequest, graphiql, playground, response::JuniperResponse};
 use sdk::{mapping, system_ids};
@@ -70,14 +70,15 @@ impl Query {
                 .map(Entity::from)
                 .collect::<Vec<_>>()
             }
-            _ => {
-                mapping::Entity::<mapping::Triples>::find_all(&executor.context().0.neo4j, &space_id)
-                    .await
-                    .expect("Failed to find entities")
-                    .into_iter()
-                    .map(Entity::from)
-                    .collect::<Vec<_>>()
-            }
+            _ => mapping::Entity::<mapping::Triples>::find_all(
+                &executor.context().0.neo4j,
+                &space_id,
+            )
+            .await
+            .expect("Failed to find entities")
+            .into_iter()
+            .map(Entity::from)
+            .collect::<Vec<_>>(),
         }
     }
 
@@ -89,10 +90,14 @@ impl Query {
         space_id: String,
         // version_id: Option<String>,
     ) -> Option<Relation> {
-        mapping::Relation::<mapping::Triples>::find_by_id(&executor.context().0.neo4j, &id, &space_id)
-            .await
-            .expect("Failed to find relation")
-            .map(|rel| rel.into())
+        mapping::Relation::<mapping::Triples>::find_by_id(
+            &executor.context().0.neo4j,
+            &id,
+            &space_id,
+        )
+        .await
+        .expect("Failed to find relation")
+        .map(|rel| rel.into())
     }
 
     /// Returns multiple relations according to the provided space ID and filter
@@ -104,26 +109,27 @@ impl Query {
         filter: Option<RelationFilter>,
     ) -> Vec<Relation> {
         match filter {
-            Some(RelationFilter { relation_types: Some(types) }) if !types.is_empty() => {
-                mapping::Relation::<mapping::Triples>::find_by_types(
-                    &executor.context().0.neo4j,
-                    &types,
-                    &space_id,
-                )
-                .await
-                .expect("Failed to find relations")
-                .into_iter()
-                .map(|rel| rel.into())
-                .collect::<Vec<_>>()
-            }
-            _ => {
-                mapping::Relation::<mapping::Triples>::find_all(&executor.context().0.neo4j, &space_id)
-                    .await
-                    .expect("Failed to find relations")
-                    .into_iter()
-                    .map(|rel| rel.into())
-                    .collect::<Vec<_>>()
-            }
+            Some(RelationFilter {
+                relation_types: Some(types),
+            }) if !types.is_empty() => mapping::Relation::<mapping::Triples>::find_by_types(
+                &executor.context().0.neo4j,
+                &types,
+                &space_id,
+            )
+            .await
+            .expect("Failed to find relations")
+            .into_iter()
+            .map(|rel| rel.into())
+            .collect::<Vec<_>>(),
+            _ => mapping::Relation::<mapping::Triples>::find_all(
+                &executor.context().0.neo4j,
+                &space_id,
+            )
+            .await
+            .expect("Failed to find relations")
+            .into_iter()
+            .map(|rel| rel.into())
+            .collect::<Vec<_>>(),
         }
     }
 }
@@ -244,7 +250,7 @@ impl Entity {
             // For now, we'll just return the relation type
             mapping::Entity::<mapping::Triples>::find_by_id(
                 &executor.context().0.neo4j,
-                &system_ids::RELATION_TYPE.to_string(),
+                system_ids::RELATION_TYPE,
                 &self.space_id,
             )
             .await
@@ -355,7 +361,7 @@ impl From<mapping::Relation<mapping::Triples>> for Relation {
 #[graphql_object]
 #[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
 /// Relation object
-/// 
+///
 /// Note: Relations are also entities, but they have a different structure in the database.
 /// In other words, the Relation object is a "view" on a relation entity. All relations
 /// can also be queried as entities.
@@ -499,10 +505,14 @@ impl Triple {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Option<String> {
-        mapping::Entity::<mapping::Named>::find_by_id(&executor.context().0.neo4j, &self.attribute, &self.space_id)
-            .await
-            .expect("Failed to find attribute entity")
-            .and_then(|entity| entity.name())
+        mapping::Entity::<mapping::Named>::find_by_id(
+            &executor.context().0.neo4j,
+            &self.attribute,
+            &self.space_id,
+        )
+        .await
+        .expect("Failed to find attribute entity")
+        .and_then(|entity| entity.name())
     }
 }
 

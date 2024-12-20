@@ -21,7 +21,7 @@ pub struct Attributes<T> {
     // System properties
     #[serde(flatten)]
     pub system_properties: SystemProperties,
-    
+
     // Actual node data
     #[serde(flatten)]
     pub attributes: T,
@@ -32,7 +32,10 @@ mod tests {
     use std::collections::HashMap;
 
     use super::*;
-    use crate::{mapping::triple::{Options, Triple, Triples, ValueType}, models::BlockMetadata};
+    use crate::{
+        mapping::triple::{Options, Triple, Triples, ValueType},
+        models::BlockMetadata,
+    };
     use serde_with::with_prefix;
 
     #[test]

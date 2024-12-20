@@ -22,7 +22,7 @@ impl EventHandler {
         ) {
             (Ok(Some(parent_space)), Ok(Some(subspace))) => {
                 ParentSpace::new(subspace.id(), parent_space.id(), block)
-                    .upsert(&self.kg.neo4j)                
+                    .upsert(&self.kg.neo4j)
                     .await?;
             }
             (Ok(None), Ok(_)) => {

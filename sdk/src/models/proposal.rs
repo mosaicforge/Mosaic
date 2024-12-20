@@ -326,7 +326,11 @@ impl RemoveSubspaceProposal {
 pub struct ProposedSubspace;
 
 impl ProposedSubspace {
-    pub fn new(subspace_proposal_id: &str, subspace_id: &str, block: &BlockMetadata) -> Relation<Self> {
+    pub fn new(
+        subspace_proposal_id: &str,
+        subspace_id: &str,
+        block: &BlockMetadata,
+    ) -> Relation<Self> {
         Relation::new(
             &ids::create_id_from_unique_string(&format!(
                 "{}-{}",

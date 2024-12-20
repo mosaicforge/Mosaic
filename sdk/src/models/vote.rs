@@ -39,7 +39,12 @@ impl VoteCast {
     }
 
     /// Creates a new vote cast with the given vote type.
-    pub fn new(account_id: &str, proposal_id: &str, vote_type: VoteType, block: &BlockMetadata) -> Relation<Self> {
+    pub fn new(
+        account_id: &str,
+        proposal_id: &str,
+        vote_type: VoteType,
+        block: &BlockMetadata,
+    ) -> Relation<Self> {
         Relation::new(
             &Self::new_id(account_id, proposal_id),
             system_ids::INDEXER_SPACE_ID,

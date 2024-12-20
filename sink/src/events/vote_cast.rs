@@ -2,7 +2,8 @@ use futures::join;
 use sdk::{
     mapping::Entity,
     models::{self, Space, VoteCast},
-    pb::geo, system_ids,
+    pb::geo,
+    system_ids,
 };
 use web3_utils::checksum_address;
 

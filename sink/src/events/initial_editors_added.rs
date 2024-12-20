@@ -25,8 +25,7 @@ impl EventHandler {
                     let editor = GeoAccount::new(editor.clone(), block);
 
                     // Add geo account
-                    editor.upsert(&self.kg.neo4j)
-                        .await?;
+                    editor.upsert(&self.kg.neo4j).await?;
 
                     // Add space editor relation
                     SpaceEditor::new(editor.id(), space.id(), block)

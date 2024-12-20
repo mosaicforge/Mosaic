@@ -11,8 +11,8 @@ impl EventHandler {
         member_removed: &geo::MemberRemoved,
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space = models::Space::find_by_dao_address(&self.kg.neo4j, &member_removed.dao_address)
-            .await?;
+        let space =
+            models::Space::find_by_dao_address(&self.kg.neo4j, &member_removed.dao_address).await?;
 
         if let Some(space) = space {
             SpaceMember::remove(

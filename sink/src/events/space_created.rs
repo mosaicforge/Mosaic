@@ -100,7 +100,7 @@ impl EventHandler {
                 .build()
                 .upsert(&self.kg.neo4j)
                 .await?;
-            
+
             // Add initial editors to the personal space
             let editor = GeoAccount::new(personal_space_created.initial_editor.clone(), block);
 

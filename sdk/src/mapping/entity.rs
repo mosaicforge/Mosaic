@@ -12,7 +12,10 @@ use crate::{
     pb, system_ids,
 };
 
-use super::{attributes::{Attributes, SystemProperties}, Relation, Triples};
+use super::{
+    attributes::{Attributes, SystemProperties},
+    Relation, Triples,
+};
 
 /// GRC20 Node
 #[derive(Debug, Deserialize, PartialEq)]
@@ -25,12 +28,7 @@ pub struct Entity<T = ()> {
 
 impl<T> Entity<T> {
     /// Creates a new entity with the given ID, space ID, and data
-    pub fn new(
-        id: &str, 
-        space_id: &str,
-        block: &BlockMetadata, 
-        data: T
-    ) -> Self {
+    pub fn new(id: &str, space_id: &str, block: &BlockMetadata, data: T) -> Self {
         Self {
             types: Vec::new(),
             attributes: Attributes {
@@ -114,17 +112,16 @@ impl<T> Entity<T> {
                 let rel: Entity<R> = row.r.try_into()?;
                 let to: Entity<()> = row.to.try_into()?;
 
-                Ok(Relation::from_entity(
-                    rel,
-                    &id,
-                    to.id(),
-                ))
+                Ok(Relation::from_entity(rel, id, to.id()))
             })
             .try_collect::<Vec<_>>()
             .await
     }
 
-    pub async fn types(&self, neo4j: &neo4rs::Graph) -> Result<Vec<Entity<Triples>>, DatabaseError> {
+    pub async fn types(
+        &self,
+        neo4j: &neo4rs::Graph,
+    ) -> Result<Vec<Entity<Triples>>, DatabaseError> {
         Self::find_types(neo4j, self.id(), self.space_id()).await
     }
 
@@ -157,9 +154,7 @@ impl<T> Entity<T> {
             .await?
             .into_stream_as::<RowResult>()
             .map_err(DatabaseError::from)
-            .and_then(|row| async move {
-                Ok(row.t.try_into()?)
-            })
+            .and_then(|row| async move { Ok(row.t.try_into()?) })
             .try_collect::<Vec<_>>()
             .await
     }
@@ -250,11 +245,7 @@ impl<T> Entity<T> {
             }
 
             // Set the RELATION_TYPE on a relation entity
-            (
-                system_ids::RELATION_TYPE_ATTRIBUTE,
-                pb::grc20::ValueType::Url,
-                value,
-            ) => {
+            (system_ids::RELATION_TYPE_ATTRIBUTE, pb::grc20::ValueType::Url, value) => {
                 const QUERY: &str = const_format::formatcp!(
                     r#"
                     MERGE (r {{ id: $id, space_id: $space_id }})
@@ -355,10 +346,7 @@ where
     T: Serialize,
 {
     /// Upsert the current entity
-    pub async fn upsert(
-        &self,
-        neo4j: &neo4rs::Graph,
-    ) -> Result<(), DatabaseError> {
+    pub async fn upsert(&self, neo4j: &neo4rs::Graph) -> Result<(), DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
             MERGE (n {{id: $id, space_id: $space_id}})
@@ -387,10 +375,28 @@ where
         let query = neo4rs::query(QUERY)
             .param("id", self.id())
             .param("space_id", self.space_id())
-            .param("created_at", self.attributes.system_properties.created_at.to_rfc3339())
-            .param("created_at_block", self.attributes.system_properties.created_at_block.to_string())
-            .param("updated_at", self.attributes.system_properties.updated_at.to_rfc3339())
-            .param("updated_at_block", self.attributes.system_properties.updated_at_block.to_string())
+            .param(
+                "created_at",
+                self.attributes.system_properties.created_at.to_rfc3339(),
+            )
+            .param(
+                "created_at_block",
+                self.attributes
+                    .system_properties
+                    .created_at_block
+                    .to_string(),
+            )
+            .param(
+                "updated_at",
+                self.attributes.system_properties.updated_at.to_rfc3339(),
+            )
+            .param(
+                "updated_at_block",
+                self.attributes
+                    .system_properties
+                    .updated_at_block
+                    .to_string(),
+            )
             .param("labels", self.types.clone())
             .param("data", bolt_data);
 
@@ -408,7 +414,8 @@ where
         id: &str,
         space_id: &str,
     ) -> Result<Option<Self>, DatabaseError> {
-        const QUERY: &str = const_format::formatcp!("MATCH (n {{id: $id, space_id: $space_id}}) RETURN n",);
+        const QUERY: &str =
+            const_format::formatcp!("MATCH (n {{id: $id, space_id: $space_id}}) RETURN n",);
 
         let query = neo4rs::query(QUERY)
             .param("id", id)
@@ -435,7 +442,7 @@ where
     pub async fn find_by_ids(
         neo4j: &neo4rs::Graph,
         ids: &[String],
-        space_id: &str
+        space_id: &str,
     ) -> Result<Vec<Self>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
@@ -459,9 +466,7 @@ where
             .await?
             .into_stream_as::<RowResult>()
             .map_err(DatabaseError::from)
-            .and_then(|row| async move {
-                Ok(row.n.try_into()?)
-            })
+            .and_then(|row| async move { Ok(row.n.try_into()?) })
             .try_collect::<Vec<_>>()
             .await
     }
@@ -493,9 +498,7 @@ where
             .await?
             .into_stream_as::<RowResult>()
             .map_err(DatabaseError::from)
-            .and_then(|row| async move {
-                Ok(row.n.try_into()?)
-            })
+            .and_then(|row| async move { Ok(row.n.try_into()?) })
             .try_collect::<Vec<_>>()
             .await
     }
@@ -504,7 +507,8 @@ where
         neo4j: &neo4rs::Graph,
         space_id: &str,
     ) -> Result<Vec<Self>, DatabaseError> {
-        const QUERY: &str = const_format::formatcp!("MATCH (n {{space_id: $space_id}}) RETURN n LIMIT 100");
+        const QUERY: &str =
+            const_format::formatcp!("MATCH (n {{space_id: $space_id}}) RETURN n LIMIT 100");
 
         let query = neo4rs::query(QUERY).param("space_id", space_id);
 
@@ -518,9 +522,7 @@ where
             .await?
             .into_stream_as::<RowResult>()
             .map_err(DatabaseError::from)
-            .and_then(|row| async move {
-                Ok(row.n.try_into()?)
-            })
+            .and_then(|row| async move { Ok(row.n.try_into()?) })
             .try_collect::<Vec<_>>()
             .await
     }
@@ -595,7 +597,7 @@ mod tests {
 
     const BOLT_PORT: u16 = 7687;
     const HTTP_PORT: u16 = 7474;
-    
+
     #[tokio::test]
     async fn test_find_by_id_no_types() {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
@@ -631,10 +633,7 @@ mod tests {
             },
         );
 
-        entity
-            .upsert(&neo4j)
-            .await
-            .unwrap();
+        entity.upsert(&neo4j).await.unwrap();
 
         let found_entity = Entity::<Foo>::find_by_id(&neo4j, "test_id", "test_space_id")
             .await
@@ -680,10 +679,7 @@ mod tests {
         )
         .with_type("TestType");
 
-        entity
-            .upsert(&neo4j)
-            .await
-            .unwrap();
+        entity.upsert(&neo4j).await.unwrap();
 
         let found_entity = Entity::<Foo>::find_by_id(&neo4j, "test_id", "test_space_id")
             .await

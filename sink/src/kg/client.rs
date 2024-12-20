@@ -6,7 +6,7 @@ use crate::bootstrap::{self, constants};
 
 use sdk::{
     error::DatabaseError,
-    mapping::{self, Entity, Relation},
+    mapping::{self, Entity},
     models::{self, BlockMetadata},
     pb, system_ids,
 };
@@ -34,13 +34,17 @@ impl Client {
         //     .map(Ok) // Convert to Result to be able to use try_for_each
         //     .try_for_each(|op| async move { op.apply_op(self, ROOT_SPACE_ID).await })
         //     .await?;
-        models::Space::builder(constants::ROOT_SPACE_ID, constants::ROOT_SPACE_DAO_ADDRESS, &BlockMetadata::default())
-            .space_plugin_address(constants::ROOT_SPACE_PLUGIN_ADDRESS)
-            .voting_plugin_address(constants::ROOT_SPACE_MAIN_VOTING_ADDRESS)
-            .member_access_plugin(constants::ROOT_SPACE_MEMBER_ACCESS_ADDRESS)
-            .build()
-            .upsert(&self.neo4j)
-            .await?;
+        models::Space::builder(
+            constants::ROOT_SPACE_ID,
+            constants::ROOT_SPACE_DAO_ADDRESS,
+            &BlockMetadata::default(),
+        )
+        .space_plugin_address(constants::ROOT_SPACE_PLUGIN_ADDRESS)
+        .voting_plugin_address(constants::ROOT_SPACE_MAIN_VOTING_ADDRESS)
+        .member_access_plugin(constants::ROOT_SPACE_MEMBER_ACCESS_ADDRESS)
+        .build()
+        .upsert(&self.neo4j)
+        .await?;
 
         self.process_ops(
             &BlockMetadata::default(),

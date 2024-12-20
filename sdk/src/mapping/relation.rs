@@ -3,9 +3,15 @@ use std::collections::HashMap;
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
 
-use crate::{error::DatabaseError, models::BlockMetadata, neo4j_utils::serde_value_to_bolt, system_ids};
+use crate::{
+    error::DatabaseError, models::BlockMetadata, neo4j_utils::serde_value_to_bolt, system_ids,
+};
 
-use super::{attributes::{Attributes, SystemProperties}, query::Query, Entity, Triples};
+use super::{
+    attributes::{Attributes, SystemProperties},
+    query::Query,
+    Entity, Triples,
+};
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct Relation<T> {
@@ -19,11 +25,11 @@ pub struct Relation<T> {
 
 impl<T> Relation<T> {
     pub fn new(
-        id: &str, 
-        space_id: &str, 
-        from: &str, 
+        id: &str,
+        space_id: &str,
+        from: &str,
         to: &str,
-        block: &BlockMetadata, 
+        block: &BlockMetadata,
         data: T,
     ) -> Self {
         Self {
@@ -88,14 +94,17 @@ impl<T> Relation<T> {
         Query::new(QUERY).param("id", id)
     }
 
-    pub async fn types(&self, neo4j: &neo4rs::Graph) -> Result<Vec<Entity<Triples>>, DatabaseError> {
+    pub async fn types(
+        &self,
+        neo4j: &neo4rs::Graph,
+    ) -> Result<Vec<Entity<Triples>>, DatabaseError> {
         Self::find_types(neo4j, self.id(), self.space_id()).await
     }
 
     pub async fn find_types(
         neo4j: &neo4rs::Graph,
-        id: &str, 
-        space_id: &str, 
+        id: &str,
+        space_id: &str,
     ) -> Result<Vec<Entity<Triples>>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
@@ -105,7 +114,7 @@ impl<T> Relation<T> {
             RETURN t
             "#,
         );
-        
+
         let query = neo4rs::query(QUERY)
             .param("id", id)
             .param("space_id", space_id);
@@ -120,15 +129,13 @@ impl<T> Relation<T> {
             .await?
             .into_stream_as::<RowResult>()
             .map_err(DatabaseError::from)
-            .and_then(|row| async move {
-                Ok(row.t.try_into()?)
-            })
+            .and_then(|row| async move { Ok(row.t.try_into()?) })
             .try_collect::<Vec<_>>()
             .await
     }
 
-    pub async fn to<E>(&self, neo4j: &neo4rs::Graph) -> Result<Option<Entity<E>>, DatabaseError> 
-    where 
+    pub async fn to<E>(&self, neo4j: &neo4rs::Graph) -> Result<Option<Entity<E>>, DatabaseError>
+    where
         E: for<'a> Deserialize<'a> + Send,
     {
         Self::find_to(neo4j, self.id(), self.space_id()).await
@@ -136,10 +143,10 @@ impl<T> Relation<T> {
 
     pub async fn find_to<E>(
         neo4j: &neo4rs::Graph,
-        id: &str, 
-        space_id: &str, 
-    ) -> Result<Option<Entity<E>>, DatabaseError> 
-    where 
+        id: &str,
+        space_id: &str,
+    ) -> Result<Option<Entity<E>>, DatabaseError>
+    where
         E: for<'a> Deserialize<'a> + Send,
     {
         const QUERY: &str = const_format::formatcp!(
@@ -149,7 +156,7 @@ impl<T> Relation<T> {
             "#,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
         );
-        
+
         let query = neo4rs::query(QUERY)
             .param("id", id)
             .param("space_id", space_id);
@@ -171,8 +178,8 @@ impl<T> Relation<T> {
             .transpose()?)
     }
 
-    pub async fn from<E>(&self, neo4j: &neo4rs::Graph) -> Result<Option<Entity<E>>, DatabaseError> 
-    where 
+    pub async fn from<E>(&self, neo4j: &neo4rs::Graph) -> Result<Option<Entity<E>>, DatabaseError>
+    where
         E: for<'a> Deserialize<'a> + Send,
     {
         Self::find_from(neo4j, self.id(), self.space_id()).await
@@ -180,10 +187,10 @@ impl<T> Relation<T> {
 
     pub async fn find_from<E>(
         neo4j: &neo4rs::Graph,
-        id: &str, 
-        space_id: &str, 
-    ) -> Result<Option<Entity<E>>, DatabaseError> 
-    where 
+        id: &str,
+        space_id: &str,
+    ) -> Result<Option<Entity<E>>, DatabaseError>
+    where
         E: for<'a> Deserialize<'a> + Send,
     {
         const QUERY: &str = const_format::formatcp!(
@@ -193,7 +200,7 @@ impl<T> Relation<T> {
             "#,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
         );
-        
+
         let query = neo4rs::query(QUERY)
             .param("id", id)
             .param("space_id", space_id);
@@ -257,10 +264,28 @@ where
             .param("from_id", self.from.clone())
             .param("to_id", self.to.clone())
             .param("space_id", self.space_id())
-            .param("created_at", self.attributes.system_properties.created_at.to_rfc3339())
-            .param("created_at_block", self.attributes.system_properties.created_at_block.to_string())
-            .param("updated_at", self.attributes.system_properties.updated_at.to_rfc3339())
-            .param("updated_at_block", self.attributes.system_properties.updated_at_block.to_string())
+            .param(
+                "created_at",
+                self.attributes.system_properties.created_at.to_rfc3339(),
+            )
+            .param(
+                "created_at_block",
+                self.attributes
+                    .system_properties
+                    .created_at_block
+                    .to_string(),
+            )
+            .param(
+                "updated_at",
+                self.attributes.system_properties.updated_at.to_rfc3339(),
+            )
+            .param(
+                "updated_at_block",
+                self.attributes
+                    .system_properties
+                    .updated_at_block
+                    .to_string(),
+            )
             .param("labels", self.types.clone())
             .param("data", bolt_data);
 
@@ -311,11 +336,7 @@ where
                 let rel: Entity<T> = row.r.try_into()?;
                 let to: Entity<()> = row.to.try_into()?;
 
-                Ok(Relation::from_entity(
-                    rel,
-                    from.id(),
-                    to.id(),
-                ))
+                Ok(Relation::from_entity(rel, from.id(), to.id()))
             })
             .transpose()
     }
@@ -355,11 +376,7 @@ where
                 let rel: Entity<T> = row.r.try_into()?;
                 let to: Entity<()> = row.to.try_into()?;
 
-                Ok(Relation::from_entity(
-                    rel,
-                    from.id(),
-                    to.id(),
-                ))
+                Ok(Relation::from_entity(rel, from.id(), to.id()))
             })
             .try_collect::<Vec<_>>()
             .await
@@ -384,7 +401,7 @@ where
         let query = neo4rs::query(QUERY)
             .param("types", types)
             .param("space_id", space_id);
-        
+
         #[derive(Debug, Deserialize)]
         struct RowResult {
             from: neo4rs::Node,
@@ -402,17 +419,16 @@ where
                 let rel: Entity<T> = row.r.try_into()?;
                 let to: Entity<()> = row.to.try_into()?;
 
-                Ok(Relation::from_entity(
-                    rel,
-                    from.id(),
-                    to.id(),
-                ))
+                Ok(Relation::from_entity(rel, from.id(), to.id()))
             })
             .try_collect::<Vec<_>>()
             .await
     }
 
-    pub async fn find_all(neo4j: &neo4rs::Graph, space_id: &str) -> Result<Vec<Self>, DatabaseError> {
+    pub async fn find_all(
+        neo4j: &neo4rs::Graph,
+        space_id: &str,
+    ) -> Result<Vec<Self>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
             MATCH (from {{space_id: $space_id}}) <-[:`{FROM_ENTITY}`]- (r:`{RELATION_TYPE}` {{space_id: $space_id}}) -[:`{TO_ENTITY}`]-> (to {{space_id: $space_id}})
@@ -424,8 +440,7 @@ where
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
         );
 
-        let query = neo4rs::query(QUERY)
-            .param("space_id", space_id);
+        let query = neo4rs::query(QUERY).param("space_id", space_id);
 
         #[derive(Debug, Deserialize)]
         struct RowResult {
@@ -444,11 +459,7 @@ where
                 let rel: Entity<T> = row.r.try_into()?;
                 let to: Entity<()> = row.to.try_into()?;
 
-                Ok(Relation::from_entity(
-                    rel,
-                    from.id(),
-                    to.id(),
-                ))
+                Ok(Relation::from_entity(rel, from.id(), to.id()))
             })
             .try_collect::<Vec<_>>()
             .await

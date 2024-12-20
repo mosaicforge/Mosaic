@@ -27,8 +27,7 @@ impl EventHandler {
                 let member = GeoAccount::new(member_added.member_address.clone(), block);
 
                 // Add geo account
-                member.upsert(&self.kg.neo4j)
-                    .await?;
+                member.upsert(&self.kg.neo4j).await?;
 
                 // Add space member relation
                 SpaceMember::new(member.id(), space.id(), block)

@@ -41,7 +41,8 @@ impl Space {
     }
 
     pub fn new(id: &str, space: Space, block: &BlockMetadata) -> Entity<Self> {
-        Entity::new(id, system_ids::INDEXER_SPACE_ID, block, space).with_type(system_ids::INDEXED_SPACE)
+        Entity::new(id, system_ids::INDEXER_SPACE_ID, block, space)
+            .with_type(system_ids::INDEXED_SPACE)
     }
 
     /// Find a space by its DAO contract address.
