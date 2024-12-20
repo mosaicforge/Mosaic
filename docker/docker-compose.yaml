@@ -15,8 +15,8 @@ services:
       timeout: 10s
       retries: 20
       start_period: 3s
-  indexer:
-    image: indexer
+  sink:
+    image: sink
     build:
       context: ..
       dockerfile: docker/Dockerfile
