@@ -29,6 +29,7 @@ pub struct Query;
 #[graphql_object]
 #[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
 impl Query {
+    /// Returns a single entity identified by its ID and space ID
     async fn entity<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
@@ -45,6 +46,7 @@ impl Query {
             .map(Entity::from)
     }
 
+    /// Returns multiple entities according to the provided space ID and filter
     async fn entities<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
@@ -79,6 +81,7 @@ impl Query {
         }
     }
 
+    /// Returns a single relation identified by its ID and space ID
     async fn relation<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
@@ -92,6 +95,7 @@ impl Query {
             .map(|rel| rel.into())
     }
 
+    /// Returns multiple relations according to the provided space ID and filter
     async fn relations<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
@@ -100,7 +104,7 @@ impl Query {
         filter: Option<RelationFilter>,
     ) -> Vec<Relation> {
         match filter {
-            (Some(RelationFilter { relation_types: Some(types) })) if !types.is_empty() => {
+            Some(RelationFilter { relation_types: Some(types) }) if !types.is_empty() => {
                 mapping::Relation::<mapping::Triples>::find_by_types(
                     &executor.context().0.neo4j,
                     &types,
@@ -124,57 +128,18 @@ impl Query {
     }
 }
 
+/// Entity filter input object
 #[derive(Debug, GraphQLInputObject)]
 struct EntityFilter {
+    /// Filter by entity types
     types: Option<Vec<String>>,
 }
 
+/// Relation filter input object
 #[derive(Debug, GraphQLInputObject)]
 struct RelationFilter {
+    /// Filter by relation types
     relation_types: Option<Vec<String>>,
-}
-
-// Attributes GraphQL scalar
-#[derive(Clone, Debug, GraphQLScalar)]
-#[graphql(with = attributes)]
-pub struct Attributes(HashMap<String, serde_json::Value>);
-
-mod attributes {
-    use juniper::{InputValue, ParseScalarResult, ScalarToken, ScalarValue, Value};
-
-    use super::*;
-
-    fn serde_to_graphql<S: ScalarValue>(v: &serde_json::Value) -> Value<S> {
-        match v {
-            serde_json::Value::String(s) => Value::scalar(s.clone()),
-            serde_json::Value::Number(n) => Value::scalar(n.as_i64().unwrap() as i32),
-            serde_json::Value::Bool(b) => Value::scalar(*b),
-            serde_json::Value::Array(a) => Value::List(a.iter().map(serde_to_graphql).collect()),
-            _ => Value::null(),
-        }
-    }
-
-    pub(super) fn to_output<S: ScalarValue>(v: &Attributes) -> Value<S> {
-        Value::Object(v.0.iter().fold(
-            juniper::Object::with_capacity(v.0.len()),
-            |mut obj, (k, v)| {
-                obj.add_field(k, serde_to_graphql(v));
-                obj
-            },
-        ))
-    }
-
-    pub(super) fn from_input<S: ScalarValue>(_v: &InputValue<S>) -> Result<Attributes, String> {
-        // v.as_string_value()
-        //     .map(|s| StringOrInt::String(s.into()))
-        //     .or_else(|| v.as_int_value().map(StringOrInt::Int))
-        //     .ok_or_else(|| format!("Expected `String` or `Int`, found: {v}"))
-        unimplemented!()
-    }
-
-    pub(super) fn parse_token<S: ScalarValue>(_t: ScalarToken<'_>) -> ParseScalarResult<S> {
-        unimplemented!()
-    }
 }
 
 #[derive(Debug)]
@@ -221,11 +186,14 @@ impl From<mapping::Entity<mapping::Triples>> for Entity {
 
 #[graphql_object]
 #[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
+/// Entity object
 impl Entity {
+    /// Entity ID
     fn id(&self) -> &str {
         &self.id
     }
 
+    /// Entity name (if available)
     fn name(&self) -> Option<&str> {
         self.attributes
             .iter()
@@ -233,6 +201,7 @@ impl Entity {
             .map(|triple| triple.value.as_str())
     }
 
+    /// The space ID of the entity (note: the same entity can exist in multiple spaces)
     fn space_id(&self) -> &str {
         &self.space_id
     }
@@ -253,6 +222,7 @@ impl Entity {
         &self.updated_at_block
     }
 
+    /// Types of the entity (which are entities themselves)
     async fn types<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
@@ -295,10 +265,12 @@ impl Entity {
         }
     }
 
+    /// Attributes of the entity
     fn attributes(&self) -> &[Triple] {
         &self.attributes
     }
 
+    /// Relations outgoing from the entity
     async fn relations<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
@@ -382,11 +354,18 @@ impl From<mapping::Relation<mapping::Triples>> for Relation {
 
 #[graphql_object]
 #[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
+/// Relation object
+/// 
+/// Note: Relations are also entities, but they have a different structure in the database.
+/// In other words, the Relation object is a "view" on a relation entity. All relations
+/// can also be queried as entities.
 impl Relation {
+    /// Relation ID
     fn id(&self) -> &str {
         &self.id
     }
 
+    /// Relation name (if available)
     fn name(&self) -> Option<&str> {
         self.attributes
             .iter()
@@ -410,15 +389,16 @@ impl Relation {
         &self.updated_at_block
     }
 
+    /// Attributes of the relation
     fn attributes(&self) -> &[Triple] {
         &self.attributes
     }
 
+    /// Relation types of the relation
     async fn relation_types<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Vec<Entity> {
-        println!("Relation types: {:?}", self.relation_types);
         mapping::Entity::<mapping::Triples>::find_by_ids(
             &executor.context().0.neo4j,
             &self.relation_types,
@@ -432,6 +412,7 @@ impl Relation {
         .collect::<Vec<_>>()
     }
 
+    /// Entity from which the relation originates
     async fn from<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
@@ -447,6 +428,7 @@ impl Relation {
         .unwrap()
     }
 
+    /// Entity to which the relation points
     async fn to<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
@@ -462,6 +444,7 @@ impl Relation {
         .unwrap()
     }
 
+    /// Relations outgoing from the relation
     async fn relations<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
@@ -491,22 +474,27 @@ struct Triple {
 #[graphql_object]
 #[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
 impl Triple {
+    /// Attribute ID of the triple
     fn attribute(&self) -> &str {
         &self.attribute
     }
 
+    /// Value of the triple
     fn value(&self) -> &str {
         &self.value
     }
 
+    /// Value type of the triple
     fn value_type(&self) -> &ValueType {
         &self.value_type
     }
 
+    /// Options of the triple (if any)
     fn options(&self) -> &Options {
         &self.options
     }
 
+    /// Name of the attribute (if available)
     async fn name<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
