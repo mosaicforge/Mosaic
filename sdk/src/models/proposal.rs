@@ -80,6 +80,7 @@ impl Proposal {
         ids::create_id_from_unique_string(proposal_id)
     }
 
+    /// Finds a proposal by its onchain ID and plugin address
     pub async fn find_by_id_and_address(
         neo4j: &neo4rs::Graph,
         proposal_id: &str,
@@ -150,12 +151,13 @@ impl Proposal {
 pub struct Proposals;
 
 impl Proposals {
-    pub fn new(space_id: &str, proposal_id: &str) -> Relation<Self> {
+    pub fn new(space_id: &str, proposal_id: &str, block: &BlockMetadata) -> Relation<Self> {
         Relation::new(
             &ids::create_id_from_unique_string(&format!("{space_id}-{proposal_id}")),
             system_ids::INDEXER_SPACE_ID,
             space_id,
             proposal_id,
+            block,
             Proposals {},
         )
         .with_type(system_ids::PROPOSALS)
@@ -167,12 +169,13 @@ impl Proposals {
 pub struct Creator;
 
 impl Creator {
-    pub fn new(proposal_id: &str, account_id: &str) -> Relation<Self> {
+    pub fn new(proposal_id: &str, account_id: &str, block: &BlockMetadata) -> Relation<Self> {
         Relation::new(
             &ids::create_id_from_unique_string(&format!("{proposal_id}-{account_id}")),
             system_ids::INDEXER_SPACE_ID,
             proposal_id,
             account_id,
+            block,
             Creator {},
         )
         .with_type(system_ids::PROPOSAL_CREATOR)
@@ -195,10 +198,11 @@ pub struct AddMemberProposal {
 }
 
 impl AddMemberProposal {
-    pub fn new(proposal: Proposal) -> Entity<Self> {
+    pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
         Entity::new(
             &Proposal::new_id(&proposal.onchain_proposal_id),
             system_ids::INDEXER_SPACE_ID,
+            block,
             Self { proposal },
         )
         .with_type(system_ids::PROPOSAL_TYPE)
@@ -213,10 +217,11 @@ pub struct RemoveMemberProposal {
 }
 
 impl RemoveMemberProposal {
-    pub fn new(proposal: Proposal) -> Entity<Self> {
+    pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
         Entity::new(
             &Proposal::new_id(&proposal.onchain_proposal_id),
             system_ids::INDEXER_SPACE_ID,
+            block,
             Self { proposal },
         )
         .with_type(system_ids::PROPOSAL_TYPE)
@@ -231,10 +236,11 @@ pub struct AddEditorProposal {
 }
 
 impl AddEditorProposal {
-    pub fn new(proposal: Proposal) -> Entity<Self> {
+    pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
         Entity::new(
             &Proposal::new_id(&proposal.onchain_proposal_id),
             system_ids::INDEXER_SPACE_ID,
+            block,
             Self { proposal },
         )
         .with_type(system_ids::PROPOSAL_TYPE)
@@ -249,10 +255,11 @@ pub struct RemoveEditorProposal {
 }
 
 impl RemoveEditorProposal {
-    pub fn new(proposal: Proposal) -> Entity<Self> {
+    pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
         Entity::new(
             &Proposal::new_id(&proposal.onchain_proposal_id),
             system_ids::INDEXER_SPACE_ID,
+            block,
             Self { proposal },
         )
         .with_type(system_ids::PROPOSAL_TYPE)
@@ -264,12 +271,13 @@ impl RemoveEditorProposal {
 pub struct ProposedAccount;
 
 impl ProposedAccount {
-    pub fn new(proposal_id: &str, account_id: &str) -> Relation<Self> {
+    pub fn new(proposal_id: &str, account_id: &str, block: &BlockMetadata) -> Relation<Self> {
         Relation::new(
             &ids::create_id_from_unique_string(&format!("{}-{}", proposal_id, account_id)),
             system_ids::INDEXER_SPACE_ID,
             proposal_id,
             account_id,
+            block,
             Self {},
         )
         .with_type(system_ids::PROPOSED_ACCOUNT)
@@ -283,10 +291,11 @@ pub struct AddSubspaceProposal {
 }
 
 impl AddSubspaceProposal {
-    pub fn new(proposal: Proposal) -> Entity<Self> {
+    pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
         Entity::new(
             &Proposal::new_id(&proposal.onchain_proposal_id),
             system_ids::INDEXER_SPACE_ID,
+            block,
             Self { proposal },
         )
         .with_type(system_ids::PROPOSAL_TYPE)
@@ -301,10 +310,11 @@ pub struct RemoveSubspaceProposal {
 }
 
 impl RemoveSubspaceProposal {
-    pub fn new(proposal: Proposal) -> Entity<Self> {
+    pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
         Entity::new(
             &Proposal::new_id(&proposal.onchain_proposal_id),
             system_ids::INDEXER_SPACE_ID,
+            block,
             Self { proposal },
         )
         .with_type(system_ids::PROPOSAL_TYPE)
@@ -316,7 +326,7 @@ impl RemoveSubspaceProposal {
 pub struct ProposedSubspace;
 
 impl ProposedSubspace {
-    pub fn new(subspace_proposal_id: &str, subspace_id: &str) -> Relation<Self> {
+    pub fn new(subspace_proposal_id: &str, subspace_id: &str, block: &BlockMetadata) -> Relation<Self> {
         Relation::new(
             &ids::create_id_from_unique_string(&format!(
                 "{}-{}",
@@ -325,6 +335,7 @@ impl ProposedSubspace {
             system_ids::INDEXER_SPACE_ID,
             subspace_proposal_id,
             subspace_id,
+            block,
             Self {},
         )
         .with_type(system_ids::PROPOSED_SUBSPACE)

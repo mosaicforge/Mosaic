@@ -8,13 +8,13 @@ use axum::{
     routing::{get, on, MethodFilter},
     Extension, Router,
 };
+use chrono::{DateTime, Utc};
 use clap::{Args, Parser};
 use juniper::{
-    graphql_object, EmptyMutation, EmptySubscription, Executor, GraphQLScalar, RootNode,
-    ScalarValue,
+    graphql_object, EmptyMutation, EmptySubscription, Executor, GraphQLEnum, GraphQLInputObject, GraphQLObject, GraphQLScalar, RootNode, ScalarValue
 };
 use juniper_axum::{extract::JuniperRequest, graphiql, playground, response::JuniperResponse};
-use sink::kg;
+use sdk::{mapping, system_ids};
 use tokio::net::TcpListener;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -33,29 +33,105 @@ impl Query {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         id: String,
-        space_id: Option<String>,
-        version_id: Option<String>,
+        space_id: String,
+        // version_id: Option<String>,
     ) -> Option<Entity> {
         // let query = QueryMapper::default().select_root_node(&id, &executor.look_ahead()).build();
         // tracing::info!("Query: {}", query);
 
-        let query = match (space_id, version_id) {
-            (Some(space_id), _) => {
-                sdk::neo4rs::query("MATCH (n {id: $id, space_id: $space_id}) RETURN n")
-                    .param("id", id)
-                    .param("space_id", space_id)
-            }
-            (None, _) => sdk::neo4rs::query("MATCH (n {id: $id}) RETURN n").param("id", id),
-        };
-
-        executor
-            .context()
-            .0
-            .find_node::<HashMap<String, serde_json::Value>>(query)
+        mapping::Entity::<mapping::Triples>::find_by_id(&executor.context().0.neo4j, &id, &space_id)
             .await
-            .expect("Failed to find node")
+            .expect("Failed to find entity")
             .map(Entity::from)
     }
+
+    async fn entities<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        space_id: String,
+        // version_id: Option<String>,
+        filter: Option<EntityFilter>,
+    ) -> Vec<Entity> {
+        // let query = QueryMapper::default().select_root_node(&id, &executor.look_ahead()).build();
+        // tracing::info!("Query: {}", query);
+
+        match filter {
+            Some(EntityFilter { types: Some(types) }) if !types.is_empty() => {
+                mapping::Entity::<mapping::Triples>::find_by_types(
+                    &executor.context().0.neo4j,
+                    &types,
+                    &space_id,
+                )
+                .await
+                .expect("Failed to find entities")
+                .into_iter()
+                .map(Entity::from)
+                .collect::<Vec<_>>()
+            }
+            _ => {
+                mapping::Entity::<mapping::Triples>::find_all(&executor.context().0.neo4j, &space_id)
+                    .await
+                    .expect("Failed to find entities")
+                    .into_iter()
+                    .map(Entity::from)
+                    .collect::<Vec<_>>()
+            }
+        }
+    }
+
+    async fn relation<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        id: String,
+        space_id: String,
+        // version_id: Option<String>,
+    ) -> Option<Relation> {
+        mapping::Relation::<mapping::Triples>::find_by_id(&executor.context().0.neo4j, &id, &space_id)
+            .await
+            .expect("Failed to find relation")
+            .map(|rel| rel.into())
+    }
+
+    async fn relations<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        space_id: String,
+        // version_id: Option<String>,
+        filter: Option<RelationFilter>,
+    ) -> Vec<Relation> {
+        match filter {
+            (Some(RelationFilter { relation_types: Some(types) })) if !types.is_empty() => {
+                mapping::Relation::<mapping::Triples>::find_by_types(
+                    &executor.context().0.neo4j,
+                    &types,
+                    &space_id,
+                )
+                .await
+                .expect("Failed to find relations")
+                .into_iter()
+                .map(|rel| rel.into())
+                .collect::<Vec<_>>()
+            }
+            _ => {
+                mapping::Relation::<mapping::Triples>::find_all(&executor.context().0.neo4j, &space_id)
+                    .await
+                    .expect("Failed to find relations")
+                    .into_iter()
+                    .map(|rel| rel.into())
+                    .collect::<Vec<_>>()
+            }
+        }
+    }
+}
+
+#[derive(Debug, GraphQLInputObject)]
+struct EntityFilter {
+    types: Option<Vec<String>>,
+}
+
+#[derive(Debug, GraphQLInputObject)]
+struct RelationFilter {
+    relation_types: Option<Vec<String>>,
 }
 
 // Attributes GraphQL scalar
@@ -101,21 +177,44 @@ mod attributes {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Entity {
     id: String,
-    space_id: String,
     types: Vec<String>,
-    attributes: Attributes,
+    space_id: String,
+    created_at: DateTime<Utc>,
+    created_at_block: String,
+    updated_at: DateTime<Utc>,
+    updated_at_block: String,
+    attributes: Vec<Triple>,
 }
 
-impl From<kg::mapping::Node<HashMap<String, serde_json::Value>>> for Entity {
-    fn from(node: kg::mapping::Node<HashMap<String, serde_json::Value>>) -> Self {
+impl From<mapping::Entity<mapping::Triples>> for Entity {
+    fn from(entity: mapping::Entity<mapping::Triples>) -> Self {
         Self {
-            id: node.id().to_string(),
-            space_id: node.space_id().to_string(),
-            types: node.types,
-            attributes: Attributes(node.attributes.attributes),
+            id: entity.attributes.id,
+            types: entity.types,
+            space_id: entity.attributes.system_properties.space_id.clone(),
+            created_at: entity.attributes.system_properties.created_at,
+            created_at_block: entity.attributes.system_properties.created_at_block,
+            updated_at: entity.attributes.system_properties.updated_at,
+            updated_at_block: entity.attributes.system_properties.updated_at_block,
+            attributes: entity
+                .attributes
+                .attributes
+                .into_iter()
+                .map(|(key, triple)| Triple {
+                    space_id: entity.attributes.system_properties.space_id.clone(),
+                    attribute: key,
+                    value: triple.value,
+                    value_type: triple.value_type.into(),
+                    options: Options {
+                        format: triple.options.format,
+                        unit: triple.options.unit,
+                        language: triple.options.language,
+                    },
+                })
+                .collect(),
         }
     }
 }
@@ -127,15 +226,76 @@ impl Entity {
         &self.id
     }
 
+    fn name(&self) -> Option<&str> {
+        self.attributes
+            .iter()
+            .find(|triple| triple.attribute == system_ids::NAME)
+            .map(|triple| triple.value.as_str())
+    }
+
     fn space_id(&self) -> &str {
         &self.space_id
     }
 
-    fn types(&self) -> &[String] {
-        &self.types
+    fn created_at(&self) -> String {
+        self.created_at.to_rfc3339()
     }
 
-    fn attributes(&self) -> &Attributes {
+    fn created_at_block(&self) -> &str {
+        &self.created_at_block
+    }
+
+    fn updated_at(&self) -> String {
+        self.updated_at.to_rfc3339()
+    }
+
+    fn updated_at_block(&self) -> &str {
+        &self.updated_at_block
+    }
+
+    async fn types<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> Vec<Entity> {
+        if self.types.contains(&system_ids::RELATION_TYPE.to_string()) {
+            // Since relations are also entities, and a relation's types are modelled differently
+            // in Neo4j, we need to check fetch types differently if the entity is a relation.
+            // mapping::Relation::<mapping::Triples>::find_types(
+            //     &executor.context().0.neo4j,
+            //     &self.id,
+            //     &self.space_id,
+            // )
+            // .await
+            // .expect("Failed to find relations")
+            // .into_iter()
+            // .map(|rel| rel.into())
+            // .collect::<Vec<_>>()
+
+            // For now, we'll just return the relation type
+            mapping::Entity::<mapping::Triples>::find_by_id(
+                &executor.context().0.neo4j,
+                &system_ids::RELATION_TYPE.to_string(),
+                &self.space_id,
+            )
+            .await
+            .expect("Failed to find types")
+            .map(|rel| vec![rel.into()])
+            .unwrap_or(vec![])
+        } else {
+            mapping::Entity::<mapping::Triples>::find_types(
+                &executor.context().0.neo4j,
+                &self.id,
+                &self.space_id,
+            )
+            .await
+            .expect("Failed to find relations")
+            .into_iter()
+            .map(|rel| rel.into())
+            .collect::<Vec<_>>()
+        }
+    }
+
+    fn attributes(&self) -> &[Triple] {
         &self.attributes
     }
 
@@ -143,33 +303,79 @@ impl Entity {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Vec<Relation> {
-        executor
-            .context()
-            .0
-            .find_relation_from_node::<HashMap<String, serde_json::Value>>(&self.id)
-            .await
-            .expect("Failed to find relations")
-            .into_iter()
-            .map(|rel| rel.into())
-            .collect::<Vec<_>>()
+        mapping::Entity::<mapping::Triples>::find_relations::<mapping::Triples>(
+            &executor.context().0.neo4j,
+            &self.id,
+            &self.space_id,
+        )
+        .await
+        .expect("Failed to find relations")
+        .into_iter()
+        .map(|rel| rel.into())
+        .collect::<Vec<_>>()
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct Relation {
-    id: String,
-    r#type: String,
-    attributes: Attributes,
-    // to: Node,
-    // from: Node,
+impl From<mapping::ValueType> for ValueType {
+    fn from(value_type: mapping::ValueType) -> Self {
+        match value_type {
+            mapping::ValueType::Text => Self::Text,
+            mapping::ValueType::Number => Self::Number,
+            mapping::ValueType::Checkbox => Self::Checkbox,
+            mapping::ValueType::Url => Self::Url,
+            mapping::ValueType::Time => Self::Time,
+            mapping::ValueType::Point => Self::Point,
+        }
+    }
 }
 
-impl From<kg::mapping::Relation<HashMap<String, serde_json::Value>>> for Relation {
-    fn from(node: kg::mapping::Relation<HashMap<String, serde_json::Value>>) -> Self {
+#[derive(Debug)]
+pub struct Relation {
+    id: String,
+    relation_types: Vec<String>,
+    space_id: String,
+    created_at: DateTime<Utc>,
+    created_at_block: String,
+    updated_at: DateTime<Utc>,
+    updated_at_block: String,
+    attributes: Vec<Triple>,
+}
+
+impl From<mapping::Relation<mapping::Triples>> for Relation {
+    fn from(relation: mapping::Relation<mapping::Triples>) -> Self {
         Self {
-            id: node.id().to_string(),
-            r#type: node.relation_type,
-            attributes: Attributes(node.attributes.attributes),
+            id: relation.attributes.id,
+            relation_types: relation.types,
+            space_id: relation.attributes.system_properties.space_id.clone(),
+            created_at: relation.attributes.system_properties.created_at,
+            created_at_block: relation
+                .attributes
+                .system_properties
+                .created_at_block
+                .clone(),
+            updated_at: relation.attributes.system_properties.updated_at,
+            updated_at_block: relation
+                .attributes
+                .system_properties
+                .updated_at_block
+                .clone(),
+            attributes: relation
+                .attributes
+                .attributes
+                .iter()
+                .map(|(key, triple)| Triple {
+                    // entiti: triple.entity,
+                    space_id: relation.attributes.system_properties.space_id.clone(),
+                    attribute: key.to_string(),
+                    value: triple.value.clone(),
+                    value_type: triple.value_type.clone().into(),
+                    options: Options {
+                        format: triple.options.format.clone(),
+                        unit: triple.options.unit.clone(),
+                        language: triple.options.language.clone(),
+                    },
+                })
+                .collect(),
         }
     }
 }
@@ -181,41 +387,152 @@ impl Relation {
         &self.id
     }
 
-    fn r#type(&self) -> &str {
-        &self.r#type
+    fn name(&self) -> Option<&str> {
+        self.attributes
+            .iter()
+            .find(|triple| triple.attribute == system_ids::NAME)
+            .map(|triple| triple.value.as_str())
     }
 
-    fn attributes(&self) -> &Attributes {
+    fn created_at(&self) -> String {
+        self.created_at.to_rfc3339()
+    }
+
+    fn created_at_block(&self) -> &str {
+        &self.created_at_block
+    }
+
+    fn updated_at(&self) -> String {
+        self.updated_at.to_rfc3339()
+    }
+
+    fn updated_at_block(&self) -> &str {
+        &self.updated_at_block
+    }
+
+    fn attributes(&self) -> &[Triple] {
         &self.attributes
+    }
+
+    async fn relation_types<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> Vec<Entity> {
+        println!("Relation types: {:?}", self.relation_types);
+        mapping::Entity::<mapping::Triples>::find_by_ids(
+            &executor.context().0.neo4j,
+            &self.relation_types,
+            &self.space_id,
+        )
+        .await
+        .expect("Failed to find types")
+        .into_iter()
+        .filter(|rel| rel.id() != system_ids::RELATION_TYPE)
+        .map(|rel| rel.into())
+        .collect::<Vec<_>>()
     }
 
     async fn from<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Entity {
-        executor
-            .context()
-            .0
-            .find_node_from_relation::<HashMap<String, serde_json::Value>>(&self.id)
-            .await
-            .expect("Failed to find node")
-            .map(Entity::from)
-            .unwrap()
+        mapping::Relation::<mapping::Triples>::find_from::<mapping::Triples>(
+            &executor.context().0.neo4j,
+            &self.id,
+            &self.space_id,
+        )
+        .await
+        .expect("Failed to find node")
+        .map(Entity::from)
+        .unwrap()
     }
 
     async fn to<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Entity {
-        executor
-            .context()
-            .0
-            .find_node_to_relation::<HashMap<String, serde_json::Value>>(&self.id)
-            .await
-            .expect("Failed to find node")
-            .map(Entity::from)
-            .unwrap()
+        mapping::Relation::<mapping::Triples>::find_to::<mapping::Triples>(
+            &executor.context().0.neo4j,
+            &self.id,
+            &self.space_id,
+        )
+        .await
+        .expect("Failed to find node")
+        .map(Entity::from)
+        .unwrap()
     }
+
+    async fn relations<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> Vec<Relation> {
+        mapping::Entity::<mapping::Triples>::find_relations::<mapping::Triples>(
+            &executor.context().0.neo4j,
+            &self.id,
+            &self.space_id,
+        )
+        .await
+        .expect("Failed to find relations")
+        .into_iter()
+        .map(|rel| rel.into())
+        .collect::<Vec<_>>()
+    }
+}
+
+#[derive(Debug)]
+struct Triple {
+    space_id: String,
+    attribute: String,
+    value: String,
+    value_type: ValueType,
+    options: Options,
+}
+
+#[graphql_object]
+#[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
+impl Triple {
+    fn attribute(&self) -> &str {
+        &self.attribute
+    }
+
+    fn value(&self) -> &str {
+        &self.value
+    }
+
+    fn value_type(&self) -> &ValueType {
+        &self.value_type
+    }
+
+    fn options(&self) -> &Options {
+        &self.options
+    }
+
+    async fn name<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> Option<String> {
+        mapping::Entity::<mapping::Named>::find_by_id(&executor.context().0.neo4j, &self.attribute, &self.space_id)
+            .await
+            .expect("Failed to find attribute entity")
+            .and_then(|entity| entity.name())
+    }
+}
+
+#[derive(Debug, GraphQLEnum)]
+pub enum ValueType {
+    Text,
+    Number,
+    Checkbox,
+    Url,
+    Time,
+    Point,
+}
+
+#[derive(Debug, GraphQLObject)]
+struct Options {
+    pub format: Option<String>,
+    pub unit: Option<String>,
+    pub language: Option<String>,
 }
 
 type Schema =

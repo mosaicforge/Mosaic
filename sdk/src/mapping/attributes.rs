@@ -1,9 +1,28 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct SystemProperties {
+    pub space_id: String,
+    #[serde(rename = "82nP7aFmHJLbaPFszj2nbx")] // CREATED_AT_TIMESTAMP
+    pub created_at: DateTime<Utc>,
+    #[serde(rename = "59HTYnd2e4gBx2aA98JfNx")] // CREATED_AT_BLOCK
+    pub created_at_block: String,
+    #[serde(rename = "5Ms1pYq8v8G1RXC3wWb9ix")] // UPDATED_AT_TIMESTAMP
+    pub updated_at: DateTime<Utc>,
+    #[serde(rename = "7pXCVQDV9C7ozrXkpVg8RJ")] // UPDATED_AT_BLOCK
+    pub updated_at_block: String,
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Attributes<T> {
     pub id: String,
-    pub space_id: String,
+
+    // System properties
+    #[serde(flatten)]
+    pub system_properties: SystemProperties,
+    
+    // Actual node data
     #[serde(flatten)]
     pub attributes: T,
 }
@@ -13,7 +32,7 @@ mod tests {
     use std::collections::HashMap;
 
     use super::*;
-    use crate::mapping::triple::{Options, Triple, Triples, ValueType};
+    use crate::{mapping::triple::{Options, Triple, Triples, ValueType}, models::BlockMetadata};
     use serde_with::with_prefix;
 
     #[test]
@@ -25,9 +44,17 @@ mod tests {
             foo: Triple,
         }
 
+        let block = BlockMetadata::default();
+
         let attributes = Attributes {
             id: "id".to_string(),
-            space_id: "space_id".to_string(),
+            system_properties: SystemProperties {
+                space_id: "space_id".to_string(),
+                created_at: block.timestamp,
+                created_at_block: block.block_number.to_string(),
+                updated_at: block.timestamp,
+                updated_at_block: block.block_number.to_string(),
+            },
             attributes: Foo {
                 foo: Triple {
                     value: "Hello, World!".to_string(),
@@ -48,6 +75,10 @@ mod tests {
             serde_json::json!({
                 "id": "id",
                 "space_id": "space_id",
+                "created_at": "1970-01-01T00:00:00+00:00",
+                "created_at_block": "0",
+                "updated_at": "1970-01-01T00:00:00+00:00",
+                "updated_at_block": "0",
                 "foo": "Hello, World!",
                 "foo.type": "TEXT",
                 "foo.options.format": "text",
@@ -75,9 +106,17 @@ mod tests {
             other_field: String,
         }
 
+        let block = BlockMetadata::default();
+
         let attributes = Attributes {
             id: "id".to_string(),
-            space_id: "space_id".to_string(),
+            system_properties: SystemProperties {
+                space_id: "space_id".to_string(),
+                created_at: block.timestamp,
+                created_at_block: block.block_number.to_string(),
+                updated_at: block.timestamp,
+                updated_at_block: block.block_number.to_string(),
+            },
             attributes: Foo {
                 foo: Triple {
                     value: "Hello, World!".to_string(),
@@ -106,6 +145,11 @@ mod tests {
             serde_json::json!({
                 "id": "id",
                 "space_id": "space_id",
+                "space_id": "space_id",
+                "created_at": "1970-01-01T00:00:00+00:00",
+                "created_at_block": "0",
+                "updated_at": "1970-01-01T00:00:00+00:00",
+                "updated_at_block": "0",
                 "foo": "Hello, World!",
                 "foo.type": "TEXT",
                 "foo.options.format": "text",
@@ -123,9 +167,17 @@ mod tests {
 
     #[test]
     fn test_attribtes_triples() {
+        let block = BlockMetadata::default();
+
         let attributes = Attributes {
             id: "id".to_string(),
-            space_id: "space_id".to_string(),
+            system_properties: SystemProperties {
+                space_id: "space_id".to_string(),
+                created_at: block.timestamp,
+                created_at_block: block.block_number.to_string(),
+                updated_at: block.timestamp,
+                updated_at_block: block.block_number.to_string(),
+            },
             attributes: Triples(HashMap::from([
                 (
                     "foo".to_string(),
@@ -159,6 +211,11 @@ mod tests {
             serde_json::json!({
                 "id": "id",
                 "space_id": "space_id",
+                "space_id": "space_id",
+                "created_at": "1970-01-01T00:00:00+00:00",
+                "created_at_block": "0",
+                "updated_at": "1970-01-01T00:00:00+00:00",
+                "updated_at_block": "0",
                 "foo": "Hello, World!",
                 "foo.type": "TEXT",
                 "foo.options.format": "text",

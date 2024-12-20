@@ -12,8 +12,7 @@ impl EventHandler {
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space = Space::find_by_dao_address(&self.kg.neo4j, &editor_removed.dao_address)
-            .await
-            .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
+            .await?;
 
         if let Some(space) = space {
             SpaceEditor::remove(
@@ -21,8 +20,7 @@ impl EventHandler {
                 &GeoAccount::new_id(&editor_removed.editor_address),
                 space.id(),
             )
-            .await
-            .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
+            .await?;
         } else {
             tracing::warn!(
                 "Block #{} ({}): Could not remove editor for unknown space with dao_address = {}",

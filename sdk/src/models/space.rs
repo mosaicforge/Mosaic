@@ -9,6 +9,8 @@ use crate::{
     network_ids, system_ids,
 };
 
+use super::BlockMetadata;
+
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Space {
     pub network: String,
@@ -34,12 +36,12 @@ impl Space {
         ids::create_id_from_unique_string(&format!("{network}:{}", checksum_address(address, None)))
     }
 
-    pub fn builder(id: &str, dao_contract_address: &str) -> SpaceBuilder {
-        SpaceBuilder::new(id, dao_contract_address)
+    pub fn builder(id: &str, dao_contract_address: &str, block: &BlockMetadata) -> SpaceBuilder {
+        SpaceBuilder::new(id, dao_contract_address, block)
     }
 
-    pub fn new(id: &str, space: Space) -> Entity<Self> {
-        Entity::new(id, system_ids::INDEXER_SPACE_ID, space).with_type(system_ids::INDEXED_SPACE)
+    pub fn new(id: &str, space: Space, block: &BlockMetadata) -> Entity<Self> {
+        Entity::new(id, system_ids::INDEXER_SPACE_ID, block, space).with_type(system_ids::INDEXED_SPACE)
     }
 
     /// Find a space by its DAO contract address.
@@ -222,6 +224,7 @@ pub enum SpaceType {
 
 pub struct SpaceBuilder {
     id: String,
+    block: BlockMetadata,
     network: String,
     r#type: SpaceType,
     dao_contract_address: String,
@@ -232,9 +235,10 @@ pub struct SpaceBuilder {
 }
 
 impl SpaceBuilder {
-    pub fn new(id: &str, dao_contract_address: &str) -> Self {
+    pub fn new(id: &str, dao_contract_address: &str, block: &BlockMetadata) -> Self {
         Self {
             id: id.to_string(),
+            block: block.clone(),
             network: network_ids::GEO.to_string(),
             r#type: SpaceType::Public,
             dao_contract_address: checksum_address(dao_contract_address, None),
@@ -285,6 +289,7 @@ impl SpaceBuilder {
         Entity::new(
             &self.id,
             system_ids::INDEXER_SPACE_ID,
+            &self.block,
             Space {
                 network: self.network,
                 r#type: self.r#type,
@@ -304,12 +309,13 @@ impl SpaceBuilder {
 pub struct ParentSpace;
 
 impl ParentSpace {
-    pub fn new(space_id: &str, parent_space_id: &str) -> Relation<Self> {
+    pub fn new(space_id: &str, parent_space_id: &str, block: &BlockMetadata) -> Relation<Self> {
         Relation::new(
             &ids::create_geo_id(),
             system_ids::INDEXER_SPACE_ID,
             space_id,
             parent_space_id,
+            block,
             Self,
         )
         .with_type(system_ids::PARENT_SPACE)

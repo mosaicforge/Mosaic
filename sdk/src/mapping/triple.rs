@@ -210,16 +210,18 @@ pub enum ValueType {
     Point,
 }
 
-impl From<pb::grc20::ValueType> for Option<ValueType> {
-    fn from(value: pb::grc20::ValueType) -> Self {
+impl TryFrom<pb::grc20::ValueType> for ValueType {
+    type Error = String;
+
+    fn try_from(value: pb::grc20::ValueType) -> Result<Self, Self::Error> {
         match value {
-            pb::grc20::ValueType::Text => Some(ValueType::Text),
-            pb::grc20::ValueType::Number => Some(ValueType::Number),
-            pb::grc20::ValueType::Checkbox => Some(ValueType::Checkbox),
-            pb::grc20::ValueType::Url => Some(ValueType::Url),
-            pb::grc20::ValueType::Time => Some(ValueType::Time),
-            pb::grc20::ValueType::Point => Some(ValueType::Point),
-            pb::grc20::ValueType::Unknown => None,
+            pb::grc20::ValueType::Text => Ok(ValueType::Text),
+            pb::grc20::ValueType::Number => Ok(ValueType::Number),
+            pb::grc20::ValueType::Checkbox => Ok(ValueType::Checkbox),
+            pb::grc20::ValueType::Url => Ok(ValueType::Url),
+            pb::grc20::ValueType::Time => Ok(ValueType::Time),
+            pb::grc20::ValueType::Point => Ok(ValueType::Point),
+            pb::grc20::ValueType::Unknown => Err("Unknown ValueType".to_string()),
         }
     }
 }

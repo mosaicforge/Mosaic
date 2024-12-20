@@ -1,4 +1,4 @@
-use futures::join;
+use futures::try_join;
 use sdk::{
     models::{BlockMetadata, GeoAccount, Space, SpaceMember},
     pb::geo,
@@ -12,7 +12,7 @@ impl EventHandler {
         member_added: &geo::MemberAdded,
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
-        match join!(
+        match try_join!(
             Space::find_by_voting_plugin_address(
                 &self.kg.neo4j,
                 &member_added.main_voting_plugin_address
@@ -21,35 +21,28 @@ impl EventHandler {
                 &self.kg.neo4j,
                 &member_added.main_voting_plugin_address
             )
-        ) {
+        )? {
             // Space found
-            (Ok(Some(space)), Ok(_)) | (Ok(None), Ok(Some(space))) => {
-                let member = GeoAccount::new(member_added.member_address.clone());
+            (Some(space), _) | (None, Some(space)) => {
+                let member = GeoAccount::new(member_added.member_address.clone(), block);
 
                 // Add geo account
-                self.kg
-                    .upsert_entity(block, &member)
-                    .await
-                    .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
+                member.upsert(&self.kg.neo4j)
+                    .await?;
 
                 // Add space member relation
-                self.kg
-                    .upsert_relation(block, &SpaceMember::new(member.id(), space.id()))
-                    .await
-                    .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
+                SpaceMember::new(member.id(), space.id(), block)
+                    .upsert(&self.kg.neo4j)
+                    .await?;
             }
             // Space not found
-            (Ok(None), Ok(None)) => {
+            (None, None) => {
                 tracing::warn!(
                     "Block #{} ({}): Could not add members for unknown space with voting_plugin_address = {}",
                     block.block_number,
                     block.timestamp,
                     member_added.main_voting_plugin_address
                 );
-            }
-            // Errors
-            (Err(e), _) | (_, Err(e)) => {
-                return Err(HandlerError::Other(format!("{e:?}").into()));
             }
         };
 

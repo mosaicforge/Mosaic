@@ -1,4 +1,4 @@
-use futures::join;
+use futures::try_join;
 use sdk::{
     models::{self, Space, SpaceEditor},
     pb::geo,
@@ -13,7 +13,7 @@ impl EventHandler {
         editor_added: &geo::EditorAdded,
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
-        match join!(
+        match try_join!(
             Space::find_by_voting_plugin_address(
                 &self.kg.neo4j,
                 &editor_added.main_voting_plugin_address,
@@ -22,35 +22,27 @@ impl EventHandler {
                 &self.kg.neo4j,
                 &editor_added.main_voting_plugin_address
             )
-        ) {
+        )? {
             // Space found
-            (Ok(Some(space)), Ok(_)) | (Ok(None), Ok(Some(space))) => {
-                let editor = models::GeoAccount::new(editor_added.editor_address.clone());
+            (Some(space), _) | (None, Some(space)) => {
+                let editor = models::GeoAccount::new(editor_added.editor_address.clone(), block);
 
                 // Add geo account
-                self.kg
-                    .upsert_entity(block, &editor)
-                    .await
-                    .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
+                editor.upsert(&self.kg.neo4j).await?;
 
                 // Add space editor relation
-                self.kg
-                    .upsert_relation(block, &SpaceEditor::new(editor.id(), space.id()))
-                    .await
-                    .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
+                SpaceEditor::new(editor.id(), space.id(), block)
+                    .upsert(&self.kg.neo4j)
+                    .await?;
             }
             // Space not found
-            (Ok(None), Ok(None)) => {
+            (None, None) => {
                 tracing::warn!(
                     "Block #{} ({}): Could not add editor for unknown space with voting_plugin_address = {}",
                     block.block_number,
                     block.timestamp,
                     checksum_address(&editor_added.main_voting_plugin_address, None)
                 );
-            }
-            // Errors
-            (Err(e), _) | (_, Err(e)) => {
-                return Err(HandlerError::Other(format!("{e:?}").into()));
             }
         }
 

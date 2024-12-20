@@ -34,15 +34,13 @@ impl Client {
         //     .map(Ok) // Convert to Result to be able to use try_for_each
         //     .try_for_each(|op| async move { op.apply_op(self, ROOT_SPACE_ID).await })
         //     .await?;
-        self.upsert_entity(
-            &BlockMetadata::default(),
-            &models::Space::builder(constants::ROOT_SPACE_ID, constants::ROOT_SPACE_DAO_ADDRESS)
-                .space_plugin_address(constants::ROOT_SPACE_PLUGIN_ADDRESS)
-                .voting_plugin_address(constants::ROOT_SPACE_MAIN_VOTING_ADDRESS)
-                .member_access_plugin(constants::ROOT_SPACE_MEMBER_ACCESS_ADDRESS)
-                .build(),
-        )
-        .await?;
+        models::Space::builder(constants::ROOT_SPACE_ID, constants::ROOT_SPACE_DAO_ADDRESS, &BlockMetadata::default())
+            .space_plugin_address(constants::ROOT_SPACE_PLUGIN_ADDRESS)
+            .voting_plugin_address(constants::ROOT_SPACE_MAIN_VOTING_ADDRESS)
+            .member_access_plugin(constants::ROOT_SPACE_MEMBER_ACCESS_ADDRESS)
+            .build()
+            .upsert(&self.neo4j)
+            .await?;
 
         self.process_ops(
             &BlockMetadata::default(),
@@ -61,26 +59,6 @@ impl Client {
 
         // Re-bootstrap the database
         self.bootstrap(rollup).await?;
-
-        Ok(())
-    }
-
-    pub async fn upsert_relation<T: serde::Serialize>(
-        &self,
-        block: &models::BlockMetadata,
-        relation: &Relation<T>,
-    ) -> Result<(), DatabaseError> {
-        self.run(relation.upsert_query(block)?).await?;
-
-        Ok(())
-    }
-
-    pub async fn upsert_entity<T: serde::Serialize>(
-        &self,
-        block: &models::BlockMetadata,
-        entity: &Entity<T>,
-    ) -> Result<(), DatabaseError> {
-        entity.upsert_query(&self.neo4j, block).await?;
 
         Ok(())
     }

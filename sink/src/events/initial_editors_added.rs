@@ -16,26 +16,22 @@ impl EventHandler {
             &self.kg.neo4j,
             &initial_editor_added.plugin_address,
         )
-        .await
-        .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
+        .await?;
 
         if let Some(space) = &space {
             stream::iter(&initial_editor_added.addresses)
                 .map(Result::<_, HandlerError>::Ok)
                 .try_for_each(|editor| async move {
-                    let editor = GeoAccount::new(editor.clone());
+                    let editor = GeoAccount::new(editor.clone(), block);
 
                     // Add geo account
-                    self.kg
-                        .upsert_entity(block, &editor)
-                        .await
-                        .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+                    editor.upsert(&self.kg.neo4j)
+                        .await?;
 
                     // Add space editor relation
-                    self.kg
-                        .upsert_relation(block, &SpaceEditor::new(editor.id(), space.id()))
-                        .await
-                        .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+                    SpaceEditor::new(editor.id(), space.id(), block)
+                        .upsert(&self.kg.neo4j)
+                        .await?;
 
                     Ok(())
                 })
