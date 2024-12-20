@@ -16,10 +16,10 @@ services:
       retries: 20
       start_period: 3s
   sink:
-    image: sink
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      target: sink
     depends_on:
       neo4j:
         condition: service_healthy
@@ -30,10 +30,10 @@ services:
       SUBSTREAMS_API_TOKEN: ${SUBSTREAMS_API_TOKEN}
       SUBSTREAMS_ENDPOINT_URL: ${SUBSTREAMS_ENDPOINT_URL}
   api:
-    image: api
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      target: api
     ports:
       - "80:8080"
     depends_on:
