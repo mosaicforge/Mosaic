@@ -148,14 +148,16 @@ struct EntityFilter {
 
 #[derive(Debug, GraphQLInputObject)]
 struct EntityWhereFilter {
+    id: Option<String>,
     space_id: Option<String>,
     types_contain: Option<Vec<String>>,
     attributes_contain: Option<Vec<EntityAttributeFilter>>,
 }
 
-impl From<EntityWhereFilter> for mapping::entity::EntityWhereFilter {
+impl From<EntityWhereFilter> for mapping::EntityWhereFilter {
     fn from(filter: EntityWhereFilter) -> Self {
-        mapping::entity::EntityWhereFilter {
+        mapping::EntityWhereFilter {
+            id: filter.id,
             space_id: filter.space_id,
             types_contain: filter.types_contain,
             attributes_contain: filter
@@ -172,9 +174,9 @@ struct EntityAttributeFilter {
     value_type: Option<ValueType>,
 }
 
-impl From<EntityAttributeFilter> for mapping::entity::EntityAttributeFilter {
+impl From<EntityAttributeFilter> for mapping::EntityAttributeFilter {
     fn from(filter: EntityAttributeFilter) -> Self {
-        mapping::entity::EntityAttributeFilter {
+        mapping::EntityAttributeFilter {
             attribute: filter.attribute,
             value: filter.value,
             value_type: filter.value_type.map(Into::into),
