@@ -48,18 +48,10 @@ impl EntityFilter {
 
     fn match_clause_node(&self) -> String {
         match (self.id.as_ref(), self.space_id.as_ref()) {
-            (Some(_), Some(_)) => {
-                "(n {id: $id, space_id: $space_id})".to_string()
-            }
-            (None, Some(_)) => {
-                "(n {space_id: $space_id})".to_string()
-            }
-            (Some(_), None) => {
-                "(n {id: $id})".to_string()
-            }
-            (None, None) => {
-                "(n)".to_string()
-            }
+            (Some(_), Some(_)) => "(n {id: $id, space_id: $space_id})".to_string(),
+            (None, Some(_)) => "(n {space_id: $space_id})".to_string(),
+            (Some(_), None) => "(n {id: $id})".to_string(),
+            (None, None) => "(n)".to_string(),
         }
     }
 
@@ -99,7 +91,7 @@ impl EntityFilter {
     }
 }
 
-/// Filter used on entity attributes queries (i.e.: when we want to get entities 
+/// Filter used on entity attributes queries (i.e.: when we want to get entities
 /// based on their attributes)
 #[derive(Clone, Debug, Default)]
 pub struct EntityAttributeFilter {
@@ -143,7 +135,7 @@ impl EntityAttributeFilter {
     }
 }
 
-/// Filter used on entity relations queries (i.e.: when we already have an entity and 
+/// Filter used on entity relations queries (i.e.: when we already have an entity and
 /// want to get its relations and related entities)
 #[derive(Clone, Debug, Default)]
 pub struct EntityRelationFilter {
@@ -168,7 +160,10 @@ impl EntityRelationFilter {
             .param("from_id", from_id)
             .param("to_id", self.to_id.clone().unwrap_or_default())
             .param("space_id", self.space_id.clone().unwrap_or_default())
-            .param("relation_type", self.relation_type.clone().unwrap_or_default())
+            .param(
+                "relation_type",
+                self.relation_type.clone().unwrap_or_default(),
+            )
     }
 
     fn match_clause(&self) -> String {
@@ -184,33 +179,27 @@ impl EntityRelationFilter {
 
     fn match_clause_from(&self) -> String {
         match self.space_id.as_ref() {
-            Some(_) => 
-                "({id: $from_id, space_id: $space_id})".to_string(),
-            None =>
-                "({id: $from_id})".to_string(),
+            Some(_) => "({id: $from_id, space_id: $space_id})".to_string(),
+            None => "({id: $from_id})".to_string(),
         }
     }
 
     fn match_clause_to(&self) -> String {
         match (self.to_id.as_ref(), self.space_id.as_ref()) {
-            (Some(_), Some(_)) => 
-                "(to {id: $to_id, space_id: $space_id})".to_string(),
-            (None, Some(_)) =>
-                "(to {space_id: $space_id})".to_string(),
-            (Some(_), None) =>
-                "(to {id: $to_id})".to_string(),
+            (Some(_), Some(_)) => "(to {id: $to_id, space_id: $space_id})".to_string(),
+            (None, Some(_)) => "(to {space_id: $space_id})".to_string(),
+            (Some(_), None) => "(to {id: $to_id})".to_string(),
             (None, None) => "(to)".to_string(),
         }
     }
 
     fn match_clause_relation(&self) -> String {
         match (self.id.as_ref(), self.relation_type.as_ref()) {
-            (Some(_), Some(rel_type)) => 
-                format!("(r:`{rel_type}` {{id: $id}})", rel_type = rel_type),
-            (None, Some(rel_type)) =>
-                format!("(r:`{rel_type}`)", rel_type = rel_type),
-            (Some(_), None) =>
-                "(r {id: $id})".to_string(),
+            (Some(_), Some(rel_type)) => {
+                format!("(r:`{rel_type}` {{id: $id}})", rel_type = rel_type)
+            }
+            (None, Some(rel_type)) => format!("(r:`{rel_type}`)", rel_type = rel_type),
+            (Some(_), None) => "(r {id: $id})".to_string(),
             (None, None) => "(r)".to_string(),
         }
     }

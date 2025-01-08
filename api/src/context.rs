@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use sdk::neo4rs;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct KnowledgeGraph(pub(crate) Arc<neo4rs::Graph>);

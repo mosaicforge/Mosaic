@@ -132,7 +132,6 @@ impl Relation {
     }
 }
 
-
 impl From<mapping::Relation<mapping::Triples>> for Relation {
     fn from(relation: mapping::Relation<mapping::Triples>) -> Self {
         Self {

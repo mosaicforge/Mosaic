@@ -13,7 +13,8 @@ use crate::{
 };
 
 use super::{
-    attributes::{Attributes, SystemProperties}, EntityFilter, EntityRelationFilter, Relation, Triples
+    attributes::{Attributes, SystemProperties},
+    EntityFilter, EntityRelationFilter, Relation, Triples,
 };
 
 /// GRC20 Node
@@ -102,8 +103,7 @@ impl<T> Entity<T> {
         let query = if let Some(filter) = filter {
             filter.query(id)
         } else {
-            neo4rs::query(QUERY)
-                .param("id", id)
+            neo4rs::query(QUERY).param("id", id)
         };
 
         #[derive(Debug, Deserialize)]

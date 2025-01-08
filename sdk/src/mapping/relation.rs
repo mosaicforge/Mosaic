@@ -8,7 +8,9 @@ use crate::{
 };
 
 use super::{
-    attributes::{Attributes, SystemProperties}, query::Query, Entity, RelationFilter, Triples
+    attributes::{Attributes, SystemProperties},
+    query::Query,
+    Entity, RelationFilter, Triples,
 };
 
 #[derive(Debug, Deserialize, PartialEq)]

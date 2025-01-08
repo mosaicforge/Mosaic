@@ -8,9 +8,7 @@ use axum::{
     Extension, Router,
 };
 use clap::{Args, Parser};
-use juniper::{
-    EmptyMutation, EmptySubscription, RootNode
-};
+use juniper::{EmptyMutation, EmptySubscription, RootNode};
 use juniper_axum::{extract::JuniperRequest, graphiql, playground, response::JuniperResponse};
 use sdk::neo4rs;
 use tokio::net::TcpListener;

@@ -1,6 +1,5 @@
 use juniper::GraphQLObject;
 
-
 #[derive(Debug, GraphQLObject)]
 pub struct Options {
     pub(crate) format: Option<String>,

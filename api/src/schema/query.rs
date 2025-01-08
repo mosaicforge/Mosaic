@@ -1,4 +1,4 @@
-use juniper::{Executor, ScalarValue, graphql_object};
+use juniper::{graphql_object, Executor, ScalarValue};
 
 use sdk::mapping;
 
@@ -68,14 +68,10 @@ impl Query {
         space_id: String,
         // version_id: Option<String>,
     ) -> Option<Relation> {
-        mapping::Relation::<mapping::Triples>::find_by_id(
-            &executor.context().0,
-            &id,
-            &space_id,
-        )
-        .await
-        .expect("Failed to find relation")
-        .map(|rel| rel.into())
+        mapping::Relation::<mapping::Triples>::find_by_id(&executor.context().0, &id, &space_id)
+            .await
+            .expect("Failed to find relation")
+            .map(|rel| rel.into())
     }
 
     /// Returns multiple relations according to the provided space ID and filter
@@ -101,7 +97,10 @@ impl Query {
             .collect::<Vec<_>>(),
             _ => mapping::Relation::<mapping::Triples>::find_many(
                 &executor.context().0,
-                Some(mapping::RelationFilter {space_id: Some(space_id), ..Default::default()}),
+                Some(mapping::RelationFilter {
+                    space_id: Some(space_id),
+                    ..Default::default()
+                }),
             )
             .await
             .expect("Failed to find relations")

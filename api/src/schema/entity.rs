@@ -3,9 +3,12 @@ use juniper::{graphql_object, Executor, ScalarValue};
 
 use sdk::{mapping, system_ids};
 
-use crate::{context::KnowledgeGraph, schema::{Relation, Triple}};
+use crate::{
+    context::KnowledgeGraph,
+    schema::{Relation, Triple},
+};
 
-use super::{AttributeFilter, EntityRelationFilter, Options, RelationFilter};
+use super::{AttributeFilter, EntityRelationFilter, Options};
 
 #[derive(Debug)]
 pub struct Entity {
