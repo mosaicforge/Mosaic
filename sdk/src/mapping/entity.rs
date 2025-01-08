@@ -14,7 +14,7 @@ use crate::{
 
 use super::{
     attributes::{Attributes, SystemProperties},
-    Relation, Triples, ValueType,
+    EntityFilter, EntityRelationFilter, Relation, Triples,
 };
 
 /// GRC20 Node
@@ -45,57 +45,66 @@ impl<T> Entity<T> {
         }
     }
 
+    /// Returns the ID of the entity
     pub fn id(&self) -> &str {
         &self.attributes.id
     }
 
+    /// Returns the space ID of the entity
     pub fn space_id(&self) -> &str {
         &self.attributes.system_properties.space_id
     }
 
+    /// Returns the attributes of the entity
     pub fn attributes(&self) -> &T {
         &self.attributes.attributes
     }
 
+    /// Returns a mutable reference to the attributes of the entity
     pub fn attributes_mut(&mut self) -> &mut T {
         &mut self.attributes.attributes
     }
 
+    /// Adds a type label to the entity
     pub fn with_type(mut self, type_id: &str) -> Self {
         self.types.push(type_id.to_string());
         self
     }
 
+    /// Returns the outgoing relations of the entity
     pub async fn relations<R>(
         &self,
         neo4j: &neo4rs::Graph,
+        filter: Option<EntityRelationFilter>,
     ) -> Result<Vec<Relation<R>>, DatabaseError>
     where
         R: for<'a> Deserialize<'a>,
     {
-        Self::find_relations(neo4j, self.id(), self.space_id()).await
+        Self::find_relations(neo4j, self.id(), filter).await
     }
 
     pub async fn find_relations<R>(
         neo4j: &neo4rs::Graph,
         id: &str,
-        space_id: &str,
+        filter: Option<EntityRelationFilter>,
     ) -> Result<Vec<Relation<R>>, DatabaseError>
     where
         R: for<'a> Deserialize<'a>,
     {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MATCH ({{ id: $id, space_id: $space_id }}) <-[:`{FROM_ENTITY}`]- (r) -[:`{TO_ENTITY}`]-> (to)
+            MATCH ({{ id: $id }}) <-[:`{FROM_ENTITY}`]- (r) -[:`{TO_ENTITY}`]-> (to)
             RETURN to, r
             "#,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
         );
 
-        let query = neo4rs::query(QUERY)
-            .param("id", id)
-            .param("space_id", space_id);
+        let query = if let Some(filter) = filter {
+            filter.query(id)
+        } else {
+            neo4rs::query(QUERY).param("id", id)
+        };
 
         #[derive(Debug, Deserialize)]
         struct RowResult {
@@ -467,7 +476,7 @@ where
 
     pub async fn find_many(
         neo4j: &neo4rs::Graph,
-        r#where: Option<EntityWhereFilter>,
+        r#where: Option<EntityFilter>,
     ) -> Result<Vec<Self>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!("MATCH (n) RETURN n LIMIT 100");
 
@@ -516,133 +525,6 @@ where
             .and_then(|row| async move { Ok(row.n.try_into()?) })
             .try_collect::<Vec<_>>()
             .await
-    }
-}
-
-pub struct EntityWhereFilter {
-    pub space_id: Option<String>,
-    pub types_contain: Option<Vec<String>>,
-    pub attributes_contain: Option<Vec<EntityAttributeFilter>>,
-}
-
-impl EntityWhereFilter {
-    fn query(&self) -> neo4rs::Query {
-        let query = format!(
-            r#"
-            {match_clause}
-            {where_clause}
-            RETURN n
-            "#,
-            match_clause = self.match_clause(),
-            where_clause = self.where_clause(),
-        );
-
-        neo4rs::query(&query)
-            .param("types", self.types_contain.clone().unwrap_or_default())
-            .param("space_id", self.space_id.clone().unwrap_or_default())
-    }
-
-    fn match_clause(&self) -> String {
-        match (self.space_id.as_ref(), self.types_contain.as_ref()) {
-            (Some(_), Some(_)) => {
-                format!(
-                    r#"
-                    MATCH (n {{space_id: $space_id}}) <-[:`{FROM_ENTITY}`]- (:`{TYPES}`) -[:`{TO_ENTITY}`]-> (t)
-                    "#,
-                    FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
-                    TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
-                    TYPES = system_ids::TYPES,
-                )
-            }
-            (None, Some(_)) => {
-                format!(
-                    r#"
-                    MATCH (n) <-[:`{FROM_ENTITY}`]- (:`{TYPES}`) -[:`{TO_ENTITY}`]-> (t)
-                    "#,
-                    FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
-                    TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
-                    TYPES = system_ids::TYPES,
-                )
-            }
-            (Some(_), None) => "MATCH (n {{space_id: $space_id}})".to_string(),
-            (None, None) => "MATCH (n)".to_string(),
-        }
-    }
-
-    fn where_clause(&self) -> String {
-        fn _get_attr_query(attrs: &[EntityAttributeFilter]) -> String {
-            attrs
-                .iter()
-                .map(|attr| attr.query())
-                .collect::<Vec<_>>()
-                .join("\nAND ")
-        }
-
-        match (
-            self.types_contain.as_ref(),
-            self.attributes_contain.as_ref(),
-        ) {
-            (Some(_), Some(attrs)) => {
-                format!(
-                    r#"
-                    WHERE t.id IN $types
-                    AND {}
-                    "#,
-                    _get_attr_query(attrs)
-                )
-            }
-            (Some(_), None) => "WHERE t.id IN $types".to_string(),
-            (None, Some(attrs)) => {
-                format!(
-                    r#"
-                    WHERE {}
-                    "#,
-                    _get_attr_query(attrs)
-                )
-            }
-            (None, None) => Default::default(),
-        }
-    }
-}
-
-pub struct EntityAttributeFilter {
-    pub attribute: String,
-    pub value: Option<String>,
-    pub value_type: Option<ValueType>,
-}
-
-impl EntityAttributeFilter {
-    fn query(&self) -> String {
-        match self {
-            Self {
-                attribute,
-                value: Some(value),
-                value_type: Some(value_type),
-            } => {
-                format!("n.`{attribute}` = {value} AND n.`{attribute}.type` = {value_type}")
-            }
-            Self {
-                attribute,
-                value: Some(value),
-                value_type: None,
-            } => {
-                format!("n.`{attribute}` = {value}")
-            }
-            Self {
-                attribute,
-                value: None,
-                value_type: Some(value_type),
-            } => {
-                format!("n.`{attribute}.type` = {value_type}")
-            }
-            Self {
-                attribute,
-                value: None,
-                value_type: None,
-            } => {
-                format!("n.`{attribute}` IS NOT NULL")
-            }
-        }
     }
 }
 

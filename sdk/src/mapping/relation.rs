@@ -10,7 +10,7 @@ use crate::{
 use super::{
     attributes::{Attributes, SystemProperties},
     query::Query,
-    Entity, Triples,
+    Entity, RelationFilter, Triples,
 };
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -317,6 +317,79 @@ where
             .param("id", id)
             .param("space_id", space_id);
 
+        Self::_find_one(neo4j, query).await
+    }
+
+    /// Returns the entities from the given list of IDs
+    pub async fn find_by_ids(
+        neo4j: &neo4rs::Graph,
+        ids: &[String],
+    ) -> Result<Vec<Self>, DatabaseError> {
+        const QUERY: &str = const_format::formatcp!(
+            r#"
+            UNWIND $ids AS id
+            MATCH (from) <-[:`{FROM_ENTITY}`]- (r:`{RELATION_TYPE}` {{ id: $id, space_id: $space_id }}) -[:`{TO_ENTITY}`]-> (to)
+            RETURN from, r, to
+            "#,
+            RELATION_TYPE = system_ids::RELATION_TYPE,
+            FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
+            TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+        );
+
+        let query = neo4rs::query(QUERY).param("ids", ids);
+
+        Self::_find_many(neo4j, query).await
+    }
+
+    /// Returns the entities with the given types
+    pub async fn find_by_types(
+        neo4j: &neo4rs::Graph,
+        types: &[String],
+        space_id: &str,
+    ) -> Result<Vec<Self>, DatabaseError> {
+        const QUERY: &str = const_format::formatcp!(
+            r#"
+            MATCH (from {{space_id: $space_id}}) <-[:`{FROM_ENTITY}`]- (r:`{RELATION_TYPE}`:$($types) {{space_id: $space_id}}) -[:`{TO_ENTITY}`]-> (to {{space_id: $space_id}})
+            RETURN from, r, to
+            "#,
+            RELATION_TYPE = system_ids::RELATION_TYPE,
+            FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
+            TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+        );
+
+        let query = neo4rs::query(QUERY)
+            .param("types", types)
+            .param("space_id", space_id);
+
+        Self::_find_many(neo4j, query).await
+    }
+
+    pub async fn find_many(
+        neo4j: &neo4rs::Graph,
+        r#where: Option<RelationFilter>,
+    ) -> Result<Vec<Self>, DatabaseError> {
+        const QUERY: &str = const_format::formatcp!(
+            r#"
+            MATCH (from) <-[:`{FROM_ENTITY}`]- (r:`{RELATION_TYPE}`) -[:`{TO_ENTITY}`]-> (to)
+            RETURN from, r, to
+            LIMIT 100
+            "#,
+            RELATION_TYPE = system_ids::RELATION_TYPE,
+            FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
+            TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+        );
+
+        if let Some(filter) = r#where {
+            Self::_find_many(neo4j, filter.query()).await
+        } else {
+            Self::_find_many(neo4j, neo4rs::query(QUERY)).await
+        }
+    }
+
+    async fn _find_one(
+        neo4j: &neo4rs::Graph,
+        query: neo4rs::Query,
+    ) -> Result<Option<Self>, DatabaseError> {
         #[derive(Debug, Deserialize)]
         struct RowResult {
             from: neo4rs::Node,
@@ -341,107 +414,10 @@ where
             .transpose()
     }
 
-    /// Returns the entities from the given list of IDs
-    pub async fn find_by_ids(
+    async fn _find_many(
         neo4j: &neo4rs::Graph,
-        ids: &[String],
+        query: neo4rs::Query,
     ) -> Result<Vec<Self>, DatabaseError> {
-        const QUERY: &str = const_format::formatcp!(
-            r#"
-            UNWIND $ids AS id
-            MATCH (from) <-[:`{FROM_ENTITY}`]- (r:`{RELATION_TYPE}` {{ id: $id, space_id: $space_id }}) -[:`{TO_ENTITY}`]-> (to)
-            RETURN from, r, to
-            "#,
-            RELATION_TYPE = system_ids::RELATION_TYPE,
-            FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
-            TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
-        );
-
-        let query = neo4rs::query(QUERY).param("ids", ids);
-
-        #[derive(Debug, Deserialize)]
-        struct RowResult {
-            from: neo4rs::Node,
-            r: neo4rs::Node,
-            to: neo4rs::Node,
-        }
-
-        neo4j
-            .execute(query)
-            .await?
-            .into_stream_as::<RowResult>()
-            .map_err(DatabaseError::from)
-            .and_then(|row| async move {
-                let from: Entity<()> = row.from.try_into()?;
-                let rel: Entity<T> = row.r.try_into()?;
-                let to: Entity<()> = row.to.try_into()?;
-
-                Ok(Relation::from_entity(rel, from.id(), to.id()))
-            })
-            .try_collect::<Vec<_>>()
-            .await
-    }
-
-    /// Returns the entities with the given types
-    pub async fn find_by_types(
-        neo4j: &neo4rs::Graph,
-        types: &[String],
-        space_id: &str,
-    ) -> Result<Vec<Self>, DatabaseError> {
-        const QUERY: &str = const_format::formatcp!(
-            r#"
-            MATCH (from {{space_id: $space_id}}) <-[:`{FROM_ENTITY}`]- (r:`{RELATION_TYPE}`:$($types) {{space_id: $space_id}}) -[:`{TO_ENTITY}`]-> (to {{space_id: $space_id}})
-            RETURN from, r, to
-            "#,
-            RELATION_TYPE = system_ids::RELATION_TYPE,
-            FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
-            TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
-        );
-
-        let query = neo4rs::query(QUERY)
-            .param("types", types)
-            .param("space_id", space_id);
-
-        #[derive(Debug, Deserialize)]
-        struct RowResult {
-            from: neo4rs::Node,
-            r: neo4rs::Node,
-            to: neo4rs::Node,
-        }
-
-        neo4j
-            .execute(query)
-            .await?
-            .into_stream_as::<RowResult>()
-            .map_err(DatabaseError::from)
-            .and_then(|row| async move {
-                let from: Entity<()> = row.from.try_into()?;
-                let rel: Entity<T> = row.r.try_into()?;
-                let to: Entity<()> = row.to.try_into()?;
-
-                Ok(Relation::from_entity(rel, from.id(), to.id()))
-            })
-            .try_collect::<Vec<_>>()
-            .await
-    }
-
-    pub async fn find_all(
-        neo4j: &neo4rs::Graph,
-        space_id: &str,
-    ) -> Result<Vec<Self>, DatabaseError> {
-        const QUERY: &str = const_format::formatcp!(
-            r#"
-            MATCH (from {{space_id: $space_id}}) <-[:`{FROM_ENTITY}`]- (r:`{RELATION_TYPE}` {{space_id: $space_id}}) -[:`{TO_ENTITY}`]-> (to {{space_id: $space_id}})
-            RETURN from, r, to
-            LIMIT 100
-            "#,
-            RELATION_TYPE = system_ids::RELATION_TYPE,
-            FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
-            TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
-        );
-
-        let query = neo4rs::query(QUERY).param("space_id", space_id);
-
         #[derive(Debug, Deserialize)]
         struct RowResult {
             from: neo4rs::Node,
