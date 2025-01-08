@@ -50,19 +50,16 @@ impl Query {
     async fn entities<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-        space_id: String,
-        // version_id: Option<String>,
-        filter: Option<EntityFilter>,
+        r#where: Option<EntityWhereFilter>,
     ) -> Vec<Entity> {
         // let query = QueryMapper::default().select_root_node(&id, &executor.look_ahead()).build();
         // tracing::info!("Query: {}", query);
 
-        match filter {
-            Some(EntityFilter { types: Some(types) }) if !types.is_empty() => {
-                mapping::Entity::<mapping::Triples>::find_by_types(
+        match r#where {
+            Some(r#where) => {
+                mapping::Entity::<mapping::Triples>::find_many(
                     &executor.context().0.neo4j,
-                    &types,
-                    &space_id,
+                    Some(r#where.into())
                 )
                 .await
                 .expect("Failed to find entities")
@@ -70,9 +67,9 @@ impl Query {
                 .map(Entity::from)
                 .collect::<Vec<_>>()
             }
-            _ => mapping::Entity::<mapping::Triples>::find_all(
+            _ => mapping::Entity::<mapping::Triples>::find_many(
                 &executor.context().0.neo4j,
-                &space_id,
+                None
             )
             .await
             .expect("Failed to find entities")
@@ -135,10 +132,59 @@ impl Query {
 }
 
 /// Entity filter input object
+/// 
+/// ```graphql
+/// query {
+///     entities(where: {
+///         space_id: "BJqiLPcSgfF8FRxkFr76Uy",
+///         types_contain: ["XG26vy98XAA6cR6DosTALk", "XG26vy98XAA6cR6DosTALk"],
+///         attributes_contain: [
+///             {id: "XG26vy98XAA6cR6DosTALk", value: "value", value_type: TEXT},
+///         ]
+///     })
+/// }
+/// ```
+/// 
 #[derive(Debug, GraphQLInputObject)]
 struct EntityFilter {
     /// Filter by entity types
-    types: Option<Vec<String>>,
+    r#where: Option<EntityWhereFilter>,
+}
+
+#[derive(Debug, GraphQLInputObject)]
+struct EntityWhereFilter {
+    space_id: Option<String>,
+    types_contain: Option<Vec<String>>,
+    attributes_contain: Option<Vec<EntityAttributeFilter>>,
+}
+
+impl Into<mapping::entity::EntityWhereFilter> for EntityWhereFilter {
+    fn into(self) -> mapping::entity::EntityWhereFilter {
+        mapping::entity::EntityWhereFilter {
+            space_id: self.space_id,
+            types_contain: self.types_contain,
+            attributes_contain: self
+                .attributes_contain
+                .map(|filters| filters.into_iter().map(|f| f.into()).collect()),
+        }
+    }
+}
+
+#[derive(Debug, GraphQLInputObject)]
+struct EntityAttributeFilter {
+    attribute: String,
+    value: Option<String>,
+    value_type: Option<ValueType>,
+}
+
+impl Into<mapping::entity::EntityAttributeFilter> for EntityAttributeFilter {
+    fn into(self) -> mapping::entity::EntityAttributeFilter {
+        mapping::entity::EntityAttributeFilter {
+            attribute: self.attribute,
+            value: self.value,
+            value_type: self.value_type.map(|vt| vt.into()),
+        }
+    }
 }
 
 /// Relation filter input object
@@ -272,8 +318,16 @@ impl Entity {
     }
 
     /// Attributes of the entity
-    fn attributes(&self) -> &[Triple] {
-        &self.attributes
+    fn attributes(&self, filter: Option<AttributeFilter>) -> Vec<&Triple> {
+        match filter {
+            Some(AttributeFilter { value_type: Some(value_type) }) => {
+                self.attributes
+                    .iter()
+                    .filter(|triple| triple.value_type == value_type)
+                    .collect::<Vec<_>>()
+            }
+            _ => self.attributes.iter().collect::<Vec<_>>(),
+        }
     }
 
     /// Relations outgoing from the entity
@@ -305,6 +359,24 @@ impl From<mapping::ValueType> for ValueType {
             mapping::ValueType::Point => Self::Point,
         }
     }
+}
+
+impl Into<mapping::ValueType> for ValueType {
+    fn into(self) -> mapping::ValueType {
+        match self {
+            Self::Text => mapping::ValueType::Text,
+            Self::Number => mapping::ValueType::Number,
+            Self::Checkbox => mapping::ValueType::Checkbox,
+            Self::Url => mapping::ValueType::Url,
+            Self::Time => mapping::ValueType::Time,
+            Self::Point => mapping::ValueType::Point,
+        }
+    }
+}
+
+#[derive(Debug, GraphQLInputObject)]
+struct AttributeFilter {
+    value_type: Option<ValueType>,
 }
 
 #[derive(Debug)]
@@ -516,7 +588,7 @@ impl Triple {
     }
 }
 
-#[derive(Debug, GraphQLEnum)]
+#[derive(Debug, GraphQLEnum, PartialEq)]
 pub enum ValueType {
     Text,
     Number,

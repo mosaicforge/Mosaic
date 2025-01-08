@@ -1,4 +1,4 @@
-use std::collections::{hash_map, HashMap};
+use std::{collections::{hash_map, HashMap}, fmt::Display};
 
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 
@@ -208,6 +208,19 @@ pub enum ValueType {
     Url,
     Time,
     Point,
+}
+
+impl Display for ValueType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ValueType::Text => write!(f, "TEXT"),
+            ValueType::Number => write!(f, "NUMBER"),
+            ValueType::Checkbox => write!(f, "CHECKBOX"),
+            ValueType::Url => write!(f, "URL"),
+            ValueType::Time => write!(f, "TIME"),
+            ValueType::Point => write!(f, "POINT"),
+        }
+    }
 }
 
 impl TryFrom<pb::grc20::ValueType> for ValueType {

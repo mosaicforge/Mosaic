@@ -1,3 +1,7 @@
+input AttributeFilter {
+  valueType: ValueType
+}
+
 """Entity object"""
 type Entity {
   """Entity ID"""
@@ -19,16 +23,22 @@ type Entity {
   types: [Entity!]!
 
   """Attributes of the entity"""
-  attributes: [Triple!]!
+  attributes(filter: AttributeFilter): [Triple!]!
 
   """Relations outgoing from the entity"""
   relations: [Relation!]!
 }
 
-"""Entity filter input object"""
-input EntityFilter {
-  """Filter by entity types"""
-  types: [String!]
+input EntityAttributeFilter {
+  attribute: String!
+  value: String
+  valueType: ValueType
+}
+
+input EntityWhereFilter {
+  spaceId: String
+  typesContain: [String!]
+  attributesContain: [EntityAttributeFilter!]
 }
 
 type Options {
@@ -44,7 +54,7 @@ type Query {
   """
   Returns multiple entities according to the provided space ID and filter
   """
-  entities(spaceId: String!, filter: EntityFilter): [Entity!]!
+  entities(where: EntityWhereFilter): [Entity!]!
 
   """Returns a single relation identified by its ID and space ID"""
   relation(id: String!, spaceId: String!): Relation

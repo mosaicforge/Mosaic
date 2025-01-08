@@ -14,7 +14,7 @@ use crate::{
 
 use super::{
     attributes::{Attributes, SystemProperties},
-    Relation, Triples,
+    Relation, Triples, ValueType,
 };
 
 /// GRC20 Node
@@ -421,21 +421,7 @@ where
             .param("id", id)
             .param("space_id", space_id);
 
-        #[derive(Debug, Deserialize)]
-        struct RowResult {
-            n: neo4rs::Node,
-        }
-
-        Ok(neo4j
-            .execute(query)
-            .await?
-            .next()
-            .await?
-            .map(|row| {
-                let row = row.to::<RowResult>()?;
-                row.n.try_into()
-            })
-            .transpose()?)
+        Self::_find_one(neo4j, query).await
     }
 
     /// Returns the entities from the given list of IDs
@@ -456,19 +442,7 @@ where
             .param("ids", ids)
             .param("space_id", space_id);
 
-        #[derive(Debug, Deserialize)]
-        struct RowResult {
-            n: neo4rs::Node,
-        }
-
-        neo4j
-            .execute(query)
-            .await?
-            .into_stream_as::<RowResult>()
-            .map_err(DatabaseError::from)
-            .and_then(|row| async move { Ok(row.n.try_into()?) })
-            .try_collect::<Vec<_>>()
-            .await
+        Self::_find_many(neo4j, query).await
     }
 
     /// Returns the entities with the given types
@@ -488,6 +462,42 @@ where
             .param("types", types)
             .param("space_id", space_id);
 
+        Self::_find_many(neo4j, query).await
+    }
+
+    pub async fn find_many(
+        neo4j: &neo4rs::Graph,
+        r#where: Option<EntityWhereFilter>,
+    ) -> Result<Vec<Self>, DatabaseError> {
+        const QUERY: &str =
+            const_format::formatcp!("MATCH (n) RETURN n LIMIT 100");
+
+        if let Some(filter) = r#where {
+            Self::_find_many(neo4j, filter.query()).await
+        } else {
+            Self::_find_many(neo4j, neo4rs::query(QUERY)).await
+        }
+    }
+
+    async fn _find_one(neo4j: &neo4rs::Graph, query: neo4rs::Query) -> Result<Option<Self>, DatabaseError> {
+        #[derive(Debug, Deserialize)]
+        struct RowResult {
+            n: neo4rs::Node,
+        }
+
+        Ok(neo4j
+            .execute(query)
+            .await?
+            .next()
+            .await?
+            .map(|row| {
+                let row = row.to::<RowResult>()?;
+                row.n.try_into()
+            })
+            .transpose()?)
+    }
+
+    async fn _find_many(neo4j: &neo4rs::Graph, query: neo4rs::Query) -> Result<Vec<Self>, DatabaseError> {
         #[derive(Debug, Deserialize)]
         struct RowResult {
             n: neo4rs::Node,
@@ -502,29 +512,133 @@ where
             .try_collect::<Vec<_>>()
             .await
     }
+}
 
-    pub async fn find_all(
-        neo4j: &neo4rs::Graph,
-        space_id: &str,
-    ) -> Result<Vec<Self>, DatabaseError> {
-        const QUERY: &str =
-            const_format::formatcp!("MATCH (n {{space_id: $space_id}}) RETURN n LIMIT 100");
+pub struct EntityWhereFilter {
+    pub space_id: Option<String>,
+    pub types_contain: Option<Vec<String>>,
+    pub attributes_contain: Option<Vec<EntityAttributeFilter>>,
+}
 
-        let query = neo4rs::query(QUERY).param("space_id", space_id);
+impl EntityWhereFilter {
+    fn query(&self) -> neo4rs::Query {
+        let query = format!(
+            r#"
+            {match_clause}
+            {where_clause}
+            RETURN n
+            "#,
+            match_clause = self.match_clause(),
+            where_clause = self.where_clause(),
+        );
 
-        #[derive(Debug, Deserialize)]
-        struct RowResult {
-            n: neo4rs::Node,
+        neo4rs::query(&query)
+            .param("types", self.types_contain.clone().unwrap_or_default())
+            .param("space_id", self.space_id.clone().unwrap_or_default())
+
+    }
+    
+    fn match_clause(&self) -> String {
+        match (self.space_id.as_ref(), self.types_contain.as_ref()) {
+            (Some(_), Some(_)) => {
+                format!(
+                    r#"
+                    MATCH (n {{space_id: $space_id}}) <-[:`{FROM_ENTITY}`]- (:`{TYPES}`) -[:`{TO_ENTITY}`]-> (t)
+                    "#,
+                    FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
+                    TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+                    TYPES = system_ids::TYPES,
+                )
+            }
+            (None, Some(_)) => {
+                format!(
+                    r#"
+                    MATCH (n) <-[:`{FROM_ENTITY}`]- (:`{TYPES}`) -[:`{TO_ENTITY}`]-> (t)
+                    "#,
+                    FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
+                    TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+                    TYPES = system_ids::TYPES,
+                )
+            }
+            (Some(_), None) => {
+                format!(
+                    r#"
+                    MATCH (n {{space_id: $space_id}})
+                    "#,
+                )
+            }
+            (None, None) => {
+                format!(
+                    r#"
+                    MATCH (n)
+                    "#,
+                )
+            }
+        }
+    }
+
+    fn where_clause(&self) -> String {
+        fn _get_attr_query(attrs: &[EntityAttributeFilter]) -> String {
+            attrs.iter()
+                .map(|attr| attr.query())
+                .collect::<Vec<_>>()
+                .join("\nAND ")
         }
 
-        neo4j
-            .execute(query)
-            .await?
-            .into_stream_as::<RowResult>()
-            .map_err(DatabaseError::from)
-            .and_then(|row| async move { Ok(row.n.try_into()?) })
-            .try_collect::<Vec<_>>()
-            .await
+        match (self.types_contain.as_ref(), self.attributes_contain.as_ref()) {
+            (Some(_), Some(attrs)) => {
+                format!(
+                    r#"
+                    WHERE t.id IN $types
+                    AND {}
+                    "#,
+                    _get_attr_query(attrs)
+                )
+            }
+            (Some(_), None) => {
+                format!(
+                    r#"
+                    WHERE t.id IN $types
+                    "#,
+                )
+            }
+            (None, Some(attrs)) => {
+                format!(
+                    r#"
+                    WHERE {}
+                    "#,
+                    _get_attr_query(attrs)
+                )
+            }
+            (None, None) => {
+                Default::default()
+            }
+        }
+    }
+}
+
+pub struct EntityAttributeFilter {
+    pub attribute: String,
+    pub value: Option<String>,
+    pub value_type: Option<ValueType>,
+}
+
+impl EntityAttributeFilter {
+    fn query(&self) -> String {
+        match self {
+            Self { attribute, value: Some(value), value_type: Some(value_type) } => {
+                format!("n.`{attribute}` = {value} AND n.`{attribute}.type` = {value_type}")
+            }
+            Self { attribute, value: Some(value), value_type: None } => {
+                format!("n.`{attribute}` = {value}")
+            }
+            Self { attribute, value: None, value_type: Some(value_type) } => {
+                format!("n.`{attribute}.type` = {value_type}")
+            }
+            Self { attribute, value: None, value_type: None } => {
+                format!("n.`{attribute}` IS NOT NULL")
+            }
+        }
     }
 }
 
