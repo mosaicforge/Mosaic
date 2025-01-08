@@ -30,7 +30,7 @@ impl RelationFilter {
             )
     }
 
-    pub fn match_clause(&self) -> String {
+    fn match_clause(&self) -> String {
         format!(
             "MATCH ({match_clause_from}) <-[:`{FROM_ENTITY}`]- ({match_clause_relation}) -[:`{TO_ENTITY}`]-> ({match_clause_to})",
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
@@ -41,7 +41,7 @@ impl RelationFilter {
         )
     }
 
-    pub fn match_clause_from(&self) -> String {
+    fn match_clause_from(&self) -> String {
         match (self.from_id.as_ref(), self.space_id.as_ref()) {
             (Some(_), Some(_)) => "(from {{id: $from_id, space_id: $space_id}})".to_string(),
             (None, Some(_)) => "(from {{space_id: $space_id}})".to_string(),
@@ -50,7 +50,7 @@ impl RelationFilter {
         }
     }
 
-    pub fn match_clause_to(&self) -> String {
+    fn match_clause_to(&self) -> String {
         match (self.to_id.as_ref(), self.space_id.as_ref()) {
             (Some(_), Some(_)) => "(to {{id: $to_id, space_id: $space_id}})".to_string(),
             (None, Some(_)) => "(to {{space_id: $space_id}})".to_string(),
@@ -59,7 +59,7 @@ impl RelationFilter {
         }
     }
 
-    pub fn match_clause_relation(&self) -> String {
+    fn match_clause_relation(&self) -> String {
         match (self.id.as_ref(), self.relation_type.as_ref()) {
             (Some(_), Some(rel_type)) => {
                 format!("(r:`{rel_type}` {{id: $id}})", rel_type = rel_type)

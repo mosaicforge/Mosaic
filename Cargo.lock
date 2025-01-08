@@ -142,7 +142,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_path_to_error",
- "sink",
  "tokio",
  "tracing",
  "tracing-subscriber",
