@@ -1,13 +1,15 @@
 use crate::{mapping::ValueType, system_ids};
 
-pub struct EntityWhereFilter {
+/// Filter used on toplevel entity queries
+#[derive(Clone, Debug, Default)]
+pub struct EntityFilter {
     pub id: Option<String>,
     pub space_id: Option<String>,
     pub types_contain: Option<Vec<String>>,
     pub attributes_contain: Option<Vec<EntityAttributeFilter>>,
 }
 
-impl EntityWhereFilter {
+impl EntityFilter {
     pub(crate) fn query(&self) -> neo4rs::Query {
         let query = format!(
             r#"
@@ -29,34 +31,34 @@ impl EntityWhereFilter {
             Some(_) => {
                 format!(
                     r#"
-                    MATCH (n {match_clause_attrs}) <-[:`{FROM_ENTITY}`]- (:`{TYPES}`) -[:`{TO_ENTITY}`]-> (t)
+                    MATCH {match_clause_node} <-[:`{FROM_ENTITY}`]- (:`{TYPES}`) -[:`{TO_ENTITY}`]-> (t)
                     "#,
                     FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
                     TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
                     TYPES = system_ids::TYPES,
-                    match_clause_attrs = self.match_clause_attrs(),
+                    match_clause_node = self.match_clause_node(),
                 )
             }
             None => format!(
-                "MATCH (n {match_clause_attrs})",
-                match_clause_attrs = self.match_clause_attrs(),
+                "MATCH ({match_clause_node})",
+                match_clause_node = self.match_clause_node(),
             ),
         }
     }
 
-    fn match_clause_attrs(&self) -> String {
+    fn match_clause_node(&self) -> String {
         match (self.id.as_ref(), self.space_id.as_ref()) {
             (Some(_), Some(_)) => {
-                "{id: $id, space_id: $space_id}".to_string()
+                "(n {id: $id, space_id: $space_id})".to_string()
             }
             (None, Some(_)) => {
-                "{space_id: $space_id}".to_string()
+                "(n {space_id: $space_id})".to_string()
             }
             (Some(_), None) => {
-                "{id: $id}".to_string()
+                "(n {id: $id})".to_string()
             }
             (None, None) => {
-                "".to_string()
+                "(n)".to_string()
             }
         }
     }
@@ -97,65 +99,9 @@ impl EntityWhereFilter {
     }
 }
 
-#[derive(Default)]
-pub struct EntityWhereFilterBuilder {
-    pub id: Option<String>,
-    pub space_id: Option<String>,
-    pub types_contain: Option<Vec<String>>,
-    pub attributes_contain: Option<Vec<EntityAttributeFilter>>,
-}
-
-impl EntityWhereFilterBuilder {
-    pub fn build(self) -> EntityWhereFilter {
-        EntityWhereFilter {
-            id: self.id,
-            space_id: self.space_id,
-            types_contain: self.types_contain,
-            attributes_contain: self.attributes_contain,
-        }
-    }
-
-    pub fn id(mut self, id: String) -> Self {
-        self.id = Some(id);
-        self
-    }
-
-    pub fn space_id(mut self, space_id: String) -> Self {
-        self.space_id = Some(space_id);
-        self
-    }
-
-    pub fn types_contain(mut self, r#type: String) -> Self {
-        if let Some(mut types) = self.types_contain {
-            types.push(r#type);
-            self.types_contain = Some(types);
-        } else {
-            self.types_contain = Some(vec![r#type]);
-        }
-        self
-    }
-
-    pub fn set_types_contain(mut self, types: Vec<String>) -> Self {
-        self.types_contain = Some(types);
-        self
-    }
-
-    pub fn attributes_contain(mut self, attribute: EntityAttributeFilter) -> Self {
-        if let Some(mut attributes) = self.attributes_contain {
-            attributes.push(attribute);
-            self.attributes_contain = Some(attributes);
-        } else {
-            self.attributes_contain = Some(vec![attribute]);
-        }
-        self
-    }
-
-    pub fn set_attributes_contain(mut self, attributes: Vec<EntityAttributeFilter>) -> Self {
-        self.attributes_contain = Some(attributes);
-        self
-    }
-}
-
+/// Filter used on entity attributes queries (i.e.: when we want to get entities 
+/// based on their attributes)
+#[derive(Clone, Debug, Default)]
 pub struct EntityAttributeFilter {
     pub attribute: String,
     pub value: Option<String>,
@@ -193,6 +139,79 @@ impl EntityAttributeFilter {
             } => {
                 format!("n.`{attribute}` IS NOT NULL")
             }
+        }
+    }
+}
+
+/// Filter used on entity relations queries (i.e.: when we already have an entity and 
+/// want to get its relations and related entities)
+#[derive(Clone, Debug, Default)]
+pub struct EntityRelationFilter {
+    pub id: Option<String>,
+    pub to_id: Option<String>,
+    pub space_id: Option<String>,
+    pub relation_type: Option<String>,
+}
+
+impl EntityRelationFilter {
+    pub fn query(&self, from_id: &str) -> neo4rs::Query {
+        let query = format!(
+            r#"
+            {match_clause}
+            RETURN to, r
+            "#,
+            match_clause = self.match_clause(),
+        );
+
+        neo4rs::query(&query)
+            .param("id", self.id.clone().unwrap_or_default())
+            .param("from_id", from_id)
+            .param("to_id", self.to_id.clone().unwrap_or_default())
+            .param("space_id", self.space_id.clone().unwrap_or_default())
+            .param("relation_type", self.relation_type.clone().unwrap_or_default())
+    }
+
+    fn match_clause(&self) -> String {
+        format!(
+            "MATCH {match_clause_from} <-[:`{FROM_ENTITY}`]- {match_clause_relation} -[:`{TO_ENTITY}`]-> {match_clause_to}",
+            FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
+            TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+            match_clause_from = self.match_clause_from(),
+            match_clause_relation = self.match_clause_relation(),
+            match_clause_to = self.match_clause_to(),
+        )
+    }
+
+    fn match_clause_from(&self) -> String {
+        match self.space_id.as_ref() {
+            Some(_) => 
+                "({id: $from_id, space_id: $space_id})".to_string(),
+            None =>
+                "({id: $from_id})".to_string(),
+        }
+    }
+
+    fn match_clause_to(&self) -> String {
+        match (self.to_id.as_ref(), self.space_id.as_ref()) {
+            (Some(_), Some(_)) => 
+                "(to {id: $to_id, space_id: $space_id})".to_string(),
+            (None, Some(_)) =>
+                "(to {space_id: $space_id})".to_string(),
+            (Some(_), None) =>
+                "(to {id: $to_id})".to_string(),
+            (None, None) => "(to)".to_string(),
+        }
+    }
+
+    fn match_clause_relation(&self) -> String {
+        match (self.id.as_ref(), self.relation_type.as_ref()) {
+            (Some(_), Some(rel_type)) => 
+                format!("(r:`{rel_type}` {{id: $id}})", rel_type = rel_type),
+            (None, Some(rel_type)) =>
+                format!("(r:`{rel_type}`)", rel_type = rel_type),
+            (Some(_), None) =>
+                "(r {id: $id})".to_string(),
+            (None, None) => "(r)".to_string(),
         }
     }
 }

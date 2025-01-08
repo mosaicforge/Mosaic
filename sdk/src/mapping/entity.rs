@@ -13,9 +13,7 @@ use crate::{
 };
 
 use super::{
-    attributes::{Attributes, SystemProperties},
-    Relation, Triples,
-    EntityWhereFilter,
+    attributes::{Attributes, SystemProperties}, EntityFilter, EntityRelationFilter, Relation, Triples
 };
 
 /// GRC20 Node
@@ -46,57 +44,67 @@ impl<T> Entity<T> {
         }
     }
 
+    /// Returns the ID of the entity
     pub fn id(&self) -> &str {
         &self.attributes.id
     }
 
+    /// Returns the space ID of the entity
     pub fn space_id(&self) -> &str {
         &self.attributes.system_properties.space_id
     }
 
+    /// Returns the attributes of the entity
     pub fn attributes(&self) -> &T {
         &self.attributes.attributes
     }
 
+    /// Returns a mutable reference to the attributes of the entity
     pub fn attributes_mut(&mut self) -> &mut T {
         &mut self.attributes.attributes
     }
 
+    /// Adds a type label to the entity
     pub fn with_type(mut self, type_id: &str) -> Self {
         self.types.push(type_id.to_string());
         self
     }
 
+    /// Returns the outgoing relations of the entity
     pub async fn relations<R>(
         &self,
         neo4j: &neo4rs::Graph,
+        filter: Option<EntityRelationFilter>,
     ) -> Result<Vec<Relation<R>>, DatabaseError>
     where
         R: for<'a> Deserialize<'a>,
     {
-        Self::find_relations(neo4j, self.id(), self.space_id()).await
+        Self::find_relations(neo4j, self.id(), filter).await
     }
 
     pub async fn find_relations<R>(
         neo4j: &neo4rs::Graph,
         id: &str,
-        space_id: &str,
+        filter: Option<EntityRelationFilter>,
     ) -> Result<Vec<Relation<R>>, DatabaseError>
     where
         R: for<'a> Deserialize<'a>,
     {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MATCH ({{ id: $id, space_id: $space_id }}) <-[:`{FROM_ENTITY}`]- (r) -[:`{TO_ENTITY}`]-> (to)
+            MATCH ({{ id: $id }}) <-[:`{FROM_ENTITY}`]- (r) -[:`{TO_ENTITY}`]-> (to)
             RETURN to, r
             "#,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
         );
 
-        let query = neo4rs::query(QUERY)
-            .param("id", id)
-            .param("space_id", space_id);
+        let query = if let Some(filter) = filter {
+            filter.query(id)
+        } else {
+            neo4rs::query(QUERY)
+                .param("id", id)
+        };
 
         #[derive(Debug, Deserialize)]
         struct RowResult {
@@ -468,7 +476,7 @@ where
 
     pub async fn find_many(
         neo4j: &neo4rs::Graph,
-        r#where: Option<EntityWhereFilter>,
+        r#where: Option<EntityFilter>,
     ) -> Result<Vec<Self>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!("MATCH (n) RETURN n LIMIT 100");
 
