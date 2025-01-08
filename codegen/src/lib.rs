@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use futures::{stream, StreamExt, TryStreamExt};
+use sdk::mapping::{Entity, Named};
 use sdk::system_ids;
-use sink::kg::mapping::{Named, Node};
 use swc::config::SourceMapsConfig;
 use swc::PrintArgs;
 use swc_common::{sync::Lrc, SourceMap, Span};
@@ -17,7 +17,7 @@ use utils::{assign_this, class, class_prop, constructor, ident, method, param};
 
 pub mod utils;
 
-pub fn ts_type_from_value_type(value_type: &Node<Named>) -> TsType {
+pub fn ts_type_from_value_type(value_type: &Entity<Named>) -> TsType {
     match value_type.id() {
         system_ids::TEXT => TsType::TsKeywordType(TsKeywordType {
             span: Span::default(),
@@ -33,17 +33,17 @@ pub fn ts_type_from_value_type(value_type: &Node<Named>) -> TsType {
         }),
         _ => TsType::TsTypeRef(TsTypeRef {
             span: Span::default(),
-            type_name: TsEntityName::Ident(ident(value_type.type_name())),
+            type_name: TsEntityName::Ident(ident(value_type.name_or_id())),
             type_params: None,
         }),
     }
 }
 
-pub fn gen_type_constructor(attributes: &[&(Node<Named>, Option<Node<Named>>)]) -> Constructor {
+pub fn gen_type_constructor(attributes: &[&(Entity<Named>, Option<Entity<Named>>)]) -> Constructor {
     let super_constructor = vec![quote_expr!("super(id, driver)")];
 
     let constuctor_setters = attributes.iter().map(|(attr, _)| {
-        let name = attr.attribute_name();
+        let name = attr.name_or_id();
         Box::new(assign_this(
             name.clone(),
             quote_expr!("$name", name: Ident = name.into()),
@@ -72,7 +72,7 @@ pub fn gen_type_constructor(attributes: &[&(Node<Named>, Option<Node<Named>>)]) 
         .iter()
         .map(|(attr, value_type)| {
             param(
-                attr.attribute_name(),
+                attr.name_or_id(),
                 value_type
                     .as_ref()
                     .map(ts_type_from_value_type)
@@ -96,13 +96,13 @@ pub fn gen_type_constructor(attributes: &[&(Node<Named>, Option<Node<Named>>)]) 
 }
 
 pub trait EntitiesExt<T> {
-    fn fix_name_collisions(self) -> Vec<Node<T>>;
+    fn fix_name_collisions(self) -> Vec<Entity<T>>;
 
-    fn unique(self) -> Vec<Node<T>>;
+    fn unique(self) -> Vec<Entity<T>>;
 }
 
-impl<I: IntoIterator<Item = Node<Named>>> EntitiesExt<Named> for I {
-    fn fix_name_collisions(self) -> Vec<Node<Named>> {
+impl<I: IntoIterator<Item = Entity<Named>>> EntitiesExt<Named> for I {
+    fn fix_name_collisions(self) -> Vec<Entity<Named>> {
         let mut name_counts = HashMap::new();
         let entities = self.into_iter().collect::<Vec<_>>();
 
@@ -124,7 +124,7 @@ impl<I: IntoIterator<Item = Node<Named>>> EntitiesExt<Named> for I {
             .collect()
     }
 
-    fn unique(self) -> Vec<Node<Named>> {
+    fn unique(self) -> Vec<Entity<Named>> {
         let entities = self
             .into_iter()
             .map(|entity| (entity.id().to_string(), entity))
@@ -140,7 +140,7 @@ trait EntityExt {
     fn attribute_name(&self) -> String;
 }
 
-impl EntityExt for Node<Named> {
+impl EntityExt for Entity<Named> {
     fn type_name(&self) -> String {
         if self.name_or_id() == self.id() {
             format!("_{}", self.id())
@@ -160,19 +160,21 @@ impl EntityExt for Node<Named> {
 
 /// Generate a TypeScript class declaration from an entity.
 /// Note: The entity must be a `Type` entity.
-pub async fn gen_type(kg: &sink::kg::Client, entity: &Node<Named>) -> anyhow::Result<Decl> {
-    let attrs = kg.attribute_nodes::<Named>(entity.id()).await?;
+pub async fn gen_type(_kg: &sink::kg::Client, entity: &Entity<Named>) -> anyhow::Result<Decl> {
+    // let attrs = kg.attribute_nodes::<Named>(entity.id()).await?;
+    let attrs = vec![]; // FIXME: Temporary while we figure out what to do with codegen
 
     let typed_attrs = stream::iter(attrs.unique().fix_name_collisions())
         .then(|attr| async move {
-            let value_type = kg.value_type_node(attr.id()).await?;
+            // let value_type = kg.value_type_node(attr.id()).await?;
+            let value_type: Option<Entity<Named>> = None; // FIXME: Temporary while we figure out what to do with codegen
             Ok::<_, anyhow::Error>((attr, value_type))
         })
         .try_collect::<Vec<_>>()
         .await?;
 
     // Get all attributes of the type
-    let attributes: Vec<&(Node<Named>, Option<Node<Named>>)> = typed_attrs
+    let attributes: Vec<&(Entity<Named>, Option<Entity<Named>>)> = typed_attrs
         .iter()
         .filter(|(_, value_type)| !matches!(value_type, Some(value_type) if value_type.id() == system_ids::RELATION_TYPE))
         .collect();

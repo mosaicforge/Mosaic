@@ -1,11 +1,10 @@
 use clap::{Args, Parser, Subcommand};
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::IpfsClient;
+use sdk::mapping::{Entity, Named};
 use sdk::{ids, pb::grc20};
-use sink::{
-    kg::{self, mapping::DefaultAttributes},
-    ops::conversions,
-};
+use sink::bootstrap::constants;
+use sink::kg;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -22,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
     init_tracing();
     let args = AppArgs::parse();
 
-    let kg_client = kg::Client::new(
+    let kg = kg::Client::new(
         &args.neo4j_args.neo4j_uri,
         &args.neo4j_args.neo4j_user,
         &args.neo4j_args.neo4j_pass,
@@ -45,46 +44,45 @@ async fn main() -> anyhow::Result<()> {
             // }
             unimplemented!()
         }
-        Command::Describe { id } => {
-            let entity = kg_client
-                .find_node_by_id::<DefaultAttributes>(&id)
+        Command::Describe { id, space_id } => {
+            let entity = Entity::<Named>::find_by_id(&kg.neo4j, &id, &space_id)
                 .await?
                 .expect("Entity not found");
 
             println!("Entity: {}", entity.name_or_id());
 
-            let attributes = kg_client
-                .attribute_nodes::<DefaultAttributes>(entity.id())
-                .await?;
+            // let attributes = kg_client
+            //     .attribute_nodes::<DefaultAttributes>(entity.id())
+            //     .await?;
 
-            for attribute in attributes {
-                println!("\tAttribute: {}", attribute.name_or_id());
-                if let Some(value_type) = kg_client
-                    .value_type_node::<DefaultAttributes>(attribute.id())
-                    .await?
-                {
-                    println!("\t\tValue type: {}", value_type.name_or_id());
-                }
-            }
+            // for attribute in attributes {
+            //     println!("\tAttribute: {}", attribute.name_or_id());
+            //     if let Some(value_type) = kg_client
+            //         .value_type_node::<DefaultAttributes>(attribute.id())
+            //         .await?
+            //     {
+            //         println!("\t\tValue type: {}", value_type.name_or_id());
+            //     }
+            // }
         }
         Command::Codegen => {
-            let code = codegen::codegen(&kg_client).await?;
-            std::fs::write("./src/space.ts", code)?;
-            println!("Generated code has been written to ./src/space.ts");
+            // let code = codegen::codegen(&kg_client).await?;
+            // std::fs::write("./src/space.ts", code)?;
+            // println!("Generated code has been written to ./src/space.ts");
+            unimplemented!()
         }
         Command::ResetDb => {
-            kg_client.reset_db(true).await?;
+            // kg_client.reset_db(true).await?;
+            unimplemented!()
         }
         Command::ImportSpace {
             ipfs_hash,
             space_id,
         } => {
             let ops = import_space(&ipfs_client, &ipfs_hash).await?;
-            let rollups = conversions::batch_ops(ops);
+            // let rollups = conversions::batch_ops(ops);
 
-            for op in rollups {
-                op.apply_op(&kg_client, &space_id).await?;
-            }
+            kg.process_ops(&Default::default(), &space_id, ops).await?
         }
         Command::CreateEntityId { n } => {
             for _ in 0..n {
@@ -119,6 +117,10 @@ enum Command {
     Describe {
         /// Entity ID
         id: String,
+
+        /// Space ID (defaults to root space)
+        #[arg(default_value = constants::ROOT_SPACE_ID)]
+        space_id: String,
     },
 
     /// Reset the database
@@ -130,7 +132,7 @@ enum Command {
         ipfs_hash: String,
 
         /// Space ID (defaults to root space)
-        // #[arg(default_value = ROOT_SPACE_ID)]
+        #[arg(default_value = constants::ROOT_SPACE_ID)]
         space_id: String,
     },
 

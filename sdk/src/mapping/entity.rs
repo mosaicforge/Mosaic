@@ -469,8 +469,7 @@ where
         neo4j: &neo4rs::Graph,
         r#where: Option<EntityWhereFilter>,
     ) -> Result<Vec<Self>, DatabaseError> {
-        const QUERY: &str =
-            const_format::formatcp!("MATCH (n) RETURN n LIMIT 100");
+        const QUERY: &str = const_format::formatcp!("MATCH (n) RETURN n LIMIT 100");
 
         if let Some(filter) = r#where {
             Self::_find_many(neo4j, filter.query()).await
@@ -479,7 +478,10 @@ where
         }
     }
 
-    async fn _find_one(neo4j: &neo4rs::Graph, query: neo4rs::Query) -> Result<Option<Self>, DatabaseError> {
+    async fn _find_one(
+        neo4j: &neo4rs::Graph,
+        query: neo4rs::Query,
+    ) -> Result<Option<Self>, DatabaseError> {
         #[derive(Debug, Deserialize)]
         struct RowResult {
             n: neo4rs::Node,
@@ -497,7 +499,10 @@ where
             .transpose()?)
     }
 
-    async fn _find_many(neo4j: &neo4rs::Graph, query: neo4rs::Query) -> Result<Vec<Self>, DatabaseError> {
+    async fn _find_many(
+        neo4j: &neo4rs::Graph,
+        query: neo4rs::Query,
+    ) -> Result<Vec<Self>, DatabaseError> {
         #[derive(Debug, Deserialize)]
         struct RowResult {
             n: neo4rs::Node,
@@ -535,9 +540,8 @@ impl EntityWhereFilter {
         neo4rs::query(&query)
             .param("types", self.types_contain.clone().unwrap_or_default())
             .param("space_id", self.space_id.clone().unwrap_or_default())
-
     }
-    
+
     fn match_clause(&self) -> String {
         match (self.space_id.as_ref(), self.types_contain.as_ref()) {
             (Some(_), Some(_)) => {
@@ -560,32 +564,24 @@ impl EntityWhereFilter {
                     TYPES = system_ids::TYPES,
                 )
             }
-            (Some(_), None) => {
-                format!(
-                    r#"
-                    MATCH (n {{space_id: $space_id}})
-                    "#,
-                )
-            }
-            (None, None) => {
-                format!(
-                    r#"
-                    MATCH (n)
-                    "#,
-                )
-            }
+            (Some(_), None) => "MATCH (n {{space_id: $space_id}})".to_string(),
+            (None, None) => "MATCH (n)".to_string(),
         }
     }
 
     fn where_clause(&self) -> String {
         fn _get_attr_query(attrs: &[EntityAttributeFilter]) -> String {
-            attrs.iter()
+            attrs
+                .iter()
                 .map(|attr| attr.query())
                 .collect::<Vec<_>>()
                 .join("\nAND ")
         }
 
-        match (self.types_contain.as_ref(), self.attributes_contain.as_ref()) {
+        match (
+            self.types_contain.as_ref(),
+            self.attributes_contain.as_ref(),
+        ) {
             (Some(_), Some(attrs)) => {
                 format!(
                     r#"
@@ -595,13 +591,7 @@ impl EntityWhereFilter {
                     _get_attr_query(attrs)
                 )
             }
-            (Some(_), None) => {
-                format!(
-                    r#"
-                    WHERE t.id IN $types
-                    "#,
-                )
-            }
+            (Some(_), None) => "WHERE t.id IN $types".to_string(),
             (None, Some(attrs)) => {
                 format!(
                     r#"
@@ -610,9 +600,7 @@ impl EntityWhereFilter {
                     _get_attr_query(attrs)
                 )
             }
-            (None, None) => {
-                Default::default()
-            }
+            (None, None) => Default::default(),
         }
     }
 }
@@ -626,16 +614,32 @@ pub struct EntityAttributeFilter {
 impl EntityAttributeFilter {
     fn query(&self) -> String {
         match self {
-            Self { attribute, value: Some(value), value_type: Some(value_type) } => {
+            Self {
+                attribute,
+                value: Some(value),
+                value_type: Some(value_type),
+            } => {
                 format!("n.`{attribute}` = {value} AND n.`{attribute}.type` = {value_type}")
             }
-            Self { attribute, value: Some(value), value_type: None } => {
+            Self {
+                attribute,
+                value: Some(value),
+                value_type: None,
+            } => {
                 format!("n.`{attribute}` = {value}")
             }
-            Self { attribute, value: None, value_type: Some(value_type) } => {
+            Self {
+                attribute,
+                value: None,
+                value_type: Some(value_type),
+            } => {
                 format!("n.`{attribute}.type` = {value_type}")
             }
-            Self { attribute, value: None, value_type: None } => {
+            Self {
+                attribute,
+                value: None,
+                value_type: None,
+            } => {
                 format!("n.`{attribute}` IS NOT NULL")
             }
         }

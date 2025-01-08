@@ -1,4 +1,7 @@
-use std::{collections::{hash_map, HashMap}, fmt::Display};
+use std::{
+    collections::{hash_map, HashMap},
+    fmt::Display,
+};
 
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 

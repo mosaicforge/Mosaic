@@ -56,26 +56,21 @@ impl Query {
         // tracing::info!("Query: {}", query);
 
         match r#where {
-            Some(r#where) => {
-                mapping::Entity::<mapping::Triples>::find_many(
-                    &executor.context().0.neo4j,
-                    Some(r#where.into())
-                )
-                .await
-                .expect("Failed to find entities")
-                .into_iter()
-                .map(Entity::from)
-                .collect::<Vec<_>>()
-            }
-            _ => mapping::Entity::<mapping::Triples>::find_many(
+            Some(r#where) => mapping::Entity::<mapping::Triples>::find_many(
                 &executor.context().0.neo4j,
-                None
+                Some(r#where.into()),
             )
             .await
             .expect("Failed to find entities")
             .into_iter()
             .map(Entity::from)
             .collect::<Vec<_>>(),
+            _ => mapping::Entity::<mapping::Triples>::find_many(&executor.context().0.neo4j, None)
+                .await
+                .expect("Failed to find entities")
+                .into_iter()
+                .map(Entity::from)
+                .collect::<Vec<_>>(),
         }
     }
 
@@ -132,7 +127,7 @@ impl Query {
 }
 
 /// Entity filter input object
-/// 
+///
 /// ```graphql
 /// query {
 ///     entities(where: {
@@ -144,7 +139,7 @@ impl Query {
 ///     })
 /// }
 /// ```
-/// 
+///
 #[derive(Debug, GraphQLInputObject)]
 struct EntityFilter {
     /// Filter by entity types
@@ -158,14 +153,14 @@ struct EntityWhereFilter {
     attributes_contain: Option<Vec<EntityAttributeFilter>>,
 }
 
-impl Into<mapping::entity::EntityWhereFilter> for EntityWhereFilter {
-    fn into(self) -> mapping::entity::EntityWhereFilter {
+impl From<EntityWhereFilter> for mapping::entity::EntityWhereFilter {
+    fn from(filter: EntityWhereFilter) -> Self {
         mapping::entity::EntityWhereFilter {
-            space_id: self.space_id,
-            types_contain: self.types_contain,
-            attributes_contain: self
+            space_id: filter.space_id,
+            types_contain: filter.types_contain,
+            attributes_contain: filter
                 .attributes_contain
-                .map(|filters| filters.into_iter().map(|f| f.into()).collect()),
+                .map(|filters| filters.into_iter().map(Into::into).collect()),
         }
     }
 }
@@ -177,12 +172,12 @@ struct EntityAttributeFilter {
     value_type: Option<ValueType>,
 }
 
-impl Into<mapping::entity::EntityAttributeFilter> for EntityAttributeFilter {
-    fn into(self) -> mapping::entity::EntityAttributeFilter {
+impl From<EntityAttributeFilter> for mapping::entity::EntityAttributeFilter {
+    fn from(filter: EntityAttributeFilter) -> Self {
         mapping::entity::EntityAttributeFilter {
-            attribute: self.attribute,
-            value: self.value,
-            value_type: self.value_type.map(|vt| vt.into()),
+            attribute: filter.attribute,
+            value: filter.value,
+            value_type: filter.value_type.map(Into::into),
         }
     }
 }
@@ -320,12 +315,13 @@ impl Entity {
     /// Attributes of the entity
     fn attributes(&self, filter: Option<AttributeFilter>) -> Vec<&Triple> {
         match filter {
-            Some(AttributeFilter { value_type: Some(value_type) }) => {
-                self.attributes
-                    .iter()
-                    .filter(|triple| triple.value_type == value_type)
-                    .collect::<Vec<_>>()
-            }
+            Some(AttributeFilter {
+                value_type: Some(value_type),
+            }) => self
+                .attributes
+                .iter()
+                .filter(|triple| triple.value_type == value_type)
+                .collect::<Vec<_>>(),
             _ => self.attributes.iter().collect::<Vec<_>>(),
         }
     }
@@ -361,15 +357,15 @@ impl From<mapping::ValueType> for ValueType {
     }
 }
 
-impl Into<mapping::ValueType> for ValueType {
-    fn into(self) -> mapping::ValueType {
-        match self {
-            Self::Text => mapping::ValueType::Text,
-            Self::Number => mapping::ValueType::Number,
-            Self::Checkbox => mapping::ValueType::Checkbox,
-            Self::Url => mapping::ValueType::Url,
-            Self::Time => mapping::ValueType::Time,
-            Self::Point => mapping::ValueType::Point,
+impl From<ValueType> for mapping::ValueType {
+    fn from(value_type: ValueType) -> Self {
+        match value_type {
+            ValueType::Text => mapping::ValueType::Text,
+            ValueType::Number => mapping::ValueType::Number,
+            ValueType::Checkbox => mapping::ValueType::Checkbox,
+            ValueType::Url => mapping::ValueType::Url,
+            ValueType::Time => mapping::ValueType::Time,
+            ValueType::Point => mapping::ValueType::Point,
         }
     }
 }
