@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
 members = [ "api",
-    "cli", "codegen", "sdk", "ipfs", "sink", "substreams-utils", "web3-utils",
+    "cli", "sdk", "ipfs", "sink", "substreams-utils", "web3-utils",
 ]
 
