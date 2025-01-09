@@ -10,7 +10,8 @@ use tracing_subscriber::util::SubscriberInitExt;
 const PKG_FILE: &str = "geo-substream.spkg";
 const MODULE_NAME: &str = "geo_out";
 
-const STOP_BLOCK: u64 = 0;
+const DEFAULT_START_BLOCK: u64 = 880;
+const DEFAULT_END_BLOCK: u64 = 0;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -19,7 +20,15 @@ async fn main() -> Result<(), Error> {
     let endpoint_url =
         env::var("SUBSTREAMS_ENDPOINT_URL").expect("SUBSTREAMS_ENDPOINT_URL not set");
     let start_block =
-        env::var("SUBSTREAMS_START_BLOCK").expect("SUBSTREAMS_START_BLOCK not set");
+        env::var("SUBSTREAMS_START_BLOCK").unwrap_or_else(|_| {
+            tracing::warn!("SUBSTREAMS_START_BLOCK not set. Using default value: {}", DEFAULT_START_BLOCK);
+            DEFAULT_START_BLOCK.to_string()
+        });
+    let end_block = 
+        env::var("SUBSTREAMS_END_BLOCK").unwrap_or_else(|_| {
+            tracing::warn!("SUBSTREAMS_END_BLOCK not set. Using default value: {}", DEFAULT_END_BLOCK);
+            DEFAULT_END_BLOCK.to_string()
+        });
 
     let args = AppArgs::parse();
 
@@ -40,8 +49,8 @@ async fn main() -> Result<(), Error> {
         &endpoint_url,
         PKG_FILE,
         MODULE_NAME,
-        start_block.parse().expect(format!("Invalid start block: {}", start_block).as_str()),
-        STOP_BLOCK,
+        start_block.parse().unwrap_or_else(|_| panic!("Invalid start block: {}! Must be integer", start_block)),
+        end_block.parse().unwrap_or_else(|_| panic!("Invalid end block: {}! Must be integer", end_block)),
     )
     .await?;
 
