@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
+use web3_utils::checksum_address;
 
 use crate::{
     error::DatabaseError,
@@ -90,7 +91,7 @@ impl Proposal {
 
         let query = neo4rs::query(QUERY)
             .param("proposal_id", proposal_id)
-            .param("plugin_address", plugin_address);
+            .param("plugin_address", checksum_address(plugin_address, None));
 
         #[derive(Debug, Deserialize)]
         struct ResultRow {
