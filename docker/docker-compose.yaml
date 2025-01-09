@@ -29,6 +29,7 @@ services:
       neo4j_pass: neo4j
       SUBSTREAMS_API_TOKEN: ${SUBSTREAMS_API_TOKEN}
       SUBSTREAMS_ENDPOINT_URL: ${SUBSTREAMS_ENDPOINT_URL}
+      SUBSTREAMS_START_BLOCK: ${SUBSTREAMS_START_BLOCK}
   api:
     build:
       context: ..

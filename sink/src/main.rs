@@ -10,7 +10,6 @@ use tracing_subscriber::util::SubscriberInitExt;
 const PKG_FILE: &str = "geo-substream.spkg";
 const MODULE_NAME: &str = "geo_out";
 
-const START_BLOCK: i64 = 28410;
 const STOP_BLOCK: u64 = 0;
 
 #[tokio::main]
@@ -19,6 +18,8 @@ async fn main() -> Result<(), Error> {
     init_tracing();
     let endpoint_url =
         env::var("SUBSTREAMS_ENDPOINT_URL").expect("SUBSTREAMS_ENDPOINT_URL not set");
+    let start_block =
+        env::var("SUBSTREAMS_START_BLOCK").expect("SUBSTREAMS_START_BLOCK not set");
 
     let args = AppArgs::parse();
 
@@ -39,7 +40,7 @@ async fn main() -> Result<(), Error> {
         &endpoint_url,
         PKG_FILE,
         MODULE_NAME,
-        START_BLOCK,
+        start_block.parse().expect(format!("Invalid start block: {}", start_block).as_str()),
         STOP_BLOCK,
     )
     .await?;
