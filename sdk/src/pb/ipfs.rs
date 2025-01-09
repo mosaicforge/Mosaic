@@ -10,10 +10,6 @@ pub struct IpfsMetadata {
     pub version: ::prost::alloc::string::String,
     #[prost(enumeration="ActionType", tag="2")]
     pub r#type: i32,
-    #[prost(string, tag="3")]
-    pub id: ::prost::alloc::string::String,
-    #[prost(string, tag="4")]
-    pub name: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -64,6 +60,12 @@ pub struct Op {
     pub r#type: i32,
     #[prost(message, optional, tag="2")]
     pub triple: ::core::option::Option<Triple>,
+    #[prost(message, optional, tag="3")]
+    pub entity: ::core::option::Option<Entity>,
+    #[prost(message, optional, tag="4")]
+    pub relation: ::core::option::Option<Relation>,
+    #[prost(message, repeated, tag="5")]
+    pub triples: ::prost::alloc::vec::Vec<Triple>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -85,31 +87,25 @@ pub struct Value {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Membership {
-    #[prost(enumeration="ActionType", tag="1")]
-    pub r#type: i32,
-    #[prost(string, tag="2")]
-    pub name: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
-    pub version: ::prost::alloc::string::String,
-    #[prost(string, tag="4")]
+pub struct Relation {
+    #[prost(string, tag="1")]
     pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub r#type: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub from_entity: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub to_entity: ::prost::alloc::string::String,
     #[prost(string, tag="5")]
-    pub user: ::prost::alloc::string::String,
+    pub index: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Subspace {
-    #[prost(enumeration="ActionType", tag="1")]
-    pub r#type: i32,
-    #[prost(string, tag="2")]
-    pub name: ::prost::alloc::string::String,
-    #[prost(string, tag="3")]
-    pub version: ::prost::alloc::string::String,
-    #[prost(string, tag="4")]
+pub struct Entity {
+    #[prost(string, tag="1")]
     pub id: ::prost::alloc::string::String,
-    #[prost(string, tag="5")]
-    pub subspace: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="2")]
+    pub types: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -136,9 +132,13 @@ pub struct Options {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum OpType {
-    None = 0,
+    Unknown = 0,
     SetTriple = 1,
     DeleteTriple = 2,
+    SetTripleBatch = 3,
+    DeleteEntity = 4,
+    CreateRelation = 5,
+    DeleteRelation = 6,
 }
 impl OpType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -147,17 +147,25 @@ impl OpType {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            OpType::None => "NONE",
+            OpType::Unknown => "OP_TYPE_UNKNOWN",
             OpType::SetTriple => "SET_TRIPLE",
             OpType::DeleteTriple => "DELETE_TRIPLE",
+            OpType::SetTripleBatch => "SET_TRIPLE_BATCH",
+            OpType::DeleteEntity => "DELETE_ENTITY",
+            OpType::CreateRelation => "CREATE_RELATION",
+            OpType::DeleteRelation => "DELETE_RELATION",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
-            "NONE" => Some(Self::None),
+            "OP_TYPE_UNKNOWN" => Some(Self::Unknown),
             "SET_TRIPLE" => Some(Self::SetTriple),
             "DELETE_TRIPLE" => Some(Self::DeleteTriple),
+            "SET_TRIPLE_BATCH" => Some(Self::SetTripleBatch),
+            "DELETE_ENTITY" => Some(Self::DeleteEntity),
+            "CREATE_RELATION" => Some(Self::CreateRelation),
+            "DELETE_RELATION" => Some(Self::DeleteRelation),
             _ => None,
         }
     }
@@ -180,7 +188,7 @@ impl ValueType {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            ValueType::Unknown => "UNKNOWN",
+            ValueType::Unknown => "VALUE_TYPE_UNKNOWN",
             ValueType::Text => "TEXT",
             ValueType::Number => "NUMBER",
             ValueType::Checkbox => "CHECKBOX",
@@ -192,7 +200,7 @@ impl ValueType {
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
-            "UNKNOWN" => Some(Self::Unknown),
+            "VALUE_TYPE_UNKNOWN" => Some(Self::Unknown),
             "TEXT" => Some(Self::Text),
             "NUMBER" => Some(Self::Number),
             "CHECKBOX" => Some(Self::Checkbox),
@@ -206,16 +214,12 @@ impl ValueType {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum ActionType {
-    Empty = 0,
+    Unknown = 0,
     AddEdit = 1,
     AddSubspace = 2,
     RemoveSubspace = 3,
     ImportSpace = 4,
     ArchiveSpace = 5,
-    AddEditor = 6,
-    RemoveEditor = 7,
-    AddMember = 8,
-    RemoveMember = 9,
 }
 impl ActionType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -224,31 +228,23 @@ impl ActionType {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            ActionType::Empty => "EMPTY",
+            ActionType::Unknown => "ACTION_TYPE_UNKNOWN",
             ActionType::AddEdit => "ADD_EDIT",
             ActionType::AddSubspace => "ADD_SUBSPACE",
             ActionType::RemoveSubspace => "REMOVE_SUBSPACE",
             ActionType::ImportSpace => "IMPORT_SPACE",
             ActionType::ArchiveSpace => "ARCHIVE_SPACE",
-            ActionType::AddEditor => "ADD_EDITOR",
-            ActionType::RemoveEditor => "REMOVE_EDITOR",
-            ActionType::AddMember => "ADD_MEMBER",
-            ActionType::RemoveMember => "REMOVE_MEMBER",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
-            "EMPTY" => Some(Self::Empty),
+            "ACTION_TYPE_UNKNOWN" => Some(Self::Unknown),
             "ADD_EDIT" => Some(Self::AddEdit),
             "ADD_SUBSPACE" => Some(Self::AddSubspace),
             "REMOVE_SUBSPACE" => Some(Self::RemoveSubspace),
             "IMPORT_SPACE" => Some(Self::ImportSpace),
             "ARCHIVE_SPACE" => Some(Self::ArchiveSpace),
-            "ADD_EDITOR" => Some(Self::AddEditor),
-            "REMOVE_EDITOR" => Some(Self::RemoveEditor),
-            "ADD_MEMBER" => Some(Self::AddMember),
-            "REMOVE_MEMBER" => Some(Self::RemoveMember),
             _ => None,
         }
     }

@@ -16,13 +16,10 @@ use super::BlockMetadata;
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ProposalType {
     AddEdit,
-    ImportSpace,
     AddSubspace,
     RemoveSubspace,
-    AddEditor,
-    RemoveEditor,
-    AddMember,
-    RemoveMember,
+    ImportSpace,
+    ArchiveSpace,
 }
 
 impl TryFrom<pb::ipfs::ActionType> for ProposalType {
@@ -30,14 +27,11 @@ impl TryFrom<pb::ipfs::ActionType> for ProposalType {
 
     fn try_from(action_type: pb::ipfs::ActionType) -> Result<Self, Self::Error> {
         match action_type {
-            pb::ipfs::ActionType::AddMember => Ok(Self::AddMember),
-            pb::ipfs::ActionType::RemoveMember => Ok(Self::RemoveMember),
-            pb::ipfs::ActionType::AddEditor => Ok(Self::AddEditor),
-            pb::ipfs::ActionType::RemoveEditor => Ok(Self::RemoveEditor),
+            pb::ipfs::ActionType::AddEdit => Ok(Self::AddEdit),
             pb::ipfs::ActionType::AddSubspace => Ok(Self::AddSubspace),
             pb::ipfs::ActionType::RemoveSubspace => Ok(Self::RemoveSubspace),
-            pb::ipfs::ActionType::AddEdit => Ok(Self::AddEdit),
             pb::ipfs::ActionType::ImportSpace => Ok(Self::ImportSpace),
+            pb::ipfs::ActionType::ArchiveSpace => Ok(Self::ArchiveSpace),
             _ => Err(format!("Invalid action type: {:?}", action_type)),
         }
     }
