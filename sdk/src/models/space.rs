@@ -55,7 +55,7 @@ impl Space {
             INDEXED_SPACE = system_ids::INDEXED_SPACE,
         );
 
-        let query = neo4rs::query(QUERY).param("dao_contract_address", dao_contract_address);
+        let query = neo4rs::query(QUERY).param("dao_contract_address", checksum_address(dao_contract_address, None));
 
         #[derive(Debug, Deserialize)]
         struct ResultRow {
@@ -84,7 +84,7 @@ impl Space {
             INDEXED_SPACE = system_ids::INDEXED_SPACE,
         );
 
-        let query = neo4rs::query(QUERY).param("space_plugin_address", space_plugin_address);
+        let query = neo4rs::query(QUERY).param("space_plugin_address", checksum_address(space_plugin_address, None));
 
         #[derive(Debug, Deserialize)]
         struct ResultRow {
@@ -113,7 +113,7 @@ impl Space {
             INDEXED_SPACE = system_ids::INDEXED_SPACE,
         );
 
-        let query = neo4rs::query(QUERY).param("voting_plugin_address", voting_plugin_address);
+        let query = neo4rs::query(QUERY).param("voting_plugin_address", checksum_address(voting_plugin_address, None));
 
         #[derive(Debug, Deserialize)]
         struct ResultRow {
@@ -142,7 +142,7 @@ impl Space {
             INDEXED_SPACE = system_ids::INDEXED_SPACE,
         );
 
-        let query = neo4rs::query(QUERY).param("member_access_plugin", member_access_plugin);
+        let query = neo4rs::query(QUERY).param("member_access_plugin", checksum_address(member_access_plugin, None));
 
         #[derive(Debug, Deserialize)]
         struct ResultRow {
@@ -172,7 +172,7 @@ impl Space {
         );
 
         let query =
-            neo4rs::query(QUERY).param("personal_space_admin_plugin", personal_space_admin_plugin);
+            neo4rs::query(QUERY).param("personal_space_admin_plugin", checksum_address(personal_space_admin_plugin, None));
 
         #[derive(Debug, Deserialize)]
         struct ResultRow {
