@@ -22,6 +22,7 @@ FROM run AS sink
 
 ENV SUBSTREAMS_API_TOKEN ""
 ENV SUBSTREAMS_ENDPOINT_URL ""
+ENV SUBSTREAMS_START_BLOCK ""
 
 COPY --from=builder /kg-node/target/release/sink .
 COPY --from=builder /kg-node/geo-substream.spkg .
