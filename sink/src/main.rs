@@ -19,16 +19,20 @@ async fn main() -> Result<(), Error> {
     init_tracing();
     let endpoint_url =
         env::var("SUBSTREAMS_ENDPOINT_URL").expect("SUBSTREAMS_ENDPOINT_URL not set");
-    let start_block =
-        env::var("SUBSTREAMS_START_BLOCK").unwrap_or_else(|_| {
-            tracing::warn!("SUBSTREAMS_START_BLOCK not set. Using default value: {}", DEFAULT_START_BLOCK);
-            DEFAULT_START_BLOCK.to_string()
-        });
-    let end_block = 
-        env::var("SUBSTREAMS_END_BLOCK").unwrap_or_else(|_| {
-            tracing::warn!("SUBSTREAMS_END_BLOCK not set. Using default value: {}", DEFAULT_END_BLOCK);
-            DEFAULT_END_BLOCK.to_string()
-        });
+    let start_block = env::var("SUBSTREAMS_START_BLOCK").unwrap_or_else(|_| {
+        tracing::warn!(
+            "SUBSTREAMS_START_BLOCK not set. Using default value: {}",
+            DEFAULT_START_BLOCK
+        );
+        DEFAULT_START_BLOCK.to_string()
+    });
+    let end_block = env::var("SUBSTREAMS_END_BLOCK").unwrap_or_else(|_| {
+        tracing::warn!(
+            "SUBSTREAMS_END_BLOCK not set. Using default value: {}",
+            DEFAULT_END_BLOCK
+        );
+        DEFAULT_END_BLOCK.to_string()
+    });
 
     let args = AppArgs::parse();
 
@@ -49,8 +53,12 @@ async fn main() -> Result<(), Error> {
         &endpoint_url,
         PKG_FILE,
         MODULE_NAME,
-        start_block.parse().unwrap_or_else(|_| panic!("Invalid start block: {}! Must be integer", start_block)),
-        end_block.parse().unwrap_or_else(|_| panic!("Invalid end block: {}! Must be integer", end_block)),
+        start_block
+            .parse()
+            .unwrap_or_else(|_| panic!("Invalid start block: {}! Must be integer", start_block)),
+        end_block
+            .parse()
+            .unwrap_or_else(|_| panic!("Invalid end block: {}! Must be integer", end_block)),
     )
     .await?;
 
