@@ -36,7 +36,7 @@ impl EventHandler {
         //     .filter_map(|(space_address, proposal_processed)| async move {
         //         let ipfs_hash = proposal_processed.content_uri.replace("ipfs://", "");
         //         self.ipfs
-        //             .get::<grc20::Import>(&ipfs_hash, true)
+        //             .get::<ipfs::Import>(&ipfs_hash, true)
         //             .await
         //             .ok()
         //             .map(|import| {

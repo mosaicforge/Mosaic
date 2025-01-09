@@ -1,6 +1,6 @@
 use sdk::{
     blocks::{DataBlock, DataBlockType, TextBlock},
-    pb::grc20,
+    pb::ipfs,
     relation::create_relationship,
     system_ids,
 };
@@ -8,11 +8,11 @@ use sdk::{
 pub struct Template {
     id: String,
     name: String,
-    blocks: Vec<grc20::Triple>,
+    blocks: Vec<ipfs::Triple>,
     types: Vec<String>,
     #[allow(dead_code)]
     foreign_types: Vec<String>,
-    additional_data: Vec<grc20::Triple>,
+    additional_data: Vec<ipfs::Triple>,
 }
 
 pub fn non_profit() -> impl Iterator<Item = Template> {
@@ -321,7 +321,7 @@ pub fn person() -> impl Iterator<Item = Template> {
     .into_iter()
 }
 
-pub fn templates_ops() -> impl Iterator<Item = grc20::Triple> {
+pub fn templates_ops() -> impl Iterator<Item = ipfs::Triple> {
     std::iter::empty()
         .chain(non_profit())
         .chain(company())
@@ -329,11 +329,11 @@ pub fn templates_ops() -> impl Iterator<Item = grc20::Triple> {
         .flat_map(|template| {
             std::iter::empty()
                 // Set attribute: Template.Name
-                .chain(std::iter::once(grc20::Triple {
+                .chain(std::iter::once(ipfs::Triple {
                     entity: template.id.clone(),
                     attribute: system_ids::NAME.to_string(),
-                    value: Some(grc20::Value {
-                        r#type: grc20::ValueType::Text as i32,
+                    value: Some(ipfs::Value {
+                        r#type: ipfs::ValueType::Text as i32,
                         value: template.name,
                     }),
                 }))

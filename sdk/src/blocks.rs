@@ -1,4 +1,4 @@
-use crate::{ids::create_geo_id, pb::grc20, relation::create_relationship, system_ids};
+use crate::{ids::create_geo_id, pb::ipfs, relation::create_relationship, system_ids};
 
 pub struct DataBlock;
 
@@ -8,7 +8,7 @@ impl DataBlock {
         source_type: DataBlockType,
         position: Option<&str>,
         name: Option<&str>,
-    ) -> impl Iterator<Item = grc20::Triple> {
+    ) -> impl Iterator<Item = ipfs::Triple> {
         let new_block_id = create_geo_id();
 
         std::iter::empty()
@@ -34,11 +34,11 @@ impl DataBlock {
                 position,
             ))
             // Set attribute: NewBlock.Name
-            .chain(name.map(|name| grc20::Triple {
+            .chain(name.map(|name| ipfs::Triple {
                 entity: new_block_id,
                 attribute: system_ids::NAME.to_string(),
-                value: Some(grc20::Value {
-                    r#type: grc20::ValueType::Text.into(),
+                value: Some(ipfs::Value {
+                    r#type: ipfs::ValueType::Text.into(),
                     value: name.to_string(),
                 }),
             }))
@@ -68,7 +68,7 @@ impl TextBlock {
         from_id: &str,
         text: &str,
         position: Option<&str>,
-    ) -> impl Iterator<Item = grc20::Triple> {
+    ) -> impl Iterator<Item = ipfs::Triple> {
         let new_block_id = create_geo_id();
 
         std::iter::empty()
@@ -87,11 +87,11 @@ impl TextBlock {
                 position,
             ))
             // Set attribute: NewBlock.MarkdownContent
-            .chain(std::iter::once(grc20::Triple {
+            .chain(std::iter::once(ipfs::Triple {
                 entity: new_block_id,
                 attribute: system_ids::MARKDOWN_CONTENT.to_string(),
-                value: Some(grc20::Value {
-                    r#type: grc20::ValueType::Text.into(),
+                value: Some(ipfs::Value {
+                    r#type: ipfs::ValueType::Text.into(),
                     value: text.to_string(),
                 }),
             }))
@@ -101,7 +101,7 @@ impl TextBlock {
 // pub struct ImageBlock;
 
 // impl ImageBlock {
-//     pub fn new(from_id: &str, url: &str, position: Option<&str>) -> impl Iterator<Item = grc20::Triple> {
+//     pub fn new(from_id: &str, url: &str, position: Option<&str>) -> impl Iterator<Item = ipfs::Triple> {
 //         let new_block_id = create_geo_id();
 
 //         std::iter::empty()
@@ -110,10 +110,10 @@ impl TextBlock {
 //             // Create relation: Entity > BLOCKS > NewBlock
 //             .chain(create_relationship(from_id, &new_block_id, system_ids::BLOCKS, position))
 //             // Set attribute: NewBlock.Url
-//             .chain(std::iter::once(grc20::Triple {
+//             .chain(std::iter::once(ipfs::Triple {
 //                 entity: new_block_id,
 //                 attribute: system_ids::URL.to_string(),
-//                 value: Some(grc20::Value { r#type: grc20::ValueType::Text.into(), value: url.to_string() }),
+//                 value: Some(ipfs::Value { r#type: ipfs::ValueType::Text.into(), value: url.to_string() }),
 //             }))
 //     }
 // }
