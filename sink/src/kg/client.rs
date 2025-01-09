@@ -136,13 +136,13 @@ impl Client {
         &self,
         block: &models::BlockMetadata,
         space_id: &str,
-        ops: impl IntoIterator<Item = pb::grc20::Op>,
+        ops: impl IntoIterator<Item = pb::ipfs::Op>,
     ) -> Result<(), DatabaseError> {
         for op in ops {
             match (op.r#type(), op.triple) {
                 (
-                    pb::grc20::OpType::SetTriple,
-                    Some(pb::grc20::Triple {
+                    pb::ipfs::OpType::SetTriple,
+                    Some(pb::ipfs::Triple {
                         entity,
                         attribute,
                         value: Some(value),
@@ -160,7 +160,7 @@ impl Client {
                     )
                     .await?
                 }
-                (pb::grc20::OpType::DeleteTriple, Some(triple)) => {
+                (pb::ipfs::OpType::DeleteTriple, Some(triple)) => {
                     tracing::info!(
                         "DeleteTriple: {}, {}, {:?}",
                         triple.entity,

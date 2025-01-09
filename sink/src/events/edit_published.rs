@@ -2,7 +2,7 @@ use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::deserialize;
 use sdk::{
     models::{self, EditProposal, Space},
-    pb::{self, geo, grc20},
+    pb::{self, geo},
 };
 use web3_utils::checksum_address;
 
@@ -91,7 +91,7 @@ impl EventHandler {
 
         match metadata.r#type() {
             pb::ipfs::ActionType::AddEdit => {
-                let edit = deserialize::<grc20::Edit>(&bytes)?;
+                let edit = deserialize::<pb::ipfs::Edit>(&bytes)?;
                 Ok(vec![EditProposal {
                     name: edit.name,
                     proposal_id: edit.id,
@@ -106,11 +106,11 @@ impl EventHandler {
                 }])
             }
             pb::ipfs::ActionType::ImportSpace => {
-                let import = deserialize::<grc20::Import>(&bytes)?;
+                let import = deserialize::<pb::ipfs::Import>(&bytes)?;
                 let edits = stream::iter(import.edits)
                     .map(|edit| async move {
                         let hash = edit.replace("ipfs://", "");
-                        self.ipfs.get::<grc20::ImportEdit>(&hash, true).await
+                        self.ipfs.get::<pb::ipfs::ImportEdit>(&hash, true).await
                     })
                     .buffer_unordered(10)
                     .try_collect::<Vec<_>>()

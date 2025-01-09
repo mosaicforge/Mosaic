@@ -4,11 +4,6 @@ pub mod geo {
     include!("geo.rs");
     // @@protoc_insertion_point(geo)
 }
-// @@protoc_insertion_point(attribute:grc20)
-pub mod grc20 {
-    include!("grc20.rs");
-    // @@protoc_insertion_point(grc20)
-}
 // @@protoc_insertion_point(attribute:ipfs)
 pub mod ipfs {
     include!("ipfs.rs");

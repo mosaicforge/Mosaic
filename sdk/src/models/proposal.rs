@@ -1,12 +1,13 @@
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
+use web3_utils::checksum_address;
 
 use crate::{
     error::DatabaseError,
     ids,
     mapping::{Entity, Relation},
-    pb::{self, grc20},
+    pb::ipfs,
     system_ids,
 };
 
@@ -22,16 +23,16 @@ pub enum ProposalType {
     ArchiveSpace,
 }
 
-impl TryFrom<pb::ipfs::ActionType> for ProposalType {
+impl TryFrom<ipfs::ActionType> for ProposalType {
     type Error = String;
 
-    fn try_from(action_type: pb::ipfs::ActionType) -> Result<Self, Self::Error> {
+    fn try_from(action_type: ipfs::ActionType) -> Result<Self, Self::Error> {
         match action_type {
-            pb::ipfs::ActionType::AddEdit => Ok(Self::AddEdit),
-            pb::ipfs::ActionType::AddSubspace => Ok(Self::AddSubspace),
-            pb::ipfs::ActionType::RemoveSubspace => Ok(Self::RemoveSubspace),
-            pb::ipfs::ActionType::ImportSpace => Ok(Self::ImportSpace),
-            pb::ipfs::ActionType::ArchiveSpace => Ok(Self::ArchiveSpace),
+            ipfs::ActionType::AddEdit => Ok(Self::AddEdit),
+            ipfs::ActionType::AddSubspace => Ok(Self::AddSubspace),
+            ipfs::ActionType::RemoveSubspace => Ok(Self::RemoveSubspace),
+            ipfs::ActionType::ImportSpace => Ok(Self::ImportSpace),
+            ipfs::ActionType::ArchiveSpace => Ok(Self::ArchiveSpace),
             _ => Err(format!("Invalid action type: {:?}", action_type)),
         }
     }
@@ -90,7 +91,7 @@ impl Proposal {
 
         let query = neo4rs::query(QUERY)
             .param("proposal_id", proposal_id)
-            .param("plugin_address", plugin_address);
+            .param("plugin_address", checksum_address(plugin_address, None));
 
         #[derive(Debug, Deserialize)]
         struct ResultRow {
@@ -182,7 +183,7 @@ pub struct EditProposal {
     pub space: String,
     pub space_address: String,
     pub creator: String,
-    pub ops: Vec<grc20::Op>,
+    pub ops: Vec<ipfs::Op>,
 }
 
 #[derive(Deserialize, Serialize)]

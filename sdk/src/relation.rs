@@ -4,7 +4,7 @@ use crate::{
     conversion::{FromTriples, ToTriples},
     graph_uri::{GraphUri, InvalidGraphUri},
     ids::{create_geo_id, Grc20Id},
-    pb::grc20,
+    pb::ipfs,
     system_ids,
 };
 
@@ -17,44 +17,44 @@ pub struct Relation {
     to: Grc20Id,
     relationship_types: Vec<Grc20Id>,
     index: String,
-    other_attributes: HashMap<Grc20Id, (grc20::ValueType, String)>,
+    other_attributes: HashMap<Grc20Id, (ipfs::ValueType, String)>,
 }
 
 impl ToTriples for Relation {
-    fn to_triples(&self) -> impl Iterator<Item = grc20::Triple> {
+    fn to_triples(&self) -> impl Iterator<Item = ipfs::Triple> {
         let base_triples = vec![
             // Type of Collection Item
-            grc20::Triple {
+            ipfs::Triple {
                 entity: self.id.clone().into(),
                 attribute: system_ids::TYPES.to_string(),
-                value: Some(grc20::Value {
-                    r#type: grc20::ValueType::Url as i32,
+                value: Some(ipfs::Value {
+                    r#type: ipfs::ValueType::Url as i32,
                     value: GraphUri::from_id_str(system_ids::RELATION_TYPE).to_string(),
                 }),
             },
             // Entity value for the collection itself
-            grc20::Triple {
+            ipfs::Triple {
                 entity: self.id.clone().into(),
                 attribute: system_ids::RELATION_FROM_ATTRIBUTE.to_string(),
-                value: Some(grc20::Value {
-                    r#type: grc20::ValueType::Url as i32,
+                value: Some(ipfs::Value {
+                    r#type: ipfs::ValueType::Url as i32,
                     value: GraphUri::from_id(self.from.clone()).to_string(),
                 }),
             },
             // Entity value for the entity referenced by this collection item
-            grc20::Triple {
+            ipfs::Triple {
                 entity: self.id.clone().into(),
                 attribute: system_ids::RELATION_TO_ATTRIBUTE.to_string(),
-                value: Some(grc20::Value {
-                    r#type: grc20::ValueType::Url as i32,
+                value: Some(ipfs::Value {
+                    r#type: ipfs::ValueType::Url as i32,
                     value: GraphUri::from_id(self.to.clone()).to_string(),
                 }),
             },
-            grc20::Triple {
+            ipfs::Triple {
                 entity: self.id.clone().into(),
                 attribute: system_ids::RELATION_INDEX.to_string(),
-                value: Some(grc20::Value {
-                    r#type: grc20::ValueType::Text as i32,
+                value: Some(ipfs::Value {
+                    r#type: ipfs::ValueType::Text as i32,
                     value: self.index.clone(),
                 }),
             },
@@ -66,11 +66,11 @@ impl ToTriples for Relation {
             .chain(
                 self.relationship_types
                     .iter()
-                    .map(|relationship_type| grc20::Triple {
+                    .map(|relationship_type| ipfs::Triple {
                         entity: self.id.clone().into(),
                         attribute: system_ids::RELATION_TYPE_ATTRIBUTE.to_string(),
-                        value: Some(grc20::Value {
-                            r#type: grc20::ValueType::Url as i32,
+                        value: Some(ipfs::Value {
+                            r#type: ipfs::ValueType::Url as i32,
                             value: GraphUri::from_id(relationship_type.clone()).to_string(),
                         }),
                     }),
@@ -79,10 +79,10 @@ impl ToTriples for Relation {
             .chain(
                 self.other_attributes
                     .iter()
-                    .map(|(attribute, (r#type, value))| grc20::Triple {
+                    .map(|(attribute, (r#type, value))| ipfs::Triple {
                         entity: self.id.clone().into(),
                         attribute: attribute.into(),
-                        value: Some(grc20::Value {
+                        value: Some(ipfs::Value {
                             r#type: *r#type as i32,
                             value: value.into(),
                         }),
@@ -108,7 +108,7 @@ impl FromTriples for Relation {
 
     fn from_triples(
         id: Grc20Id,
-        triples: impl IntoIterator<Item = grc20::Triple>,
+        triples: impl IntoIterator<Item = ipfs::Triple>,
     ) -> Result<Self, Self::Error> {
         let relation = triples
             .into_iter()
@@ -117,12 +117,12 @@ impl FromTriples for Relation {
                 |builder, triple| {
                     match triple {
                         // "Consume" the type attribute if it's a relation
-                        grc20::Triple {
+                        ipfs::Triple {
                             attribute,
-                            value: Some(grc20::Value { r#type, value }),
+                            value: Some(ipfs::Value { r#type, value }),
                             ..
                         } if attribute == system_ids::TYPES
-                            && r#type == grc20::ValueType::Url as i32
+                            && r#type == ipfs::ValueType::Url as i32
                             && value
                                 == GraphUri::from_id_str(system_ids::RELATION_TYPE).to_string() =>
                         {
@@ -130,65 +130,65 @@ impl FromTriples for Relation {
                         }
 
                         // Set the FROM_ENTITY attribute
-                        grc20::Triple {
+                        ipfs::Triple {
                             attribute,
-                            value: Some(grc20::Value { r#type, value }),
+                            value: Some(ipfs::Value { r#type, value }),
                             ..
                         } if attribute == system_ids::RELATION_FROM_ATTRIBUTE
-                            && r#type == grc20::ValueType::Url as i32 =>
+                            && r#type == ipfs::ValueType::Url as i32 =>
                         {
                             Ok(GraphUri::from_uri(&value)
                                 .map(|uri| builder.from_entity(uri.to_id()))?)
                         }
 
                         // Set the TO_ENTITY attribute
-                        grc20::Triple {
+                        ipfs::Triple {
                             attribute,
-                            value: Some(grc20::Value { r#type, value }),
+                            value: Some(ipfs::Value { r#type, value }),
                             ..
                         } if attribute == system_ids::RELATION_TO_ATTRIBUTE
-                            && r#type == grc20::ValueType::Url as i32 =>
+                            && r#type == ipfs::ValueType::Url as i32 =>
                         {
                             Ok(GraphUri::from_uri(&value)
                                 .map(|uri| builder.to_entity(uri.to_id()))?)
                         }
 
                         // Set the RELATION_TYPE attribute
-                        grc20::Triple {
+                        ipfs::Triple {
                             attribute,
-                            value: Some(grc20::Value { r#type, value }),
+                            value: Some(ipfs::Value { r#type, value }),
                             ..
                         } if attribute == system_ids::RELATION_TYPE_ATTRIBUTE
-                            && r#type == grc20::ValueType::Url as i32 =>
+                            && r#type == ipfs::ValueType::Url as i32 =>
                         {
                             Ok(GraphUri::from_uri(&value)
                                 .map(|uri| builder.relation_type(uri.to_id()))?)
                         }
 
                         // Set the RELATION_INDEX attribute
-                        grc20::Triple {
+                        ipfs::Triple {
                             attribute,
-                            value: Some(grc20::Value { r#type, value }),
+                            value: Some(ipfs::Value { r#type, value }),
                             ..
                         } if attribute == system_ids::RELATION_INDEX
-                            && r#type == grc20::ValueType::Text as i32 =>
+                            && r#type == ipfs::ValueType::Text as i32 =>
                         {
                             Ok(builder.index(value))
                         }
 
                         // Set other attributes
-                        grc20::Triple {
+                        ipfs::Triple {
                             attribute,
-                            value: Some(grc20::Value { r#type, value }),
+                            value: Some(ipfs::Value { r#type, value }),
                             ..
                         } => Ok(builder.other_attribute(
                             Grc20Id(attribute),
-                            grc20::ValueType::try_from(r#type)?,
+                            ipfs::ValueType::try_from(r#type)?,
                             value,
                         )),
 
                         // Ignore triples with no value
-                        grc20::Triple { value: None, .. } => Ok(builder),
+                        ipfs::Triple { value: None, .. } => Ok(builder),
                     }
                 },
             )?
@@ -204,54 +204,54 @@ pub fn create_relationship(
     to_id: &str,
     relationship_type_id: &str,
     position: Option<&str>,
-) -> impl Iterator<Item = grc20::Triple> {
+) -> impl Iterator<Item = ipfs::Triple> {
     let new_entity_id = create_geo_id();
 
     vec![
         // Set the type of the new entity to RELATION_TYPE
-        grc20::Triple {
+        ipfs::Triple {
             entity: new_entity_id.clone(),
             attribute: system_ids::TYPES.to_string(),
-            value: Some(grc20::Value {
-                r#type: grc20::ValueType::Url as i32,
+            value: Some(ipfs::Value {
+                r#type: ipfs::ValueType::Url as i32,
                 value: GraphUri::from_id_str(system_ids::RELATION_TYPE).to_string(),
             }),
         },
         // Set the FROM_ENTITY attribute
-        grc20::Triple {
+        ipfs::Triple {
             entity: new_entity_id.clone(),
             attribute: system_ids::RELATION_FROM_ATTRIBUTE.to_string(),
-            value: Some(grc20::Value {
-                r#type: grc20::ValueType::Url as i32,
+            value: Some(ipfs::Value {
+                r#type: ipfs::ValueType::Url as i32,
                 value: GraphUri::from_id_str(from_id).to_string(),
             }),
         },
         // Set the TO_ENTITY attribute
-        grc20::Triple {
+        ipfs::Triple {
             entity: new_entity_id.clone(),
             attribute: system_ids::RELATION_TO_ATTRIBUTE.to_string(),
-            value: Some(grc20::Value {
-                r#type: grc20::ValueType::Url as i32,
+            value: Some(ipfs::Value {
+                r#type: ipfs::ValueType::Url as i32,
                 value: GraphUri::from_id_str(to_id).to_string(),
             }),
         },
         // Set the RELATION_INDEX attribute
-        grc20::Triple {
+        ipfs::Triple {
             entity: new_entity_id.clone(),
             attribute: system_ids::RELATION_INDEX.to_string(),
-            value: Some(grc20::Value {
-                r#type: grc20::ValueType::Text as i32,
+            value: Some(ipfs::Value {
+                r#type: ipfs::ValueType::Text as i32,
                 value: position
                     .unwrap_or(INITIAL_COLLECTION_ITEM_INDEX_VALUE)
                     .to_string(),
             }),
         },
         // Set the RELATION_TYPE attribute
-        grc20::Triple {
+        ipfs::Triple {
             entity: new_entity_id.clone(),
             attribute: system_ids::RELATION_TYPE_ATTRIBUTE.to_string(),
-            value: Some(grc20::Value {
-                r#type: grc20::ValueType::Url as i32,
+            value: Some(ipfs::Value {
+                r#type: ipfs::ValueType::Url as i32,
                 value: GraphUri::from_id_str(relationship_type_id).to_string(),
             }),
         },
@@ -269,7 +269,7 @@ pub struct RelationBuilder {
     to_entity_id: Option<Grc20Id>,
     relation_types_id: Vec<Grc20Id>,
     index: Option<String>,
-    other_attributes: HashMap<Grc20Id, (grc20::ValueType, String)>,
+    other_attributes: HashMap<Grc20Id, (ipfs::ValueType, String)>,
 }
 
 impl RelationBuilder {
@@ -306,7 +306,7 @@ impl RelationBuilder {
     pub fn other_attribute(
         mut self,
         attribute_id: Grc20Id,
-        r#type: grc20::ValueType,
+        r#type: ipfs::ValueType,
         value: String,
     ) -> Self {
         self.other_attributes.insert(attribute_id, (r#type, value));

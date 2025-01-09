@@ -2,7 +2,7 @@ use clap::{Args, Parser, Subcommand};
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::IpfsClient;
 use sdk::mapping::{Entity, Named};
-use sdk::{ids, pb::grc20};
+use sdk::{ids, pb};
 use sink::bootstrap::constants;
 use sink::kg;
 use tracing_subscriber::layer::SubscriberExt;
@@ -37,8 +37,8 @@ async fn main() -> anyhow::Result<()> {
 
             // for (op_type, triple) in ops {
             //     match op_type {
-            //         grc20::OpType::SetTriple => println!("SetTriple: {:?}", triple),
-            //         grc20::OpType::DeleteTriple => println!("DeleteTriple: {:?}", triple),
+            //         ipfs::OpType::SetTriple => println!("SetTriple: {:?}", triple),
+            //         ipfs::OpType::DeleteTriple => println!("DeleteTriple: {:?}", triple),
             //         _ => (),
             //     }
             // }
@@ -178,32 +178,32 @@ fn set_log_level() {
 }
 
 pub fn find_triples(
-    ops: impl IntoIterator<Item = grc20::Op>,
+    ops: impl IntoIterator<Item = pb::ipfs::Op>,
     entity_id: &str,
-) -> Vec<(grc20::OpType, grc20::Triple)> {
+) -> Vec<(pb::ipfs::OpType, pb::ipfs::Triple)> {
     ops.into_iter()
         .filter_map(|op| match (op.r#type(), &op.triple) {
             (
-                grc20::OpType::SetTriple,
-                Some(grc20::Triple {
+                pb::ipfs::OpType::SetTriple,
+                Some(pb::ipfs::Triple {
                     entity,
                     attribute,
-                    value: Some(grc20::Value { value, .. }),
+                    value: Some(pb::ipfs::Value { value, .. }),
                 }),
             ) if *entity == entity_id || *attribute == entity_id || *value == entity_id => Some((
-                grc20::OpType::SetTriple,
+                pb::ipfs::OpType::SetTriple,
                 op.triple.expect("Triple should be some"),
             )),
 
             (
-                grc20::OpType::DeleteTriple,
-                Some(grc20::Triple {
+                pb::ipfs::OpType::DeleteTriple,
+                Some(pb::ipfs::Triple {
                     entity,
                     attribute,
-                    value: Some(grc20::Value { value, .. }),
+                    value: Some(pb::ipfs::Value { value, .. }),
                 }),
             ) if *entity == entity_id || *attribute == entity_id || *value == entity_id => Some((
-                grc20::OpType::DeleteTriple,
+                pb::ipfs::OpType::DeleteTriple,
                 op.triple.expect("Triple should be some"),
             )),
             _ => None,
@@ -211,13 +211,16 @@ pub fn find_triples(
         .collect()
 }
 
-async fn import_space(ipfs_client: &IpfsClient, ipfs_hash: &str) -> anyhow::Result<Vec<grc20::Op>> {
-    let import = ipfs_client.get::<grc20::Import>(ipfs_hash, true).await?;
+async fn import_space(
+    ipfs_client: &IpfsClient,
+    ipfs_hash: &str,
+) -> anyhow::Result<Vec<pb::ipfs::Op>> {
+    let import = ipfs_client.get::<pb::ipfs::Import>(ipfs_hash, true).await?;
 
     Ok(stream::iter(import.edits)
         .then(|edit_hash| async move {
             let edit = ipfs_client
-                .get::<grc20::ImportEdit>(&edit_hash, true)
+                .get::<pb::ipfs::ImportEdit>(&edit_hash, true)
                 .await?;
             anyhow::Ok(edit.ops)
         })

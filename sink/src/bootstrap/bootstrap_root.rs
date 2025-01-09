@@ -1,6 +1,6 @@
 // See https://github.com/geobrowser/geogenesis/blob/stream/1.0.0/packages/substream/sink/bootstrap-root.ts
 
-use sdk::{network_ids, pb::grc20, relation::create_relationship, system_ids};
+use sdk::{network_ids, pb::ipfs, relation::create_relationship, system_ids};
 
 use super::{bootstrap_templates, constants};
 
@@ -175,36 +175,36 @@ const SCHEMA_TYPES: &[(&str, &[&str])] = &[
 
 const TYPES: &[(&str, &[&str])] = &[(network_ids::ETHEREUM, &[system_ids::NETWORK_TYPE])];
 
-pub fn name_ops() -> impl Iterator<Item = grc20::Triple> {
-    NAMES.iter().map(|(id, name)| grc20::Triple {
+pub fn name_ops() -> impl Iterator<Item = ipfs::Triple> {
+    NAMES.iter().map(|(id, name)| ipfs::Triple {
         entity: id.to_string(),
         attribute: system_ids::NAME.to_string(),
-        value: Some(grc20::Value {
-            r#type: grc20::ValueType::Text as i32,
+        value: Some(ipfs::Value {
+            r#type: ipfs::ValueType::Text as i32,
             value: name.to_string(),
         }),
     })
 }
 
-pub fn attribute_ops() -> impl Iterator<Item = grc20::Triple> {
+pub fn attribute_ops() -> impl Iterator<Item = ipfs::Triple> {
     ATTRIBUTES.iter().flat_map(|(attribute_id, _)| {
         create_relationship(attribute_id, system_ids::ATTRIBUTE, system_ids::TYPES, None)
     })
 }
 
-pub fn attribute_value_type_ops() -> impl Iterator<Item = grc20::Triple> {
+pub fn attribute_value_type_ops() -> impl Iterator<Item = ipfs::Triple> {
     ATTRIBUTES.iter().flat_map(|(attribute_id, value_type_id)| {
         create_relationship(attribute_id, value_type_id, system_ids::VALUE_TYPE, None)
     })
 }
 
-pub fn type_ops() -> impl Iterator<Item = grc20::Triple> {
+pub fn type_ops() -> impl Iterator<Item = ipfs::Triple> {
     SCHEMA_TYPES.iter().flat_map(|(type_id, _)| {
         create_relationship(type_id, system_ids::SCHEMA_TYPE, system_ids::TYPES, None)
     })
 }
 
-pub fn root_space_type() -> impl Iterator<Item = grc20::Triple> {
+pub fn root_space_type() -> impl Iterator<Item = ipfs::Triple> {
     create_relationship(
         constants::ROOT_SPACE_ID,
         system_ids::SPACE_CONFIGURATION,
@@ -213,7 +213,7 @@ pub fn root_space_type() -> impl Iterator<Item = grc20::Triple> {
     )
 }
 
-pub fn type_schema_ops() -> impl Iterator<Item = grc20::Triple> {
+pub fn type_schema_ops() -> impl Iterator<Item = ipfs::Triple> {
     SCHEMA_TYPES.iter().flat_map(|(type_id, attributes)| {
         attributes
             .iter()
@@ -224,7 +224,7 @@ pub fn type_schema_ops() -> impl Iterator<Item = grc20::Triple> {
     })
 }
 
-pub fn entities_types_ops() -> impl Iterator<Item = grc20::Triple> {
+pub fn entities_types_ops() -> impl Iterator<Item = ipfs::Triple> {
     TYPES.iter().flat_map(|(entity_id, types_ids)| {
         types_ids
             .iter()
@@ -233,7 +233,7 @@ pub fn entities_types_ops() -> impl Iterator<Item = grc20::Triple> {
     })
 }
 
-pub fn bootstrap() -> impl Iterator<Item = grc20::Op> {
+pub fn bootstrap() -> impl Iterator<Item = ipfs::Op> {
     std::iter::empty()
         .chain(name_ops())
         .chain(attribute_ops())
@@ -243,9 +243,12 @@ pub fn bootstrap() -> impl Iterator<Item = grc20::Op> {
         .chain(type_schema_ops())
         .chain(entities_types_ops())
         .chain(bootstrap_templates::templates_ops())
-        .map(|op| grc20::Op {
-            r#type: grc20::OpType::SetTriple as i32,
+        .map(|op| ipfs::Op {
+            r#type: ipfs::OpType::SetTriple as i32,
             triple: Some(op),
+            entity: None,
+            relation: None,
+            triples: vec![],
         })
 }
 

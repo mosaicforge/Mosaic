@@ -226,18 +226,18 @@ impl Display for ValueType {
     }
 }
 
-impl TryFrom<pb::grc20::ValueType> for ValueType {
+impl TryFrom<pb::ipfs::ValueType> for ValueType {
     type Error = String;
 
-    fn try_from(value: pb::grc20::ValueType) -> Result<Self, Self::Error> {
+    fn try_from(value: pb::ipfs::ValueType) -> Result<Self, Self::Error> {
         match value {
-            pb::grc20::ValueType::Text => Ok(ValueType::Text),
-            pb::grc20::ValueType::Number => Ok(ValueType::Number),
-            pb::grc20::ValueType::Checkbox => Ok(ValueType::Checkbox),
-            pb::grc20::ValueType::Url => Ok(ValueType::Url),
-            pb::grc20::ValueType::Time => Ok(ValueType::Time),
-            pb::grc20::ValueType::Point => Ok(ValueType::Point),
-            pb::grc20::ValueType::Unknown => Err("Unknown ValueType".to_string()),
+            pb::ipfs::ValueType::Text => Ok(ValueType::Text),
+            pb::ipfs::ValueType::Number => Ok(ValueType::Number),
+            pb::ipfs::ValueType::Checkbox => Ok(ValueType::Checkbox),
+            pb::ipfs::ValueType::Url => Ok(ValueType::Url),
+            pb::ipfs::ValueType::Time => Ok(ValueType::Time),
+            pb::ipfs::ValueType::Point => Ok(ValueType::Point),
+            pb::ipfs::ValueType::Unknown => Err("Unknown ValueType".to_string()),
         }
     }
 }

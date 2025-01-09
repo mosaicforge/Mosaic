@@ -174,11 +174,11 @@ impl<T> Entity<T> {
         space_id: &str,
         entity_id: &str,
         attribute_id: &str,
-        value: &pb::grc20::Value,
+        value: &pb::ipfs::Value,
     ) -> Result<(), DatabaseError> {
         match (attribute_id, value.r#type(), value.value.as_str()) {
             // Set the type of the entity
-            (system_ids::TYPES, pb::grc20::ValueType::Url, value) => {
+            (system_ids::TYPES, pb::ipfs::ValueType::Url, value) => {
                 const SET_TYPE_QUERY: &str = const_format::formatcp!(
                     r#"
                     MERGE (n {{ id: $id, space_id: $space_id }})
@@ -215,7 +215,7 @@ impl<T> Entity<T> {
             // Set the FROM_ENTITY or TO_ENTITY on a relation entity
             (
                 system_ids::RELATION_FROM_ATTRIBUTE | system_ids::RELATION_TO_ATTRIBUTE,
-                pb::grc20::ValueType::Url,
+                pb::ipfs::ValueType::Url,
                 value,
             ) => {
                 let query = format!(
@@ -254,7 +254,7 @@ impl<T> Entity<T> {
             }
 
             // Set the RELATION_TYPE on a relation entity
-            (system_ids::RELATION_TYPE_ATTRIBUTE, pb::grc20::ValueType::Url, value) => {
+            (system_ids::RELATION_TYPE_ATTRIBUTE, pb::ipfs::ValueType::Url, value) => {
                 const QUERY: &str = const_format::formatcp!(
                     r#"
                     MERGE (r {{ id: $id, space_id: $space_id }})
@@ -314,7 +314,7 @@ impl<T> Entity<T> {
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
         space_id: &str,
-        triple: pb::grc20::Triple,
+        triple: pb::ipfs::Triple,
     ) -> Result<(), DatabaseError> {
         let delete_triple_query = format!(
             r#"
