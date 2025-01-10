@@ -74,7 +74,7 @@ impl From<EntityRelationFilter> for mapping::EntityRelationFilter {
             id: value.id,
             to_id: value.to_id,
             space_id: value.space_id,
-            relation_type: value.relation_type,
+            relation_type_id: value.relation_type,
         }
     }
 }

@@ -85,7 +85,7 @@ impl Query {
         match filter {
             Some(RelationFilter {
                 relation_types: Some(types),
-            }) if !types.is_empty() => mapping::Relation::<mapping::Triples>::find_by_types(
+            }) if !types.is_empty() => mapping::Relation::<mapping::Triples>::find_by_relation_types(
                 &executor.context().0,
                 &types,
                 &space_id,

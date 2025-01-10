@@ -8,77 +8,79 @@ use crate::{
 };
 
 use super::{
-    attributes::{Attributes, SystemProperties},
-    query::Query,
-    Entity, RelationFilter, Triples,
+    attributes::SystemProperties, query::Query, Entity, RelationFilter, Triples
 };
 
-#[derive(Debug, Deserialize, PartialEq)]
 pub struct Relation<T> {
-    pub id: String,
-    pub types: Vec<String>,
+    // pub id: String,
+    pub r#type: String,
     pub from: String,
     pub to: String,
-    #[serde(flatten)]
-    pub attributes: Attributes<T>,
+    // pub attributes: Attributes<T>,
+    pub entity: Entity<T>,
 }
 
 impl<T> Relation<T> {
     pub fn new(
         id: &str,
         space_id: &str,
+        r#type: &str,
         from: &str,
         to: &str,
         block: &BlockMetadata,
         data: T,
     ) -> Self {
         Self {
-            id: id.to_string(),
             from: from.to_string(),
             to: to.to_string(),
-            types: vec![system_ids::RELATION_TYPE.to_string()],
-            attributes: Attributes {
-                id: id.to_string(),
-                system_properties: SystemProperties {
-                    space_id: space_id.to_string(),
-                    created_at: block.timestamp,
-                    created_at_block: block.block_number.to_string(),
-                    updated_at: block.timestamp,
-                    updated_at_block: block.block_number.to_string(),
-                },
-                attributes: data,
-            },
+            r#type: r#type.to_string(),
+            entity: Entity::new(
+                id,
+                space_id,
+                block,
+                data,
+            ).with_type(system_ids::RELATION_TYPE),
         }
     }
 
-    pub fn from_entity(entity: Entity<T>, from: &str, to: &str) -> Self {
+    pub fn from_entity(
+        entity: Entity<T>, 
+        from: &str, 
+        to: &str,
+        r#type: &str,
+    ) -> Self {
         Self {
-            id: entity.id().to_string(),
+            // id: entity.id().to_string(),
             from: from.to_string(),
             to: to.to_string(),
-            types: entity.types,
-            attributes: entity.attributes,
+            r#type: r#type.to_string(),
+            // attributes: entity.attributes,
+            entity,
         }
     }
 
     pub fn id(&self) -> &str {
-        &self.attributes.id
+        self.entity.id()
     }
 
     pub fn space_id(&self) -> &str {
-        &self.attributes.system_properties.space_id
+        self.entity.space_id()
     }
 
     pub fn attributes(&self) -> &T {
-        &self.attributes.attributes
+        self.entity.attributes()
     }
 
     pub fn attributes_mut(&mut self) -> &mut T {
-        &mut self.attributes.attributes
+        self.entity.attributes_mut()
+    }
+
+    pub fn system_properties(&self) -> &SystemProperties {
+        &self.entity.attributes.system_properties
     }
 
     pub fn with_type(mut self, type_id: &str) -> Self {
-        self.types.push(type_id.to_string());
+        self.entity = self.entity.with_type(type_id);
         self
     }
 
@@ -233,7 +235,9 @@ where
             r#"
             MATCH (from {{id: $from_id}})
             MATCH (to {{id: $to_id}})
+            MATCH (relation_type {{id: $relation_type_id}})
             MERGE (from)<-[:`{FROM_ENTITY}`]-(r {{id: $id, space_id: $space_id}})-[:`{TO_ENTITY}`]->(to)
+            MERGE (r) -[:`{RELATION_TYPE}`]-> (relation_type)
             ON CREATE SET r += {{
                 `{CREATED_AT}`: datetime($created_at),
                 `{CREATED_AT_BLOCK}`: $created_at_block
@@ -247,6 +251,7 @@ where
             "#,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+            RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
             CREATED_AT = system_ids::CREATED_AT_TIMESTAMP,
             CREATED_AT_BLOCK = system_ids::CREATED_AT_BLOCK,
             UPDATED_AT = system_ids::UPDATED_AT_TIMESTAMP,
@@ -266,27 +271,26 @@ where
             .param("space_id", self.space_id())
             .param(
                 "created_at",
-                self.attributes.system_properties.created_at.to_rfc3339(),
+                self.system_properties().created_at.to_rfc3339(),
             )
             .param(
                 "created_at_block",
-                self.attributes
-                    .system_properties
+                self.system_properties()
                     .created_at_block
                     .to_string(),
             )
             .param(
                 "updated_at",
-                self.attributes.system_properties.updated_at.to_rfc3339(),
+                self.system_properties().updated_at.to_rfc3339(),
             )
             .param(
                 "updated_at_block",
-                self.attributes
-                    .system_properties
+                self.system_properties()
                     .updated_at_block
                     .to_string(),
             )
-            .param("labels", self.types.clone())
+            .param("relation_type_id", self.r#type.clone())
+            .param("labels", self.entity.types.clone())
             .param("data", bolt_data);
 
         Ok(neo4j.run(query).await?)
@@ -305,12 +309,14 @@ where
     ) -> Result<Option<Self>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MATCH (from) <-[:`{FROM_ENTITY}`]- (r:`{RELATION_TYPE}` {{ id: $id, space_id: $space_id }}) -[:`{TO_ENTITY}`]-> (to)
-            RETURN from, r, to
+            MATCH (from) <-[:`{FROM_ENTITY}`]- (r:`{RELATION}` {{ id: $id, space_id: $space_id }}) -[:`{TO_ENTITY}`]-> (to)
+            MATCH (r) -[:`{RELATION_TYPE}`]-> (rt)
+            RETURN from, r, to, rt
             "#,
-            RELATION_TYPE = system_ids::RELATION_TYPE,
+            RELATION = system_ids::RELATION_TYPE,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+            RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
         );
 
         let query = neo4rs::query(QUERY)
@@ -328,12 +334,14 @@ where
         const QUERY: &str = const_format::formatcp!(
             r#"
             UNWIND $ids AS id
-            MATCH (from) <-[:`{FROM_ENTITY}`]- (r:`{RELATION_TYPE}` {{ id: $id, space_id: $space_id }}) -[:`{TO_ENTITY}`]-> (to)
-            RETURN from, r, to
+            MATCH (from) <-[:`{FROM_ENTITY}`]- (r:`{RELATION}` {{ id: $id, space_id: $space_id }}) -[:`{TO_ENTITY}`]-> (to)
+            MATCH (r) -[:`{RELATION_TYPE}`]-> (rt)
+            RETURN from, r, to, rt
             "#,
-            RELATION_TYPE = system_ids::RELATION_TYPE,
+            RELATION = system_ids::RELATION_TYPE,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+            RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
         );
 
         let query = neo4rs::query(QUERY).param("ids", ids);
@@ -341,24 +349,27 @@ where
         Self::_find_many(neo4j, query).await
     }
 
-    /// Returns the entities with the given types
-    pub async fn find_by_types(
+    /// Returns the entities with the given relation types
+    pub async fn find_by_relation_types(
         neo4j: &neo4rs::Graph,
-        types: &[String],
+        relation_types: &[String],
         space_id: &str,
     ) -> Result<Vec<Self>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MATCH (from {{space_id: $space_id}}) <-[:`{FROM_ENTITY}`]- (r:`{RELATION_TYPE}`:$($types) {{space_id: $space_id}}) -[:`{TO_ENTITY}`]-> (to {{space_id: $space_id}})
-            RETURN from, r, to
+            UNWIND $relation_types AS relation_type
+            MATCH (from {{space_id: $space_id}}) <-[:`{FROM_ENTITY}`]- (r:`{RELATION}` {{space_id: $space_id}}) -[:`{TO_ENTITY}`]-> (to {{space_id: $space_id}})
+            MATCH (r) -[:`{RELATION_TYPE}`]-> (rt {{id: $relation_type, space_id: $space_id}})
+            RETURN from, r, to, rt
             "#,
-            RELATION_TYPE = system_ids::RELATION_TYPE,
+            RELATION = system_ids::RELATION_TYPE,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+            RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
         );
 
         let query = neo4rs::query(QUERY)
-            .param("types", types)
+            .param("relation_types", relation_types)
             .param("space_id", space_id);
 
         Self::_find_many(neo4j, query).await
@@ -370,13 +381,15 @@ where
     ) -> Result<Vec<Self>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MATCH (from) <-[:`{FROM_ENTITY}`]- (r:`{RELATION_TYPE}`) -[:`{TO_ENTITY}`]-> (to)
-            RETURN from, r, to
+            MATCH (from) <-[:`{FROM_ENTITY}`]- (r:`{RELATION}`) -[:`{TO_ENTITY}`]-> (to)
+            MATCH (r) -[:`{RELATION_TYPE}`]-> (rt)
+            RETURN from, r, to, rt
             LIMIT 100
             "#,
-            RELATION_TYPE = system_ids::RELATION_TYPE,
+            RELATION = system_ids::RELATION_TYPE,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+            RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
         );
 
         if let Some(filter) = r#where {
@@ -395,6 +408,7 @@ where
             from: neo4rs::Node,
             r: neo4rs::Node,
             to: neo4rs::Node,
+            rt: neo4rs::Node,
         }
 
         neo4j
@@ -408,8 +422,9 @@ where
                 let from: Entity<()> = row.from.try_into()?;
                 let rel: Entity<T> = row.r.try_into()?;
                 let to: Entity<()> = row.to.try_into()?;
+                let rt: Entity<()> = row.rt.try_into()?;
 
-                Ok(Relation::from_entity(rel, from.id(), to.id()))
+                Ok(Relation::from_entity(rel, from.id(), to.id(), rt.id()))
             })
             .transpose()
     }
@@ -423,6 +438,7 @@ where
             from: neo4rs::Node,
             r: neo4rs::Node,
             to: neo4rs::Node,
+            rt: neo4rs::Node,
         }
 
         neo4j
@@ -434,8 +450,9 @@ where
                 let from: Entity<()> = row.from.try_into()?;
                 let rel: Entity<T> = row.r.try_into()?;
                 let to: Entity<()> = row.to.try_into()?;
+                let rt: Entity<()> = row.rt.try_into()?;
 
-                Ok(Relation::from_entity(rel, from.id(), to.id()))
+                Ok(Relation::from_entity(rel, from.id(), to.id(), rt.id()))
             })
             .try_collect::<Vec<_>>()
             .await

@@ -328,11 +328,11 @@ impl ParentSpace {
         Relation::new(
             &ids::create_geo_id(),
             system_ids::INDEXER_SPACE_ID,
+            system_ids::PARENT_SPACE,
             space_id,
             parent_space_id,
             block,
             Self,
         )
-        .with_type(system_ids::PARENT_SPACE)
     }
 }

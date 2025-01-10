@@ -94,10 +94,12 @@ impl<T> Entity<T> {
         const QUERY: &str = const_format::formatcp!(
             r#"
             MATCH ({{ id: $id }}) <-[:`{FROM_ENTITY}`]- (r) -[:`{TO_ENTITY}`]-> (to)
-            RETURN to, r
+            MATCH (r) -[:`{RELATION_TYPE}`]-> (rt)
+            RETURN to, r, rt
             "#,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+            RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE
         );
 
         let query = if let Some(filter) = filter {
@@ -110,6 +112,7 @@ impl<T> Entity<T> {
         struct RowResult {
             r: neo4rs::Node,
             to: neo4rs::Node,
+            rt: neo4rs::Node,
         }
 
         neo4j
@@ -120,8 +123,9 @@ impl<T> Entity<T> {
             .and_then(|row| async move {
                 let rel: Entity<R> = row.r.try_into()?;
                 let to: Entity<()> = row.to.try_into()?;
+                let rel_type: Entity<()> = row.rt.try_into()?;
 
-                Ok(Relation::from_entity(rel, id, to.id()))
+                Ok(Relation::from_entity(rel, id, to.id(), rel_type.id()))
             })
             .try_collect::<Vec<_>>()
             .await
@@ -337,6 +341,24 @@ impl<T> Entity<T> {
             .param("created_at_block", block.block_number.to_string())
             .param("updated_at", block.timestamp.to_rfc3339())
             .param("updated_at_block", block.block_number.to_string());
+
+        Ok(neo4j.run(query).await?)
+    }
+
+    pub async fn delete(
+        neo4j: &neo4rs::Graph,
+        block: &BlockMetadata,
+        id: &str,
+        space_id: &str,
+    ) -> Result<(), DatabaseError> {
+        const QUERY: &str = const_format::formatcp!(
+            r#"
+            MATCH (n {{ id: $id, space_id: $space_id }})
+            DETACH DELETE n
+            "#,
+        );
+
+        let query = neo4rs::query(QUERY).param("id", id).param("space_id", space_id);
 
         Ok(neo4j.run(query).await?)
     }

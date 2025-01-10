@@ -6,7 +6,7 @@ use crate::bootstrap::{self, constants};
 
 use sdk::{
     error::DatabaseError,
-    mapping::{self, Entity},
+    mapping::{self, Entity, Relation},
     models::{self, BlockMetadata},
     pb, system_ids,
 };
@@ -139,14 +139,14 @@ impl Client {
         ops: impl IntoIterator<Item = pb::ipfs::Op>,
     ) -> Result<(), DatabaseError> {
         for op in ops {
-            match (op.r#type(), op.triple) {
+            match (op.r#type(), op) {
                 (
                     pb::ipfs::OpType::SetTriple,
-                    Some(pb::ipfs::Triple {
+                    pb::ipfs::Op {triple: Some(pb::ipfs::Triple {
                         entity,
                         attribute,
                         value: Some(value),
-                    }),
+                    }), ..},
                 ) => {
                     tracing::info!("SetTriple: {}, {}, {:?}", entity, attribute, value,);
 
@@ -160,7 +160,7 @@ impl Client {
                     )
                     .await?
                 }
-                (pb::ipfs::OpType::DeleteTriple, Some(triple)) => {
+                (pb::ipfs::OpType::DeleteTriple, pb::ipfs::Op {triple: Some(triple), ..}) => {
                     tracing::info!(
                         "DeleteTriple: {}, {}, {:?}",
                         triple.entity,
@@ -169,6 +169,38 @@ impl Client {
                     );
 
                     Entity::<()>::delete_triple(&self.neo4j, block, space_id, triple).await?
+                }
+                // (pb::ipfs::OpType::SetTripleBatch, op) => {
+                // }
+                // (pb::ipfs::OpType::DeleteEntity, op) => {
+                // }
+                (pb::ipfs::OpType::CreateRelation, pb::ipfs::Op {relation: Some(relation), ..}) => {
+                    tracing::info!(
+                        "CreateRelation: {}, {}, {}, {}",
+                        relation.id,
+                        relation.r#type,
+                        relation.from_entity,
+                        relation.to_entity,
+                    );
+
+                    Relation::<()>::new(
+                        &relation.id,
+                        space_id,
+                        &relation.r#type,
+                        &relation.from_entity,
+                        &relation.to_entity,
+                        block,
+                        ()
+                    )
+                    .upsert(&self.neo4j)
+                    .await?
+                }
+                (pb::ipfs::OpType::DeleteRelation, pb::ipfs::Op {relation: Some(relation), ..}) => {
+                    tracing::info!(
+                        "DeleteRelation: {}",
+                        relation.id,
+                    );
+                    Entity::<()>::delete(&self.neo4j, block, space_id, &relation.id).await?
                 }
                 (typ, maybe_triple) => {
                     tracing::warn!("Unhandled case: {:?} {:?}", typ, maybe_triple);

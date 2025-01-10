@@ -48,6 +48,7 @@ impl VoteCast {
         Relation::new(
             &Self::new_id(account_id, proposal_id),
             system_ids::INDEXER_SPACE_ID,
+            system_ids::VOTE_CAST,
             account_id,
             proposal_id,
             block,

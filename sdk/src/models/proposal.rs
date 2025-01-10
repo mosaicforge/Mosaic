@@ -150,12 +150,12 @@ impl Proposals {
         Relation::new(
             &ids::create_id_from_unique_string(&format!("{space_id}-{proposal_id}")),
             system_ids::INDEXER_SPACE_ID,
+            system_ids::PROPOSALS,
             space_id,
             proposal_id,
             block,
             Proposals {},
         )
-        .with_type(system_ids::PROPOSALS)
     }
 }
 
@@ -168,12 +168,12 @@ impl Creator {
         Relation::new(
             &ids::create_id_from_unique_string(&format!("{proposal_id}-{account_id}")),
             system_ids::INDEXER_SPACE_ID,
+            system_ids::PROPOSAL_CREATOR,
             proposal_id,
             account_id,
             block,
             Creator {},
         )
-        .with_type(system_ids::PROPOSAL_CREATOR)
     }
 }
 
@@ -270,12 +270,12 @@ impl ProposedAccount {
         Relation::new(
             &ids::create_id_from_unique_string(&format!("{}-{}", proposal_id, account_id)),
             system_ids::INDEXER_SPACE_ID,
+            system_ids::PROPOSED_ACCOUNT,
             proposal_id,
             account_id,
             block,
             Self {},
         )
-        .with_type(system_ids::PROPOSED_ACCOUNT)
     }
 }
 
@@ -332,11 +332,11 @@ impl ProposedSubspace {
                 subspace_proposal_id, subspace_id
             )),
             system_ids::INDEXER_SPACE_ID,
+            system_ids::PROPOSED_SUBSPACE,
             subspace_proposal_id,
             subspace_id,
             block,
             Self {},
         )
-        .with_type(system_ids::PROPOSED_SUBSPACE)
     }
 }

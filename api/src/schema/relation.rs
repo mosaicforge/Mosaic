@@ -10,7 +10,7 @@ use super::{Entity, Options, Triple};
 #[derive(Debug)]
 pub struct Relation {
     id: String,
-    relation_types: Vec<String>,
+    relation_type: String,
     space_id: String,
     created_at: DateTime<Utc>,
     created_at_block: String,
@@ -61,14 +61,14 @@ impl Relation {
         &self.attributes
     }
 
-    /// Relation types of the relation
-    async fn relation_types<'a, S: ScalarValue>(
+    /// Relation type of the relation
+    async fn relation_type<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Vec<Entity> {
-        mapping::Entity::<mapping::Triples>::find_by_ids(
+        mapping::Entity::<mapping::Triples>::find_by_id(
             &executor.context().0,
-            &self.relation_types,
+            &self.relation_type,
             &self.space_id,
         )
         .await
@@ -135,28 +135,27 @@ impl Relation {
 impl From<mapping::Relation<mapping::Triples>> for Relation {
     fn from(relation: mapping::Relation<mapping::Triples>) -> Self {
         Self {
-            id: relation.attributes.id,
-            relation_types: relation.types,
-            space_id: relation.attributes.system_properties.space_id.clone(),
-            created_at: relation.attributes.system_properties.created_at,
+            id: relation.id().to_string(),
+            relation_type: relation.r#type.clone(),
+            space_id: relation.system_properties().space_id.clone(),
+            created_at: relation.system_properties().created_at,
             created_at_block: relation
-                .attributes
-                .system_properties
+                .system_properties()
                 .created_at_block
                 .clone(),
-            updated_at: relation.attributes.system_properties.updated_at,
+            updated_at: relation.system_properties().updated_at,
             updated_at_block: relation
-                .attributes
-                .system_properties
+                .system_properties()
                 .updated_at_block
                 .clone(),
             attributes: relation
+                .entity
                 .attributes
                 .attributes
                 .iter()
                 .map(|(key, triple)| Triple {
                     // entiti: triple.entity,
-                    space_id: relation.attributes.system_properties.space_id.clone(),
+                    space_id: relation.system_properties().space_id.clone(),
                     attribute: key.to_string(),
                     value: triple.value.clone(),
                     value_type: triple.value_type.clone().into(),
