@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::DatabaseError,
-    graph_uri::{self, GraphUri},
+    // graph_uri::{self, GraphUri},
+    indexer_ids,
     mapping,
     models::BlockMetadata,
     neo4j_utils::serde_value_to_bolt,
@@ -148,7 +149,7 @@ impl<T> Entity<T> {
             MATCH ({{ id: $id, space_id: $space_id }}) <-[:`{FROM_ENTITY}`]- (:`{TYPES}` {{space_id: $space_id}}) -[:`{TO_ENTITY}`]-> (t {{space_id: $space_id}})
             RETURN t
             "#,
-            TYPES = system_ids::TYPES,
+            TYPES = system_ids::TYPES_ATTRIBUTE,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
         );
@@ -180,138 +181,155 @@ impl<T> Entity<T> {
         attribute_id: &str,
         value: &pb::ipfs::Value,
     ) -> Result<(), DatabaseError> {
-        match (attribute_id, value.r#type(), value.value.as_str()) {
+        let entity = Entity::<mapping::Triples>::new(
+            entity_id,
+            space_id,
+            block,
+            mapping::Triples(HashMap::from([(
+                attribute_id.to_string(),
+                mapping::Triple {
+                    value: value.value.clone(),
+                    value_type: mapping::ValueType::try_from(value.r#type())
+                        .unwrap_or(mapping::ValueType::Text),
+                    options: Default::default(),
+                },
+            )])),
+        );
+
+        entity.upsert(neo4j).await
+
+        // match (attribute_id, value.r#type(), value.value.as_str()) {
             // Set the type of the entity
-            (system_ids::TYPES, pb::ipfs::ValueType::Url, value) => {
-                const SET_TYPE_QUERY: &str = const_format::formatcp!(
-                    r#"
-                    MERGE (n {{ id: $id, space_id: $space_id }})
-                    ON CREATE SET n += {{
-                        `{CREATED_AT}`: datetime($created_at),
-                        `{CREATED_AT_BLOCK}`: $created_at_block
-                    }}
-                    SET n += {{
-                        `{UPDATED_AT}`: datetime($updated_at),
-                        `{UPDATED_AT_BLOCK}`: $updated_at_block
-                    }}
-                    SET n:$($labels)
-                    "#,
-                    CREATED_AT = system_ids::CREATED_AT_TIMESTAMP,
-                    CREATED_AT_BLOCK = system_ids::CREATED_AT_BLOCK,
-                    UPDATED_AT = system_ids::UPDATED_AT_TIMESTAMP,
-                    UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
-                );
+            // (system_ids::TYPES, pb::ipfs::ValueType::Url, value) => {
+            //     const SET_TYPE_QUERY: &str = const_format::formatcp!(
+            //         r#"
+            //         MERGE (n {{ id: $id, space_id: $space_id }})
+            //         ON CREATE SET n += {{
+            //             `{CREATED_AT}`: datetime($created_at),
+            //             `{CREATED_AT_BLOCK}`: $created_at_block
+            //         }}
+            //         SET n += {{
+            //             `{UPDATED_AT}`: datetime($updated_at),
+            //             `{UPDATED_AT_BLOCK}`: $updated_at_block
+            //         }}
+            //         SET n:$($labels)
+            //         "#,
+            //         CREATED_AT = system_ids::CREATED_AT_TIMESTAMP,
+            //         CREATED_AT_BLOCK = system_ids::CREATED_AT_BLOCK,
+            //         UPDATED_AT = system_ids::UPDATED_AT_TIMESTAMP,
+            //         UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
+            //     );
 
-                let uri = GraphUri::from_uri(value).map_err(SetTripleError::InvalidGraphUri)?;
+            //     let uri = GraphUri::from_uri(value).map_err(SetTripleError::InvalidGraphUri)?;
 
-                let query = neo4rs::query(SET_TYPE_QUERY)
-                    .param("id", entity_id)
-                    .param("space_id", space_id)
-                    .param("created_at", block.timestamp.to_rfc3339())
-                    .param("created_at_block", block.block_number.to_string())
-                    .param("updated_at", block.timestamp.to_rfc3339())
-                    .param("updated_at_block", block.block_number.to_string())
-                    .param("labels", uri.id);
+            //     let query = neo4rs::query(SET_TYPE_QUERY)
+            //         .param("id", entity_id)
+            //         .param("space_id", space_id)
+            //         .param("created_at", block.timestamp.to_rfc3339())
+            //         .param("created_at_block", block.block_number.to_string())
+            //         .param("updated_at", block.timestamp.to_rfc3339())
+            //         .param("updated_at_block", block.block_number.to_string())
+            //         .param("labels", uri.id);
 
-                Ok(neo4j.run(query).await?)
-            }
+            //     Ok(neo4j.run(query).await?)
+            // }
 
-            // Set the FROM_ENTITY or TO_ENTITY on a relation entity
-            (
-                system_ids::RELATION_FROM_ATTRIBUTE | system_ids::RELATION_TO_ATTRIBUTE,
-                pb::ipfs::ValueType::Url,
-                value,
-            ) => {
-                let query = format!(
-                    r#"
-                    MATCH (n {{ id: $other, space_id: $space_id }})
-                    MERGE (r {{ id: $id, space_id: $space_id }})
-                    MERGE (r) -[:`{attribute_id}`]-> (n)
-                    ON CREATE SET r += {{
-                        `{CREATED_AT}`: datetime($created_at),
-                        `{CREATED_AT_BLOCK}`: $created_at_block
-                    }}
-                    SET r += {{
-                        `{UPDATED_AT}`: datetime($updated_at),
-                        `{UPDATED_AT_BLOCK}`: $updated_at_block
-                    }}
-                    "#,
-                    attribute_id = attribute_id,
-                    CREATED_AT = system_ids::CREATED_AT_TIMESTAMP,
-                    CREATED_AT_BLOCK = system_ids::CREATED_AT_BLOCK,
-                    UPDATED_AT = system_ids::UPDATED_AT_TIMESTAMP,
-                    UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
-                );
+            // Set the FROM_ENTITY, TO_ENTITY or RELATION_TYPE on a relation entity
+            // (
+            //     system_ids::RELATION_FROM_ATTRIBUTE | system_ids::RELATION_TO_ATTRIBUTE | system_ids::RELATION_TYPE_ATTRIBUTE,
+            //     pb::ipfs::ValueType::Url,
+            //     value,
+            // ) => {
+            //     let query = format!(
+            //         r#"
+            //         MATCH (n {{ id: $other, space_id: $space_id }})
+            //         MERGE (r {{ id: $id, space_id: $space_id }})
+            //         MERGE (r) -[:`{attribute_id}`]-> (n)
+            //         ON CREATE SET r += {{
+            //             `{CREATED_AT}`: datetime($created_at),
+            //             `{CREATED_AT_BLOCK}`: $created_at_block
+            //         }}
+            //         SET r += {{
+            //             `{UPDATED_AT}`: datetime($updated_at),
+            //             `{UPDATED_AT_BLOCK}`: $updated_at_block
+            //         }}
+            //         "#,
+            //         attribute_id = attribute_id,
+            //         CREATED_AT = system_ids::CREATED_AT_TIMESTAMP,
+            //         CREATED_AT_BLOCK = system_ids::CREATED_AT_BLOCK,
+            //         UPDATED_AT = system_ids::UPDATED_AT_TIMESTAMP,
+            //         UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
+            //     );
 
-                let uri = GraphUri::from_uri(value).map_err(SetTripleError::InvalidGraphUri)?;
+            //     let uri = GraphUri::from_uri(value).map_err(SetTripleError::InvalidGraphUri)?;
 
-                let query = neo4rs::query(&query)
-                    .param("id", entity_id)
-                    .param("other", uri.id)
-                    .param("space_id", space_id)
-                    .param("created_at", block.timestamp.to_rfc3339())
-                    .param("created_at_block", block.block_number.to_string())
-                    .param("updated_at", block.timestamp.to_rfc3339())
-                    .param("updated_at_block", block.block_number.to_string());
+            //     let query = neo4rs::query(&query)
+            //         .param("id", entity_id)
+            //         .param("other", uri.id)
+            //         .param("space_id", space_id)
+            //         .param("created_at", block.timestamp.to_rfc3339())
+            //         .param("created_at_block", block.block_number.to_string())
+            //         .param("updated_at", block.timestamp.to_rfc3339())
+            //         .param("updated_at_block", block.block_number.to_string());
 
-                Ok(neo4j.run(query).await?)
-            }
+            //     Ok(neo4j.run(query).await?)
+            // }
 
             // Set the RELATION_TYPE on a relation entity
-            (system_ids::RELATION_TYPE_ATTRIBUTE, pb::ipfs::ValueType::Url, value) => {
-                const QUERY: &str = const_format::formatcp!(
-                    r#"
-                    MERGE (r {{ id: $id, space_id: $space_id }})
-                    ON CREATE SET r += {{
-                        `{CREATED_AT}`: datetime($created_at),
-                        `{CREATED_AT_BLOCK}`: $created_at_block
-                    }}
-                    SET r:$($label)
-                    SET r += {{
-                        `{UPDATED_AT}`: datetime($updated_at),
-                        `{UPDATED_AT_BLOCK}`: $updated_at_block
-                    }}
-                    "#,
-                    CREATED_AT = system_ids::CREATED_AT_TIMESTAMP,
-                    CREATED_AT_BLOCK = system_ids::CREATED_AT_BLOCK,
-                    UPDATED_AT = system_ids::UPDATED_AT_TIMESTAMP,
-                    UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
-                );
+            // (system_ids::RELATION_TYPE_ATTRIBUTE, pb::ipfs::ValueType::Url, value) => {
+            //     const QUERY: &str = const_format::formatcp!(
+            //         r#"
+            //         MERGE (r {{ id: $id, space_id: $space_id }})
+            //         ON CREATE SET r += {{
+            //             `{CREATED_AT}`: datetime($created_at),
+            //             `{CREATED_AT_BLOCK}`: $created_at_block
+            //         }}
+            //         SET r:$($label)
+            //         SET r += {{
+            //             `{UPDATED_AT}`: datetime($updated_at),
+            //             `{UPDATED_AT_BLOCK}`: $updated_at_block
+            //         }}
+            //         "#,
+            //         CREATED_AT = system_ids::CREATED_AT_TIMESTAMP,
+            //         CREATED_AT_BLOCK = system_ids::CREATED_AT_BLOCK,
+            //         UPDATED_AT = system_ids::UPDATED_AT_TIMESTAMP,
+            //         UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
+            //     );
 
-                let uri = GraphUri::from_uri(value).map_err(SetTripleError::InvalidGraphUri)?;
+            //     let uri = GraphUri::from_uri(value).map_err(SetTripleError::InvalidGraphUri)?;
 
-                let query = neo4rs::query(QUERY)
-                    .param("id", entity_id)
-                    .param("space_id", space_id)
-                    .param("created_at", block.timestamp.to_rfc3339())
-                    .param("created_at_block", block.block_number.to_string())
-                    .param("updated_at", block.timestamp.to_rfc3339())
-                    .param("updated_at_block", block.block_number.to_string())
-                    .param("label", uri.id);
+            //     let query = neo4rs::query(QUERY)
+            //         .param("id", entity_id)
+            //         .param("space_id", space_id)
+            //         .param("created_at", block.timestamp.to_rfc3339())
+            //         .param("created_at_block", block.block_number.to_string())
+            //         .param("updated_at", block.timestamp.to_rfc3339())
+            //         .param("updated_at_block", block.block_number.to_string())
+            //         .param("label", uri.id);
 
-                Ok(neo4j.run(query).await?)
-            }
+            //     Ok(neo4j.run(query).await?)
+            // }
 
             // Set a regular triple
-            (attribute_id, value_type, value) => {
-                let entity = Entity::<mapping::Triples>::new(
-                    entity_id,
-                    space_id,
-                    block,
-                    mapping::Triples(HashMap::from([(
-                        attribute_id.to_string(),
-                        mapping::Triple {
-                            value: value.to_string(),
-                            value_type: mapping::ValueType::try_from(value_type)
-                                .unwrap_or(mapping::ValueType::Text),
-                            options: Default::default(),
-                        },
-                    )])),
-                );
+            // (attribute_id, value_type, value) => {
+            //     let entity = Entity::<mapping::Triples>::new(
+            //         entity_id,
+            //         space_id,
+            //         block,
+            //         mapping::Triples(HashMap::from([(
+            //             attribute_id.to_string(),
+            //             mapping::Triple {
+            //                 value: value.to_string(),
+            //                 value_type: mapping::ValueType::try_from(value_type)
+            //                     .unwrap_or(mapping::ValueType::Text),
+            //                 options: Default::default(),
+            //             },
+            //         )])),
+            //     );
 
-                Ok(entity.upsert(neo4j).await?)
-            }
-        }
+            //     Ok(entity.upsert(neo4j).await?)
+            // }
+        // }
     }
 
     pub async fn delete_triple(
@@ -330,8 +348,8 @@ impl<T> Entity<T> {
             }}
             "#,
             attribute_label = triple.attribute,
-            UPDATED_AT = system_ids::UPDATED_AT_TIMESTAMP,
-            UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
+            UPDATED_AT = indexer_ids::UPDATED_AT_TIMESTAMP,
+            UPDATED_AT_BLOCK = indexer_ids::UPDATED_AT_BLOCK,
         );
 
         let query = neo4rs::query(&delete_triple_query)
@@ -368,8 +386,8 @@ impl<T> Entity<T> {
 
 #[derive(Debug, thiserror::Error)]
 pub enum SetTripleError {
-    #[error("Invalid graph URI: {0}")]
-    InvalidGraphUri(#[from] graph_uri::InvalidGraphUri),
+    // #[error("Invalid graph URI: {0}")]
+    // InvalidGraphUri(#[from] graph_uri::InvalidGraphUri),
     #[error("Serde JSON error: {0}")]
     SerdeJson(#[from] serde_json::Error),
 }
@@ -394,10 +412,10 @@ where
             }}
             SET n += $data
             "#,
-            CREATED_AT = system_ids::CREATED_AT_TIMESTAMP,
-            CREATED_AT_BLOCK = system_ids::CREATED_AT_BLOCK,
-            UPDATED_AT = system_ids::UPDATED_AT_TIMESTAMP,
-            UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
+            CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
+            CREATED_AT_BLOCK = indexer_ids::CREATED_AT_BLOCK,
+            UPDATED_AT = indexer_ids::UPDATED_AT_TIMESTAMP,
+            UPDATED_AT_BLOCK = indexer_ids::UPDATED_AT_BLOCK,
         );
 
         let bolt_data = match serde_value_to_bolt(serde_json::to_value(self.attributes())?) {

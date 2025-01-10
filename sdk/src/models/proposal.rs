@@ -6,9 +6,9 @@ use web3_utils::checksum_address;
 use crate::{
     error::DatabaseError,
     ids,
+    indexer_ids,
     mapping::{Entity, Relation},
     pb::ipfs,
-    system_ids,
 };
 
 use super::BlockMetadata;
@@ -86,7 +86,7 @@ impl Proposal {
             MATCH (n:`{PROPOSAL_TYPE}` {{onchain_proposal_id: $proposal_id, plugin_address: $plugin_address}})
             RETURN n
             "#,
-            PROPOSAL_TYPE = system_ids::PROPOSAL_TYPE,
+            PROPOSAL_TYPE = indexer_ids::PROPOSAL_TYPE,
         );
 
         let query = neo4rs::query(QUERY)
@@ -126,9 +126,9 @@ impl Proposal {
                 `{UPDATED_AT_BLOCK}`: $updated_at_block
             }}
             "#,
-            PROPOSAL_TYPE = system_ids::PROPOSAL_TYPE,
-            UPDATED_AT = system_ids::UPDATED_AT_TIMESTAMP,
-            UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
+            PROPOSAL_TYPE = indexer_ids::PROPOSAL_TYPE,
+            UPDATED_AT = indexer_ids::UPDATED_AT_TIMESTAMP,
+            UPDATED_AT_BLOCK = indexer_ids::UPDATED_AT_BLOCK,
         );
 
         let query = neo4rs::query(QUERY)
@@ -149,8 +149,8 @@ impl Proposals {
     pub fn new(space_id: &str, proposal_id: &str, block: &BlockMetadata) -> Relation<Self> {
         Relation::new(
             &ids::create_id_from_unique_string(&format!("{space_id}-{proposal_id}")),
-            system_ids::INDEXER_SPACE_ID,
-            system_ids::PROPOSALS,
+            indexer_ids::INDEXER_SPACE_ID,
+            indexer_ids::PROPOSALS,
             space_id,
             proposal_id,
             block,
@@ -167,8 +167,8 @@ impl Creator {
     pub fn new(proposal_id: &str, account_id: &str, block: &BlockMetadata) -> Relation<Self> {
         Relation::new(
             &ids::create_id_from_unique_string(&format!("{proposal_id}-{account_id}")),
-            system_ids::INDEXER_SPACE_ID,
-            system_ids::PROPOSAL_CREATOR,
+            indexer_ids::INDEXER_SPACE_ID,
+            indexer_ids::PROPOSAL_CREATOR,
             proposal_id,
             account_id,
             block,
@@ -196,12 +196,12 @@ impl AddMemberProposal {
     pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
         Entity::new(
             &Proposal::new_id(&proposal.onchain_proposal_id),
-            system_ids::INDEXER_SPACE_ID,
+            indexer_ids::INDEXER_SPACE_ID,
             block,
             Self { proposal },
         )
-        .with_type(system_ids::PROPOSAL_TYPE)
-        .with_type(system_ids::ADD_MEMBER_PROPOSAL)
+        .with_type(indexer_ids::PROPOSAL_TYPE)
+        .with_type(indexer_ids::ADD_MEMBER_PROPOSAL)
     }
 }
 
@@ -215,12 +215,12 @@ impl RemoveMemberProposal {
     pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
         Entity::new(
             &Proposal::new_id(&proposal.onchain_proposal_id),
-            system_ids::INDEXER_SPACE_ID,
+            indexer_ids::INDEXER_SPACE_ID,
             block,
             Self { proposal },
         )
-        .with_type(system_ids::PROPOSAL_TYPE)
-        .with_type(system_ids::REMOVE_MEMBER_PROPOSAL)
+        .with_type(indexer_ids::PROPOSAL_TYPE)
+        .with_type(indexer_ids::REMOVE_MEMBER_PROPOSAL)
     }
 }
 
@@ -234,12 +234,12 @@ impl AddEditorProposal {
     pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
         Entity::new(
             &Proposal::new_id(&proposal.onchain_proposal_id),
-            system_ids::INDEXER_SPACE_ID,
+            indexer_ids::INDEXER_SPACE_ID,
             block,
             Self { proposal },
         )
-        .with_type(system_ids::PROPOSAL_TYPE)
-        .with_type(system_ids::ADD_EDITOR_PROPOSAL)
+        .with_type(indexer_ids::PROPOSAL_TYPE)
+        .with_type(indexer_ids::ADD_EDITOR_PROPOSAL)
     }
 }
 
@@ -253,12 +253,12 @@ impl RemoveEditorProposal {
     pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
         Entity::new(
             &Proposal::new_id(&proposal.onchain_proposal_id),
-            system_ids::INDEXER_SPACE_ID,
+            indexer_ids::INDEXER_SPACE_ID,
             block,
             Self { proposal },
         )
-        .with_type(system_ids::PROPOSAL_TYPE)
-        .with_type(system_ids::REMOVE_EDITOR_PROPOSAL)
+        .with_type(indexer_ids::PROPOSAL_TYPE)
+        .with_type(indexer_ids::REMOVE_EDITOR_PROPOSAL)
     }
 }
 
@@ -269,8 +269,8 @@ impl ProposedAccount {
     pub fn new(proposal_id: &str, account_id: &str, block: &BlockMetadata) -> Relation<Self> {
         Relation::new(
             &ids::create_id_from_unique_string(&format!("{}-{}", proposal_id, account_id)),
-            system_ids::INDEXER_SPACE_ID,
-            system_ids::PROPOSED_ACCOUNT,
+            indexer_ids::INDEXER_SPACE_ID,
+            indexer_ids::PROPOSED_ACCOUNT,
             proposal_id,
             account_id,
             block,
@@ -289,12 +289,12 @@ impl AddSubspaceProposal {
     pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
         Entity::new(
             &Proposal::new_id(&proposal.onchain_proposal_id),
-            system_ids::INDEXER_SPACE_ID,
+            indexer_ids::INDEXER_SPACE_ID,
             block,
             Self { proposal },
         )
-        .with_type(system_ids::PROPOSAL_TYPE)
-        .with_type(system_ids::ADD_SUBSPACE_PROPOSAL)
+        .with_type(indexer_ids::PROPOSAL_TYPE)
+        .with_type(indexer_ids::ADD_SUBSPACE_PROPOSAL)
     }
 }
 
@@ -308,12 +308,12 @@ impl RemoveSubspaceProposal {
     pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
         Entity::new(
             &Proposal::new_id(&proposal.onchain_proposal_id),
-            system_ids::INDEXER_SPACE_ID,
+            indexer_ids::INDEXER_SPACE_ID,
             block,
             Self { proposal },
         )
-        .with_type(system_ids::PROPOSAL_TYPE)
-        .with_type(system_ids::REMOVE_SUBSPACE_PROPOSAL)
+        .with_type(indexer_ids::PROPOSAL_TYPE)
+        .with_type(indexer_ids::REMOVE_SUBSPACE_PROPOSAL)
     }
 }
 
@@ -331,8 +331,8 @@ impl ProposedSubspace {
                 "{}-{}",
                 subspace_proposal_id, subspace_id
             )),
-            system_ids::INDEXER_SPACE_ID,
-            system_ids::PROPOSED_SUBSPACE,
+            indexer_ids::INDEXER_SPACE_ID,
+            indexer_ids::PROPOSED_SUBSPACE,
             subspace_proposal_id,
             subspace_id,
             block,

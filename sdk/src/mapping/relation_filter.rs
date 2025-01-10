@@ -33,8 +33,8 @@ impl RelationFilter {
     fn match_clause(&self) -> String {
         format!(
             r#"
-                MATCH ({match_clause_from}) <-[:`{FROM_ENTITY}`]- ({match_clause_relation}) -[:`{TO_ENTITY}`]-> ({match_clause_to})
-                MATCH (r) -[:`{RELATION_TYPE}`]-> ({match_clause_relation_type})
+            MATCH ({match_clause_from}) <-[:`{FROM_ENTITY}`]- ({match_clause_relation}) -[:`{TO_ENTITY}`]-> ({match_clause_to})
+            MATCH (r) -[:`{RELATION_TYPE}`]-> ({match_clause_relation_type})
             "#,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,

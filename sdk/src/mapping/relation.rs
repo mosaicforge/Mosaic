@@ -4,7 +4,7 @@ use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    error::DatabaseError, models::BlockMetadata, neo4j_utils::serde_value_to_bolt, system_ids,
+    error::DatabaseError, indexer_ids, models::BlockMetadata, neo4j_utils::serde_value_to_bolt, system_ids,
 };
 
 use super::{attributes::SystemProperties, query::Query, Entity, RelationFilter, Triples};
@@ -221,9 +221,9 @@ where
     pub async fn upsert(&self, neo4j: &neo4rs::Graph) -> Result<(), DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MATCH (from {{id: $from_id}})
-            MATCH (to {{id: $to_id}})
-            MATCH (relation_type {{id: $relation_type_id}})
+            MATCH (from {{id: $from_id, space_id: $space_id}})
+            MATCH (to {{id: $to_id, space_id: $space_id}})
+            MATCH (relation_type {{id: $relation_type_id, space_id: $space_id}})
             MERGE (from)<-[:`{FROM_ENTITY}`]-(r {{id: $id, space_id: $space_id}})-[:`{TO_ENTITY}`]->(to)
             MERGE (r) -[:`{RELATION_TYPE}`]-> (relation_type)
             ON CREATE SET r += {{
@@ -240,10 +240,10 @@ where
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
             RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
-            CREATED_AT = system_ids::CREATED_AT_TIMESTAMP,
-            CREATED_AT_BLOCK = system_ids::CREATED_AT_BLOCK,
-            UPDATED_AT = system_ids::UPDATED_AT_TIMESTAMP,
-            UPDATED_AT_BLOCK = system_ids::UPDATED_AT_BLOCK,
+            CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
+            CREATED_AT_BLOCK = indexer_ids::CREATED_AT_BLOCK,
+            UPDATED_AT = indexer_ids::UPDATED_AT_TIMESTAMP,
+            UPDATED_AT_BLOCK = indexer_ids::UPDATED_AT_BLOCK,
         );
 
         let bolt_data = match serde_value_to_bolt(serde_json::to_value(self.attributes())?) {

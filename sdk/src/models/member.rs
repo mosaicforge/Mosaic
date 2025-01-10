@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{error::DatabaseError, ids, mapping::Relation, system_ids};
+use crate::{error::DatabaseError, ids, indexer_ids, mapping::Relation, system_ids};
 
 use super::BlockMetadata;
 
@@ -12,8 +12,8 @@ impl SpaceMember {
     pub fn new(member_id: &str, space_id: &str, block: &BlockMetadata) -> Relation<Self> {
         Relation::new(
             &ids::create_geo_id(),
-            system_ids::INDEXER_SPACE_ID,
-            system_ids::MEMBER_RELATION,
+            indexer_ids::INDEXER_SPACE_ID,
+            indexer_ids::MEMBER_RELATION,
             member_id,
             space_id,
             block,
@@ -41,7 +41,7 @@ impl SpaceMember {
         let query = neo4rs::query(QUERY)
             .param("from", member_id)
             .param("to", space_id)
-            .param("relation_type", system_ids::MEMBER_RELATION);
+            .param("relation_type", indexer_ids::MEMBER_RELATION);
 
         Ok(neo4j.run(query).await?)
     }

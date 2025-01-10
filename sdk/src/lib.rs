@@ -9,6 +9,7 @@ pub mod neo4j_utils;
 pub mod pb;
 pub mod relation;
 
+pub use ids::indexer_ids;
 pub use ids::network_ids;
 pub use ids::system_ids;
 

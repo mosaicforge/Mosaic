@@ -5,8 +5,10 @@ use web3_utils::checksum_address;
 use crate::{
     error::DatabaseError,
     ids,
+    indexer_ids,
     mapping::{Entity, Relation},
-    network_ids, system_ids,
+    network_ids,
+    system_ids,
 };
 
 use super::BlockMetadata;
@@ -41,8 +43,8 @@ impl Space {
     }
 
     pub fn new(id: &str, space: Space, block: &BlockMetadata) -> Entity<Self> {
-        Entity::new(id, system_ids::INDEXER_SPACE_ID, block, space)
-            .with_type(system_ids::INDEXED_SPACE)
+        Entity::new(id, indexer_ids::INDEXER_SPACE_ID, block, space)
+            .with_type(system_ids::SPACE_TYPE)
     }
 
     /// Find a space by its DAO contract address.
@@ -52,7 +54,7 @@ impl Space {
     ) -> Result<Option<Entity<Self>>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             "MATCH (n:`{INDEXED_SPACE}` {{dao_contract_address: $dao_contract_address}}) RETURN n",
-            INDEXED_SPACE = system_ids::INDEXED_SPACE,
+            INDEXED_SPACE = system_ids::SPACE_TYPE,
         );
 
         let query = neo4rs::query(QUERY).param(
@@ -84,7 +86,7 @@ impl Space {
     ) -> Result<Option<Entity<Self>>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             "MATCH (n:`{INDEXED_SPACE}` {{space_plugin_address: $space_plugin_address}}) RETURN n",
-            INDEXED_SPACE = system_ids::INDEXED_SPACE,
+            INDEXED_SPACE = system_ids::SPACE_TYPE,
         );
 
         let query = neo4rs::query(QUERY).param(
@@ -116,7 +118,7 @@ impl Space {
     ) -> Result<Option<Entity<Self>>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             "MATCH (n:`{INDEXED_SPACE}` {{voting_plugin_address: $voting_plugin_address}}) RETURN n",
-            INDEXED_SPACE = system_ids::INDEXED_SPACE,
+            INDEXED_SPACE = system_ids::SPACE_TYPE,
         );
 
         let query = neo4rs::query(QUERY).param(
@@ -148,7 +150,7 @@ impl Space {
     ) -> Result<Option<Entity<Self>>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             "MATCH (n:`{INDEXED_SPACE}` {{member_access_plugin: $member_access_plugin}}) RETURN n",
-            INDEXED_SPACE = system_ids::INDEXED_SPACE,
+            INDEXED_SPACE = system_ids::SPACE_TYPE,
         );
 
         let query = neo4rs::query(QUERY).param(
@@ -180,7 +182,7 @@ impl Space {
     ) -> Result<Option<Entity<Self>>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             "MATCH (n:`{INDEXED_SPACE}` {{personal_space_admin_plugin: $personal_space_admin_plugin}}) RETURN n",
-            INDEXED_SPACE = system_ids::INDEXED_SPACE,
+            INDEXED_SPACE = system_ids::SPACE_TYPE,
         );
 
         let query = neo4rs::query(QUERY).param(
@@ -209,7 +211,7 @@ impl Space {
     pub async fn find_all(neo4j: &neo4rs::Graph) -> Result<Vec<Entity<Self>>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             "MATCH (n:`{INDEXED_SPACE}`) RETURN n",
-            INDEXED_SPACE = system_ids::INDEXED_SPACE,
+            INDEXED_SPACE = system_ids::SPACE_TYPE,
         );
 
         let query = neo4rs::query(QUERY);
@@ -303,7 +305,7 @@ impl SpaceBuilder {
     pub fn build(self) -> Entity<Space> {
         Entity::new(
             &self.id,
-            system_ids::INDEXER_SPACE_ID,
+            indexer_ids::INDEXER_SPACE_ID,
             &self.block,
             Space {
                 network: self.network,
@@ -315,7 +317,7 @@ impl SpaceBuilder {
                 personal_space_admin_plugin: self.personal_space_admin_plugin,
             },
         )
-        .with_type(system_ids::INDEXED_SPACE)
+        .with_type(system_ids::SPACE_TYPE)
     }
 }
 
@@ -327,8 +329,8 @@ impl ParentSpace {
     pub fn new(space_id: &str, parent_space_id: &str, block: &BlockMetadata) -> Relation<Self> {
         Relation::new(
             &ids::create_geo_id(),
-            system_ids::INDEXER_SPACE_ID,
-            system_ids::PARENT_SPACE,
+            indexer_ids::INDEXER_SPACE_ID,
+            indexer_ids::PARENT_SPACE,
             space_id,
             parent_space_id,
             block,

@@ -12,7 +12,7 @@ pub struct Template {
     types: Vec<String>,
     #[allow(dead_code)]
     foreign_types: Vec<String>,
-    additional_data: Vec<ipfs::Triple>,
+    additional_data: Vec<ipfs::Op>,
 }
 
 pub fn non_profit() -> impl Iterator<Item = Template> {
@@ -321,7 +321,7 @@ pub fn person() -> impl Iterator<Item = Template> {
     .into_iter()
 }
 
-pub fn templates_ops() -> impl Iterator<Item = ipfs::Triple> {
+pub fn templates_ops() -> impl Iterator<Item = ipfs::Op> {
     std::iter::empty()
         .chain(non_profit())
         .chain(company())

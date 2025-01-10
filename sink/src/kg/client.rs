@@ -1,8 +1,7 @@
 use futures::TryStreamExt;
 use serde::Deserialize;
 
-use crate::bootstrap::{self, constants};
-// use web3_utils::checksum_address;
+use crate::bootstrap::constants;
 
 use sdk::{
     error::DatabaseError,
@@ -24,16 +23,6 @@ impl Client {
 
     /// Bootstrap the database with the initial data
     pub async fn bootstrap(&self, _rollup: bool) -> Result<(), DatabaseError> {
-        // let bootstrap_ops = if rollup {
-        //     conversions::batch_ops(bootstrap::bootstrap())
-        // } else {
-        //     bootstrap::bootstrap().map(Op::from).collect()
-        // };
-
-        // stream::iter(bootstrap_ops)
-        //     .map(Ok) // Convert to Result to be able to use try_for_each
-        //     .try_for_each(|op| async move { op.apply_op(self, ROOT_SPACE_ID).await })
-        //     .await?;
         models::Space::builder(
             constants::ROOT_SPACE_ID,
             constants::ROOT_SPACE_DAO_ADDRESS,
@@ -44,14 +33,14 @@ impl Client {
         .member_access_plugin(constants::ROOT_SPACE_MEMBER_ACCESS_ADDRESS)
         .build()
         .upsert(&self.neo4j)
-        .await?;
-
-        self.process_ops(
-            &BlockMetadata::default(),
-            constants::ROOT_SPACE_ID,
-            bootstrap::bootstrap(),
-        )
         .await
+
+        // self.process_ops(
+        //     &BlockMetadata::default(),
+        //     constants::ROOT_SPACE_ID,
+        //     bootstrap::bootstrap(),
+        // )
+        // .await
     }
 
     /// Reset the database by deleting all nodes and relations and re-bootstrapping it
@@ -218,8 +207,8 @@ impl Client {
                         ..
                     },
                 ) => {
-                    tracing::info!("DeleteRelation: {}", relation.id,);
-                    Entity::<()>::delete(&self.neo4j, block, space_id, &relation.id).await?
+                    tracing::info!("DeleteRelation: {}", relation.id);
+                    Entity::<()>::delete(&self.neo4j, block, &relation.id, space_id).await?
                 }
                 (typ, maybe_triple) => {
                     tracing::warn!("Unhandled case: {:?} {:?}", typ, maybe_triple);

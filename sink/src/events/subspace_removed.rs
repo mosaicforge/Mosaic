@@ -19,7 +19,7 @@ impl EventHandler {
             self.kg.neo4j
                 .run(neo4rs::query(&format!(
                     "MATCH (subspace:`{INDEXED_SPACE}` {{parent_space: $space_id}}) DELETE subspace",
-                    INDEXED_SPACE = system_ids::INDEXED_SPACE,
+                    INDEXED_SPACE = system_ids::SPACE_TYPE,
                 )).param("space_id", space.id()))
                 .await
                 .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly

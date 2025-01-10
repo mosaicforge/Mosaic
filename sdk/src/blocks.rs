@@ -16,7 +16,7 @@ impl DataBlock {
             .chain(create_relationship(
                 &new_block_id,
                 system_ids::DATA_BLOCK,
-                system_ids::TYPES,
+                system_ids::TYPES_ATTRIBUTE,
                 None,
             ))
             // Create relation: NewBlock > DATA_SOURCE_TYPE_RELATION_TYPE > SourceType
@@ -36,7 +36,7 @@ impl DataBlock {
             // Set attribute: NewBlock.Name
             .chain(name.map(|name| ipfs::Triple {
                 entity: new_block_id,
-                attribute: system_ids::NAME.to_string(),
+                attribute: system_ids::NAME_ATTRIBUTE.to_string(),
                 value: Some(ipfs::Value {
                     r#type: ipfs::ValueType::Text.into(),
                     value: name.to_string(),
@@ -76,7 +76,7 @@ impl TextBlock {
             .chain(create_relationship(
                 &new_block_id,
                 system_ids::TEXT_BLOCK,
-                system_ids::TYPES,
+                system_ids::TYPES_ATTRIBUTE,
                 None,
             ))
             // Create relation: Entity > BLOCKS > NewBlock

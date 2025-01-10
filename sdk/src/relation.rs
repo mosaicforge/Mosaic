@@ -26,7 +26,7 @@ impl ToTriples for Relation {
             // Type of Collection Item
             ipfs::Triple {
                 entity: self.id.clone().into(),
-                attribute: system_ids::TYPES.to_string(),
+                attribute: system_ids::TYPES_ATTRIBUTE.to_string(),
                 value: Some(ipfs::Value {
                     r#type: ipfs::ValueType::Url as i32,
                     value: GraphUri::from_id_str(system_ids::RELATION_TYPE).to_string(),
@@ -121,7 +121,7 @@ impl FromTriples for Relation {
                             attribute,
                             value: Some(ipfs::Value { r#type, value }),
                             ..
-                        } if attribute == system_ids::TYPES
+                        } if attribute == system_ids::TYPES_ATTRIBUTE
                             && r#type == ipfs::ValueType::Url as i32
                             && value
                                 == GraphUri::from_id_str(system_ids::RELATION_TYPE).to_string() =>
@@ -211,7 +211,7 @@ pub fn create_relationship(
         // Set the type of the new entity to RELATION_TYPE
         ipfs::Triple {
             entity: new_entity_id.clone(),
-            attribute: system_ids::TYPES.to_string(),
+            attribute: system_ids::TYPES_ATTRIBUTE.to_string(),
             value: Some(ipfs::Value {
                 r#type: ipfs::ValueType::Url as i32,
                 value: GraphUri::from_id_str(system_ids::RELATION_TYPE).to_string(),

@@ -21,9 +21,12 @@ impl EntityFilter {
             where_clause = self.where_clause(),
         );
 
+        println!("query: {}", query);
+
         neo4rs::query(&query)
             .param("types", self.types_contain.clone().unwrap_or_default())
             .param("space_id", self.space_id.clone().unwrap_or_default())
+            .param("id", self.id.clone().unwrap_or_default())
     }
 
     fn match_clause(&self) -> String {
@@ -31,11 +34,13 @@ impl EntityFilter {
             Some(_) => {
                 format!(
                     r#"
-                    MATCH {match_clause_node} <-[:`{FROM_ENTITY}`]- (:`{TYPES}`) -[:`{TO_ENTITY}`]-> (t)
+                    MATCH {match_clause_node} <-[:`{FROM_ENTITY}`]- (r) -[:`{TO_ENTITY}`]-> (t)
+                    MATCH (r) -[:`{RELATION_TYPE}`]-> (rt {{id: "{TYPES}"}})
                     "#,
                     FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
                     TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
-                    TYPES = system_ids::TYPES,
+                    RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
+                    TYPES = system_ids::TYPES_ATTRIBUTE,
                     match_clause_node = self.match_clause_node(),
                 )
             }
@@ -169,8 +174,8 @@ impl EntityRelationFilter {
     fn match_clause(&self) -> String {
         format!(
             r#"
-                MATCH {match_clause_from} <-[:`{FROM_ENTITY}`]- {match_clause_relation} -[:`{TO_ENTITY}`]-> {match_clause_to}
-                MATCH (r) -[:`{RELATION_TYPE}`]-> {match_clause_relation_type}
+            MATCH {match_clause_from} <-[:`{FROM_ENTITY}`]- {match_clause_relation} -[:`{TO_ENTITY}`]-> {match_clause_to}
+            MATCH (r) -[:`{RELATION_TYPE}`]-> {match_clause_relation_type}
             "#,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
