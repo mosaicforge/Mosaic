@@ -347,7 +347,7 @@ impl<T> Entity<T> {
 
     pub async fn delete(
         neo4j: &neo4rs::Graph,
-        block: &BlockMetadata,
+        _block: &BlockMetadata,
         id: &str,
         space_id: &str,
     ) -> Result<(), DatabaseError> {
@@ -358,7 +358,9 @@ impl<T> Entity<T> {
             "#,
         );
 
-        let query = neo4rs::query(QUERY).param("id", id).param("space_id", space_id);
+        let query = neo4rs::query(QUERY)
+            .param("id", id)
+            .param("space_id", space_id);
 
         Ok(neo4j.run(query).await?)
     }

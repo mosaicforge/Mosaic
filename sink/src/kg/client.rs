@@ -142,11 +142,15 @@ impl Client {
             match (op.r#type(), op) {
                 (
                     pb::ipfs::OpType::SetTriple,
-                    pb::ipfs::Op {triple: Some(pb::ipfs::Triple {
-                        entity,
-                        attribute,
-                        value: Some(value),
-                    }), ..},
+                    pb::ipfs::Op {
+                        triple:
+                            Some(pb::ipfs::Triple {
+                                entity,
+                                attribute,
+                                value: Some(value),
+                            }),
+                        ..
+                    },
                 ) => {
                     tracing::info!("SetTriple: {}, {}, {:?}", entity, attribute, value,);
 
@@ -160,7 +164,13 @@ impl Client {
                     )
                     .await?
                 }
-                (pb::ipfs::OpType::DeleteTriple, pb::ipfs::Op {triple: Some(triple), ..}) => {
+                (
+                    pb::ipfs::OpType::DeleteTriple,
+                    pb::ipfs::Op {
+                        triple: Some(triple),
+                        ..
+                    },
+                ) => {
                     tracing::info!(
                         "DeleteTriple: {}, {}, {:?}",
                         triple.entity,
@@ -174,7 +184,13 @@ impl Client {
                 // }
                 // (pb::ipfs::OpType::DeleteEntity, op) => {
                 // }
-                (pb::ipfs::OpType::CreateRelation, pb::ipfs::Op {relation: Some(relation), ..}) => {
+                (
+                    pb::ipfs::OpType::CreateRelation,
+                    pb::ipfs::Op {
+                        relation: Some(relation),
+                        ..
+                    },
+                ) => {
                     tracing::info!(
                         "CreateRelation: {}, {}, {}, {}",
                         relation.id,
@@ -190,16 +206,19 @@ impl Client {
                         &relation.from_entity,
                         &relation.to_entity,
                         block,
-                        ()
+                        (),
                     )
                     .upsert(&self.neo4j)
                     .await?
                 }
-                (pb::ipfs::OpType::DeleteRelation, pb::ipfs::Op {relation: Some(relation), ..}) => {
-                    tracing::info!(
-                        "DeleteRelation: {}",
-                        relation.id,
-                    );
+                (
+                    pb::ipfs::OpType::DeleteRelation,
+                    pb::ipfs::Op {
+                        relation: Some(relation),
+                        ..
+                    },
+                ) => {
+                    tracing::info!("DeleteRelation: {}", relation.id,);
                     Entity::<()>::delete(&self.neo4j, block, space_id, &relation.id).await?
                 }
                 (typ, maybe_triple) => {

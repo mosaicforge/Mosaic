@@ -139,15 +139,9 @@ impl From<mapping::Relation<mapping::Triples>> for Relation {
             relation_type: relation.r#type.clone(),
             space_id: relation.system_properties().space_id.clone(),
             created_at: relation.system_properties().created_at,
-            created_at_block: relation
-                .system_properties()
-                .created_at_block
-                .clone(),
+            created_at_block: relation.system_properties().created_at_block.clone(),
             updated_at: relation.system_properties().updated_at,
-            updated_at_block: relation
-                .system_properties()
-                .updated_at_block
-                .clone(),
+            updated_at_block: relation.system_properties().updated_at_block.clone(),
             attributes: relation
                 .entity
                 .attributes

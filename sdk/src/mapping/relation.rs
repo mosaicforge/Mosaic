@@ -7,9 +7,7 @@ use crate::{
     error::DatabaseError, models::BlockMetadata, neo4j_utils::serde_value_to_bolt, system_ids,
 };
 
-use super::{
-    attributes::SystemProperties, query::Query, Entity, RelationFilter, Triples
-};
+use super::{attributes::SystemProperties, query::Query, Entity, RelationFilter, Triples};
 
 pub struct Relation<T> {
     // pub id: String,
@@ -34,21 +32,11 @@ impl<T> Relation<T> {
             from: from.to_string(),
             to: to.to_string(),
             r#type: r#type.to_string(),
-            entity: Entity::new(
-                id,
-                space_id,
-                block,
-                data,
-            ).with_type(system_ids::RELATION_TYPE),
+            entity: Entity::new(id, space_id, block, data).with_type(system_ids::RELATION_TYPE),
         }
     }
 
-    pub fn from_entity(
-        entity: Entity<T>, 
-        from: &str, 
-        to: &str,
-        r#type: &str,
-    ) -> Self {
+    pub fn from_entity(entity: Entity<T>, from: &str, to: &str, r#type: &str) -> Self {
         Self {
             // id: entity.id().to_string(),
             from: from.to_string(),
@@ -275,9 +263,7 @@ where
             )
             .param(
                 "created_at_block",
-                self.system_properties()
-                    .created_at_block
-                    .to_string(),
+                self.system_properties().created_at_block.to_string(),
             )
             .param(
                 "updated_at",
@@ -285,9 +271,7 @@ where
             )
             .param(
                 "updated_at_block",
-                self.system_properties()
-                    .updated_at_block
-                    .to_string(),
+                self.system_properties().updated_at_block.to_string(),
             )
             .param("relation_type_id", self.r#type.clone())
             .param("labels", self.entity.types.clone())
