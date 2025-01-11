@@ -21,8 +21,6 @@ impl EntityFilter {
             where_clause = self.where_clause(),
         );
 
-        println!("query: {}", query);
-
         neo4rs::query(&query)
             .param("types", self.types_contain.clone().unwrap_or_default())
             .param("space_id", self.space_id.clone().unwrap_or_default())
@@ -212,16 +210,28 @@ impl EntityRelationFilter {
         //     (Some(_), None) => "(r {id: $id})".to_string(),
         //     (None, None) => "(r)".to_string(),
         // }
-        match self.id.as_ref() {
-            Some(_) => "(r {id: $id})".to_string(),
-            None => "(r)".to_string(),
+        // match self.id.as_ref() {
+        //     Some(_) => "(r {id: $id})".to_string(),
+        //     None => "(r)".to_string(),
+        // }
+        match (self.id.as_ref(), self.space_id.as_ref()) {
+            (Some(_), Some(_)) => "(r {id: $id, space_id: $space_id})".to_string(),
+            (None, Some(_)) => "(r {space_id: $space_id})".to_string(),
+            (Some(_), None) => "(r {id: $id})".to_string(),
+            (None, None) => "(r)".to_string(),
         }
     }
 
     fn match_clause_relation_type(&self) -> String {
-        match self.relation_type_id.as_ref() {
-            Some(_) => "(rt {id: $relation_type_id})".to_string(),
-            None => "(rt)".to_string(),
+        // match self.relation_type_id.as_ref() {
+        //     Some(_) => "(rt {id: $relation_type_id})".to_string(),
+        //     None => "(rt)".to_string(),
+        // }
+        match (self.id.as_ref(), self.space_id.as_ref()) {
+            (Some(_), Some(_)) => "(rt {id: $relation_type_id, space_id: $space_id})".to_string(),
+            (None, Some(_)) => "(rt {space_id: $space_id})".to_string(),
+            (Some(_), None) => "(rt {id: $relation_type_id})".to_string(),
+            (None, None) => "(rt)".to_string(),
         }
     }
 }
