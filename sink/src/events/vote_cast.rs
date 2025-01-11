@@ -1,9 +1,9 @@
 use futures::join;
 use sdk::{
+    indexer_ids,
     mapping::Entity,
     models::{self, Space, VoteCast},
     pb::geo,
-    indexer_ids,
 };
 use web3_utils::checksum_address;
 

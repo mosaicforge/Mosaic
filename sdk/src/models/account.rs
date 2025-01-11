@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use web3_utils::checksum_address;
 
-use crate::{ids, mapping::Entity, indexer_ids};
+use crate::{ids, indexer_ids, mapping::Entity};
 
 use super::BlockMetadata;
 

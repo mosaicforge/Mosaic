@@ -4,7 +4,8 @@ use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    error::DatabaseError, indexer_ids, models::BlockMetadata, neo4j_utils::serde_value_to_bolt, system_ids,
+    error::DatabaseError, indexer_ids, models::BlockMetadata, neo4j_utils::serde_value_to_bolt,
+    system_ids,
 };
 
 use super::{attributes::SystemProperties, query::Query, Entity, RelationFilter, Triples};

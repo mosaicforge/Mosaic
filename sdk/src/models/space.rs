@@ -4,11 +4,9 @@ use web3_utils::checksum_address;
 
 use crate::{
     error::DatabaseError,
-    ids,
-    indexer_ids,
+    ids, indexer_ids,
     mapping::{Entity, Relation},
-    network_ids,
-    system_ids,
+    network_ids, system_ids,
 };
 
 use super::BlockMetadata;
