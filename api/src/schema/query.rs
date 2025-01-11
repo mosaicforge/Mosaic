@@ -85,16 +85,18 @@ impl Query {
         match filter {
             Some(RelationFilter {
                 relation_types: Some(types),
-            }) if !types.is_empty() => mapping::Relation::<mapping::Triples>::find_by_types(
-                &executor.context().0,
-                &types,
-                &space_id,
-            )
-            .await
-            .expect("Failed to find relations")
-            .into_iter()
-            .map(|rel| rel.into())
-            .collect::<Vec<_>>(),
+            }) if !types.is_empty() => {
+                mapping::Relation::<mapping::Triples>::find_by_relation_types(
+                    &executor.context().0,
+                    &types,
+                    &space_id,
+                )
+                .await
+                .expect("Failed to find relations")
+                .into_iter()
+                .map(|rel| rel.into())
+                .collect::<Vec<_>>()
+            }
             _ => mapping::Relation::<mapping::Triples>::find_many(
                 &executor.context().0,
                 Some(mapping::RelationFilter {

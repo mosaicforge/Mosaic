@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ids, mapping::Relation, system_ids};
+use crate::{ids, indexer_ids, mapping::Relation};
 
 use super::BlockMetadata;
 
@@ -47,7 +47,8 @@ impl VoteCast {
     ) -> Relation<Self> {
         Relation::new(
             &Self::new_id(account_id, proposal_id),
-            system_ids::INDEXER_SPACE_ID,
+            indexer_ids::INDEXER_SPACE_ID,
+            indexer_ids::VOTE_CAST,
             account_id,
             proposal_id,
             block,

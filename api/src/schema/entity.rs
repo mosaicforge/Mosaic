@@ -35,7 +35,7 @@ impl Entity {
     fn name(&self) -> Option<&str> {
         self.attributes
             .iter()
-            .find(|triple| triple.attribute == system_ids::NAME)
+            .find(|triple| triple.attribute == system_ids::NAME_ATTRIBUTE)
             .map(|triple| triple.value.as_str())
     }
 

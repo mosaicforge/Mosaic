@@ -14,7 +14,7 @@ impl RelationFilter {
         let query = format!(
             r#"
             {match_clause}
-            RETURN from, to, r
+            RETURN from, to, r, rt
             "#,
             match_clause = self.match_clause(),
         );
@@ -32,12 +32,17 @@ impl RelationFilter {
 
     fn match_clause(&self) -> String {
         format!(
-            "MATCH ({match_clause_from}) <-[:`{FROM_ENTITY}`]- ({match_clause_relation}) -[:`{TO_ENTITY}`]-> ({match_clause_to})",
+            r#"
+            MATCH ({match_clause_from}) <-[:`{FROM_ENTITY}`]- ({match_clause_relation}) -[:`{TO_ENTITY}`]-> ({match_clause_to})
+            MATCH (r) -[:`{RELATION_TYPE}`]-> ({match_clause_relation_type})
+            "#,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+            RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
             match_clause_from = self.match_clause_from(),
             match_clause_relation = self.match_clause_relation(),
             match_clause_to = self.match_clause_to(),
+            match_clause_relation_type = self.match_clause_relation_type(),
         )
     }
 
@@ -60,13 +65,24 @@ impl RelationFilter {
     }
 
     fn match_clause_relation(&self) -> String {
-        match (self.id.as_ref(), self.relation_type.as_ref()) {
-            (Some(_), Some(rel_type)) => {
-                format!("(r:`{rel_type}` {{id: $id}})", rel_type = rel_type)
-            }
-            (None, Some(rel_type)) => format!("(r:`{rel_type}`)", rel_type = rel_type),
-            (Some(_), None) => "(r {id: $id})".to_string(),
-            (None, None) => "(r)".to_string(),
+        // match (self.id.as_ref(), self.relation_type.as_ref()) {
+        //     (Some(_), Some(rel_type)) => {
+        //         format!("(r:`{rel_type}` {{id: $id}})", rel_type = rel_type)
+        //     }
+        //     (None, Some(rel_type)) => format!("(r:`{rel_type}`)", rel_type = rel_type),
+        //     (Some(_), None) => "(r {id: $id})".to_string(),
+        //     (None, None) => "(r)".to_string(),
+        // }
+        match self.id.as_ref() {
+            Some(_) => "(r {id: $id})".to_string(),
+            None => "(r)".to_string(),
+        }
+    }
+
+    fn match_clause_relation_type(&self) -> String {
+        match self.relation_type.as_ref() {
+            Some(_) => "(rt {id: $relation_type})".to_string(),
+            None => "(rt)".to_string(),
         }
     }
 }

@@ -1,9 +1,9 @@
 use futures::join;
 use sdk::{
+    indexer_ids,
     mapping::Entity,
     models::{self, Space, VoteCast},
     pb::geo,
-    system_ids,
 };
 use web3_utils::checksum_address;
 
@@ -31,7 +31,7 @@ impl EventHandler {
                 let account = Entity::<models::GeoAccount>::find_by_id(
                     &self.kg.neo4j,
                     &models::GeoAccount::new_id(&vote.voter),
-                    system_ids::INDEXER_SPACE_ID,
+                    indexer_ids::INDEXER_SPACE_ID,
                 )
                 .await?;
 

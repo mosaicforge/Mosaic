@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{error::DatabaseError, ids, mapping::Relation, system_ids};
+use crate::{error::DatabaseError, ids, indexer_ids, mapping::Relation, system_ids};
 
 use super::BlockMetadata;
 
@@ -12,13 +12,13 @@ impl SpaceEditor {
     pub fn new(editor_id: &str, space_id: &str, block: &BlockMetadata) -> Relation<Self> {
         Relation::new(
             &ids::create_geo_id(),
-            system_ids::INDEXER_SPACE_ID,
+            indexer_ids::INDEXER_SPACE_ID,
+            indexer_ids::EDITOR_RELATION,
             editor_id,
             space_id,
             block,
             Self,
         )
-        .with_type(system_ids::EDITOR_RELATION)
     }
 
     /// Returns a query to delete a relation between an editor and a space.
@@ -29,17 +29,19 @@ impl SpaceEditor {
     ) -> Result<(), DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
-                MATCH ({{id: $from}})<-[:`{FROM_ENTITY}`]-(r:`{EDITOR_RELATION}`)-[:`{TO_ENTITY}`]->({{id: $to}})
+                MATCH ({{id: $from}})<-[:`{FROM_ENTITY}`]-(r)-[:`{TO_ENTITY}`]->({{id: $to}})
+                MATCH (r) -[:`{RELATION_TYPE}`]-> ({{id: $relation_type}})
                 DETACH DELETE r
             "#,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
-            EDITOR_RELATION = system_ids::EDITOR_RELATION,
+            RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
         );
 
         let query = neo4rs::query(QUERY)
             .param("from", editor_id)
-            .param("to", space_id);
+            .param("to", space_id)
+            .param("relation_type", indexer_ids::EDITOR_RELATION);
 
         Ok(neo4j.run(query).await?)
     }
