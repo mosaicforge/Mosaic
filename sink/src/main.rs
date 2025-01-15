@@ -1,6 +1,7 @@
 use std::env;
 
 use anyhow::Error;
+use axum::{response::Json, routing::get, Router};
 use clap::{Args, Parser};
 use sink::{events::EventHandler, kg};
 use substreams_utils::Sink;
@@ -12,6 +13,7 @@ const MODULE_NAME: &str = "geo_out";
 
 const DEFAULT_START_BLOCK: u64 = 880;
 const DEFAULT_END_BLOCK: u64 = 0;
+const DEFAULT_HEALTH_PORT: u16 = 8081;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -48,6 +50,8 @@ async fn main() -> Result<(), Error> {
     };
 
     let sink = EventHandler::new(kg_client);
+
+    start_health_server().await;
 
     sink.run(
         &endpoint_url,
@@ -109,4 +113,38 @@ fn set_log_level() {
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "info");
     }
+}
+
+async fn health() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "component": "sink",
+        "status": "ok",
+    }))
+}
+
+async fn start_health_server() {
+    let app = Router::new().route("/health", get(health));
+
+    let port = env::var("KG_SINK_HEALTH_PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or_else(|| {
+            tracing::info!(
+                "KG_SINK_HEALTH_PORT not set, using default port {}",
+                DEFAULT_HEALTH_PORT
+            );
+            DEFAULT_HEALTH_PORT
+        });
+
+    let addr = std::net::SocketAddr::from(([0, 0, 0, 0], port));
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .unwrap_or_else(|e| panic!("failed to start health server on {addr}: {e}"));
+    tracing::info!("Health server listening on {addr}/health");
+
+    tokio::spawn(async move {
+        axum::serve(listener, app)
+            .await
+            .unwrap_or_else(|e| panic!("failed to run health server: {e}"));
+    });
 }
