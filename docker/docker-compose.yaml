@@ -20,6 +20,8 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       target: sink
+    ports:
+      - "8081:8081"
     depends_on:
       neo4j:
         condition: service_healthy

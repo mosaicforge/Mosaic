@@ -3,7 +3,7 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use axum::{
-    response::Html,
+    response::{Html, Json},
     routing::{get, on, MethodFilter},
     Extension, Router,
 };
@@ -20,11 +20,18 @@ type Schema =
     RootNode<'static, Query, EmptyMutation<KnowledgeGraph>, EmptySubscription<KnowledgeGraph>>;
 
 async fn homepage() -> Html<&'static str> {
-    "<html><h1>juniper_axum/simple example</h1>\
+    "<html><h1>KG API</h1>\
            <div>visit <a href=\"/graphiql\">GraphiQL</a></div>\
            <div>visit <a href=\"/playground\">GraphQL Playground</a></div>\
     </html>"
         .into()
+}
+
+async fn health() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "component": "api",
+        "status": "ok",
+    }))
 }
 
 #[tokio::main]
@@ -56,6 +63,7 @@ async fn main() -> anyhow::Result<()> {
         //     "/subscriptions",
         //     get(ws::<Arc<Schema>>(ConnectionConfig::new(()))),
         // )
+        .route("/health", get(health))
         .route("/graphiql", get(graphiql("/graphql", "/subscriptions")))
         .route("/playground", get(playground("/graphql", "/subscriptions")))
         .route("/", get(homepage))

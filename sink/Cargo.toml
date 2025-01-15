@@ -21,6 +21,7 @@ tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 const_format = "0.2.33"
+axum = "0.7.9"
 
 substreams-utils = { version = "0.1.0", path = "../substreams-utils" }
 sdk = { version = "0.1.0", path = "../sdk" }
