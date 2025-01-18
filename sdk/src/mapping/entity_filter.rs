@@ -202,18 +202,6 @@ impl EntityRelationFilter {
     }
 
     fn match_clause_relation(&self) -> String {
-        // match (self.id.as_ref(), self.relation_type_id.as_ref()) {
-        //     (Some(_), Some(rel_type)) => {
-        //         format!("(r:`{rel_type}` {{id: $id}})", rel_type = rel_type)
-        //     }
-        //     (None, Some(rel_type)) => format!("(r:`{rel_type}`)", rel_type = rel_type),
-        //     (Some(_), None) => "(r {id: $id})".to_string(),
-        //     (None, None) => "(r)".to_string(),
-        // }
-        // match self.id.as_ref() {
-        //     Some(_) => "(r {id: $id})".to_string(),
-        //     None => "(r)".to_string(),
-        // }
         match (self.id.as_ref(), self.space_id.as_ref()) {
             (Some(_), Some(_)) => "(r {id: $id, space_id: $space_id})".to_string(),
             (None, Some(_)) => "(r {space_id: $space_id})".to_string(),
@@ -223,11 +211,7 @@ impl EntityRelationFilter {
     }
 
     fn match_clause_relation_type(&self) -> String {
-        // match self.relation_type_id.as_ref() {
-        //     Some(_) => "(rt {id: $relation_type_id})".to_string(),
-        //     None => "(rt)".to_string(),
-        // }
-        match (self.id.as_ref(), self.space_id.as_ref()) {
+        match (self.relation_type_id.as_ref(), self.space_id.as_ref()) {
             (Some(_), Some(_)) => "(rt {id: $relation_type_id, space_id: $space_id})".to_string(),
             (None, Some(_)) => "(rt {space_id: $space_id})".to_string(),
             (Some(_), None) => "(rt {id: $relation_type_id})".to_string(),
