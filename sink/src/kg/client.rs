@@ -2,7 +2,7 @@ use crate::bootstrap::constants;
 
 use sdk::{
     error::DatabaseError,
-    mapping::{self, Entity, Relation},
+    mapping::{Entity, Relation},
     models::{self, BlockMetadata},
     pb,
 };
@@ -50,11 +50,6 @@ impl Client {
         // Re-bootstrap the database
         self.bootstrap(rollup).await?;
 
-        Ok(())
-    }
-
-    pub async fn run(&self, query: mapping::Query<()>) -> Result<(), DatabaseError> {
-        self.neo4j.run(query.query).await?;
         Ok(())
     }
 

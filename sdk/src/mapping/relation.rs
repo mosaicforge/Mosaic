@@ -4,11 +4,11 @@ use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    error::DatabaseError, indexer_ids, models::BlockMetadata, neo4j_utils::serde_value_to_bolt,
-    system_ids,
+    error::DatabaseError, indexer_ids, mapping::query_utils::query_part::IntoQueryPart,
+    models::BlockMetadata, neo4j_utils::serde_value_to_bolt, system_ids,
 };
 
-use super::{attributes::SystemProperties, query::Query, Entity, RelationFilter, Triples};
+use super::{attributes::SystemProperties, relation_queries, Entity, Triples};
 
 pub struct Relation<T> {
     // pub id: String,
@@ -74,7 +74,7 @@ impl<T> Relation<T> {
     }
 
     /// Returns a query to delete the current relation
-    pub fn delete_query(id: &str) -> Query<()> {
+    pub fn delete_query(id: &str) -> neo4rs::Query {
         const QUERY: &str = const_format::formatcp!(
             r#"
             MATCH (r {{id: $id}})
@@ -82,7 +82,7 @@ impl<T> Relation<T> {
             "#,
         );
 
-        Query::new(QUERY).param("id", id)
+        neo4rs::query(QUERY).param("id", id)
     }
 
     pub async fn types(
@@ -362,7 +362,7 @@ where
 
     pub async fn find_many(
         neo4j: &neo4rs::Graph,
-        r#where: Option<RelationFilter>,
+        r#where: Option<relation_queries::FindMany>,
     ) -> Result<Vec<Self>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
@@ -378,7 +378,7 @@ where
         );
 
         if let Some(filter) = r#where {
-            Self::_find_many(neo4j, filter.query()).await
+            Self::_find_many(neo4j, filter.into_query_part().build()).await
         } else {
             Self::_find_many(neo4j, neo4rs::query(QUERY)).await
         }

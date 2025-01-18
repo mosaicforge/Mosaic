@@ -4,5 +4,5 @@ use juniper::GraphQLInputObject;
 #[derive(Debug, GraphQLInputObject)]
 pub struct RelationFilter {
     /// Filter by relation types
-    pub(crate) relation_types: Option<Vec<String>>,
+    pub(crate) relation_type: Option<String>,
 }

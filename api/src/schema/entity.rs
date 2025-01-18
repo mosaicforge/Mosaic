@@ -123,10 +123,28 @@ impl Entity {
         r#where: Option<EntityRelationFilter>,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Vec<Relation> {
-        mapping::Entity::<mapping::Triples>::find_relations::<mapping::Triples>(
-            &executor.context().0,
-            &self.id,
-            r#where.map(Into::into),
+        let mut base_query = mapping::relation_queries::FindMany::new("r")
+            .from(|from_query| from_query.id(self.id()));
+        
+        if let Some(filter) = r#where {
+            if let Some(id) = filter.id {
+                base_query = base_query.id(&id);
+            }
+
+            if let Some(to_id) = filter.to_id {
+                base_query = base_query
+                    .to(|to_query| to_query.id(&to_id));
+            }
+
+            if let Some(relation_type) = filter.relation_type {
+                base_query = base_query
+                    .relation_type(&relation_type);
+            }
+        }
+
+        mapping::Relation::<mapping::Triples>::find_many(
+            &executor.context().0, 
+            Some(base_query),
         )
         .await
         .expect("Failed to find relations")

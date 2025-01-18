@@ -1,5 +1,6 @@
 pub mod entity;
 pub mod entity_filter;
+pub mod entity_order_by;
 pub mod options;
 pub mod query;
 pub mod relation;
