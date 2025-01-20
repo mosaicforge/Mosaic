@@ -48,25 +48,7 @@ impl Query {
             .space_id(&space_id);
 
         if let Some(r#where) = r#where {
-            if let Some(id) = r#where.id {
-                base_query = base_query.id(&id);
-            }
-
-            if let Some(types_contain) = r#where.types_contain {
-                base_query = base_query.types_contains(types_contain);
-            }
-
-            if let Some(attributes) = r#where.attributes {
-                for attr in attributes {
-                    if let Some(value) = attr.value {
-                        base_query = base_query.attribute(&attr.attribute, &value);
-                    }
-
-                    if let Some(value_type) = attr.value_type {
-                        base_query = base_query.attribute_value_type(&attr.attribute, &value_type.to_string());
-                    }
-                }
-            }
+            base_query = r#where.add_to_entity_query(base_query);
 
             if let Some(order_by) = order_by {
                 base_query = base_query.order_by(&order_by);
@@ -115,21 +97,7 @@ impl Query {
             .space_id(&space_id);
 
         if let Some(filter) = filter {
-            // if let Some(id) = filter.id {
-            //     base_query.id(&id);
-            // }
-
-            // if let Some(from_id) = filter.from_id {
-            //     base_query.from_id(&from_id);
-            // }
-
-            // if let Some(to_id) = filter.to_id {
-            //     base_query.to_id(&to_id);
-            // }
-
-            if let Some(relation_type) = filter.relation_type {
-                base_query = base_query.relation_type(&relation_type);
-            }
+            base_query = filter.add_to_relation_query(base_query);
 
             if let Some(order_by) = order_by {
                 base_query = base_query.order_by(&order_by);

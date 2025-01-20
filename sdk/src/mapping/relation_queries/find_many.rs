@@ -198,6 +198,7 @@ impl IntoQueryPart for FindMany {
             .return_clause("rt");
 
         base_query.merge_mut(self.id_filter.into_query_part());
+        base_query.merge_mut(self.space_filter.into_query_part());
         base_query.merge_mut(self.relation_type_filter.into_query_part());
         base_query.merge_mut(self.to_filter.into_query_part());
         base_query.merge_mut(self.from_filter.into_query_part());

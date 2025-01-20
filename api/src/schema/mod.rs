@@ -1,3 +1,4 @@
+pub mod attribute_filter;
 pub mod entity;
 pub mod entity_filter;
 pub mod entity_order_by;
@@ -8,9 +9,10 @@ pub mod relation_filter;
 pub mod triple;
 pub mod value_type;
 
+pub use attribute_filter::EntityAttributeFilter;
 pub use entity::Entity;
 pub use entity_filter::{
-    AttributeFilter, EntityAttributeFilter, EntityFilter, EntityRelationFilter,
+    AttributeFilter, EntityFilter, EntityRelationFilter,
 };
 pub use options::Options;
 pub use query::Query;

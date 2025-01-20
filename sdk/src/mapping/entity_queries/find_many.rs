@@ -218,6 +218,7 @@ impl IntoQueryPart for FindMany {
         };
 
         query_part.merge_mut(self.id_filter.into_query_part());
+        query_part.merge_mut(self.space_filter.into_query_part());
         query_part.merge_mut(self.order_by.into_query_part());
 
         for attribute_filter in self.attributes_filter.into_values() {

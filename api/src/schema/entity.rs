@@ -124,7 +124,8 @@ impl Entity {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Vec<Relation> {
         let mut base_query = mapping::relation_queries::FindMany::new("r")
-            .from(|from_query| from_query.id(self.id()));
+            .from(|from_query| from_query.id(self.id()))
+            .space_id(&self.space_id);
         
         if let Some(filter) = r#where {
             if let Some(id) = filter.id {

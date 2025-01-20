@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Default, Debug, PartialEq)]
 pub struct QueryPart {
@@ -9,10 +9,10 @@ pub struct QueryPart {
     pub(crate) where_clauses: Vec<String>,
 
     /// With clauses, e.g.: "n", "n.bar", "m"
-    pub(crate) return_clauses: Vec<String>,
+    pub(crate) return_clauses: HashSet<String>,
 
     /// Order by clauses, e.g.: "n.foo", "n.bar DESC"
-    pub(crate) order_by_clauses: Vec<String>,
+    pub(crate) order_by_clauses: HashSet<String>,
 
     /// Parameters to be passed to the query
     pub(crate) params: HashMap<String, neo4rs::BoltType>,
@@ -31,12 +31,12 @@ impl QueryPart {
     }
 
     pub fn return_clause(mut self, clause: &str) -> Self {
-        self.return_clauses.push(clause.to_owned());
+        self.return_clauses.insert(clause.to_owned());
         self
     }
 
     pub fn order_by_clause(mut self, clause: &str) -> Self {
-        self.order_by_clauses.push(clause.to_owned());
+        self.order_by_clauses.insert(clause.to_owned());
         self
     }
 
@@ -84,15 +84,21 @@ impl QueryPart {
             query.push('\n');
         }
 
+        // Deduplicate return clauses
+        // let unique = HashSet::from(self.return_clauses.iter());
+        // let unique_return_clauses = unique
+        //     .into_iter()
+        //     .collect::<Vec<_>>();
+
         if !self.return_clauses.is_empty() {
             query.push_str("RETURN ");
-            query.push_str(&self.return_clauses.join(", "));
+            query.push_str(&self.return_clauses.iter().map(|s| s.to_owned()).collect::<Vec<_>>().join(", "));
             query.push('\n');
         }
 
         if !self.order_by_clauses.is_empty() {
             query.push_str("ORDER BY ");
-            query.push_str(&self.order_by_clauses.join(", "));
+            query.push_str(&self.order_by_clauses.iter().map(|s| s.to_owned()).collect::<Vec<_>>().join(", "));
         }
 
         query
