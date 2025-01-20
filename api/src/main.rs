@@ -34,6 +34,16 @@ async fn health() -> Json<serde_json::Value> {
     }))
 }
 
+async fn version() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "git": {
+            "tag": env!("GIT_TAG"),
+            "commit": env!("GIT_COMMIT"),
+        },
+    }))
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     set_log_level();
@@ -64,6 +74,7 @@ async fn main() -> anyhow::Result<()> {
         //     get(ws::<Arc<Schema>>(ConnectionConfig::new(()))),
         // )
         .route("/health", get(health))
+        .route("/version", get(version))
         .route("/graphiql", get(graphiql("/graphql", "/subscriptions")))
         .route("/playground", get(playground("/graphql", "/subscriptions")))
         .route("/", get(homepage))

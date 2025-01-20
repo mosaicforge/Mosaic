@@ -22,6 +22,8 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 const_format = "0.2.33"
 axum = "0.7.9"
+prometheus = "0.13"
+lazy_static = "1.4"
 
 substreams-utils = { version = "0.1.0", path = "../substreams-utils" }
 sdk = { version = "0.1.0", path = "../sdk" }
@@ -30,5 +32,3 @@ web3-utils = { version = "0.1.0", path = "../web3-utils" }
 
 [dev-dependencies]
 serde_path_to_error = "0.1.16"
-
-
