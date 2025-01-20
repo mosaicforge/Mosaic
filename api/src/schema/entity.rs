@@ -65,42 +65,16 @@ impl Entity {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Vec<Entity> {
-        if self.types.contains(&system_ids::RELATION_TYPE.to_string()) {
-            // Since relations are also entities, and a relation's types are modelled differently
-            // in Neo4j, we need to check fetch types differently if the entity is a relation.
-            // mapping::Relation::<mapping::Triples>::find_types(
-            //     &executor.context().0.neo4j,
-            //     &self.id,
-            //     &self.space_id,
-            // )
-            // .await
-            // .expect("Failed to find relations")
-            // .into_iter()
-            // .map(|rel| rel.into())
-            // .collect::<Vec<_>>()
-
-            // For now, we'll just return the relation type
-            mapping::Entity::<mapping::Triples>::find_by_id(
-                &executor.context().0,
-                system_ids::RELATION_TYPE,
-                &self.space_id,
-            )
-            .await
-            .expect("Failed to find types")
-            .map(|rel| vec![rel.into()])
-            .unwrap_or(vec![])
-        } else {
-            mapping::Entity::<mapping::Triples>::find_types(
-                &executor.context().0,
-                &self.id,
-                &self.space_id,
-            )
-            .await
-            .expect("Failed to find relations")
-            .into_iter()
-            .map(|rel| rel.into())
-            .collect::<Vec<_>>()
-        }
+        mapping::Entity::<mapping::Triples>::find_types(
+            &executor.context().0,
+            &self.id,
+            &self.space_id,
+        )
+        .await
+        .expect("Failed to find relations")
+        .into_iter()
+        .map(|rel| rel.into())
+        .collect::<Vec<_>>()
     }
 
     /// Attributes of the entity
