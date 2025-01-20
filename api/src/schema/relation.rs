@@ -157,8 +157,8 @@ impl From<mapping::Relation<mapping::Triples>> for Relation {
             updated_at_block: relation.system_properties().updated_at_block.clone(),
             attributes: relation
                 .entity
-                .attributes
-                .attributes
+                .properties
+                .properties
                 .iter()
                 .map(|(key, triple)| Triple {
                     space_id: relation.system_properties().space_id.clone(),

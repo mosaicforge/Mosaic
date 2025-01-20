@@ -1,4 +1,4 @@
-pub mod attributes_filter;
+pub mod property_filter;
 pub mod list_filter;
 pub mod order_by;
 pub mod query_part;

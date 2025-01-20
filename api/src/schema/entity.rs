@@ -153,19 +153,19 @@ impl Entity {
 impl From<mapping::Entity<mapping::Triples>> for Entity {
     fn from(entity: mapping::Entity<mapping::Triples>) -> Self {
         Self {
-            id: entity.attributes.id,
+            id: entity.properties.id,
             types: entity.types,
-            space_id: entity.attributes.system_properties.space_id.clone(),
-            created_at: entity.attributes.system_properties.created_at,
-            created_at_block: entity.attributes.system_properties.created_at_block,
-            updated_at: entity.attributes.system_properties.updated_at,
-            updated_at_block: entity.attributes.system_properties.updated_at_block,
+            space_id: entity.properties.system_properties.space_id.clone(),
+            created_at: entity.properties.system_properties.created_at,
+            created_at_block: entity.properties.system_properties.created_at_block,
+            updated_at: entity.properties.system_properties.updated_at,
+            updated_at_block: entity.properties.system_properties.updated_at_block,
             attributes: entity
-                .attributes
-                .attributes
+                .properties
+                .properties
                 .into_iter()
                 .map(|(key, triple)| Triple {
-                    space_id: entity.attributes.system_properties.space_id.clone(),
+                    space_id: entity.properties.system_properties.space_id.clone(),
                     attribute: key,
                     value: triple.value,
                     value_type: triple.value_type.into(),
