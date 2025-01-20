@@ -13,7 +13,7 @@ use super::{AttributeFilter, EntityRelationFilter, Options};
 #[derive(Debug)]
 pub struct Entity {
     pub(crate) id: String,
-    pub(crate) types: Vec<String>,
+    pub(crate) _types: Vec<String>,
     pub(crate) space_id: String,
     pub(crate) created_at: DateTime<Utc>,
     pub(crate) created_at_block: String,
@@ -128,7 +128,7 @@ impl From<mapping::Entity<mapping::Triples>> for Entity {
     fn from(entity: mapping::Entity<mapping::Triples>) -> Self {
         Self {
             id: entity.attributes.id,
-            types: entity.types,
+            _types: entity.types,
             space_id: entity.attributes.system_properties.space_id.clone(),
             created_at: entity.attributes.system_properties.created_at,
             created_at_block: entity.attributes.system_properties.created_at_block,
