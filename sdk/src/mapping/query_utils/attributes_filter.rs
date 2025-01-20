@@ -1,25 +1,25 @@
 use crate::mapping::query_utils::{
     query_part::{IntoQueryPart, QueryPart},
-    scalar_filter::ScalarPropertyFilter,
+    scalar_filter::ScalarFieldFilter,
 };
 
-pub struct PropertyFilter {
-    value_filter: ScalarPropertyFilter,
-    value_type_filter: ScalarPropertyFilter,
+pub struct AttributeFilter {
+    value_filter: ScalarFieldFilter,
+    value_type_filter: ScalarFieldFilter,
 }
 
-impl PropertyFilter {
+impl AttributeFilter {
     pub fn new(node_var: &str, attribute: &str) -> Self {
         Self {
-            value_filter: ScalarPropertyFilter::new(node_var, attribute),
-            value_type_filter: ScalarPropertyFilter::new(node_var, &format!("{}.type", attribute)),
+            value_filter: ScalarFieldFilter::new(node_var, attribute),
+            value_type_filter: ScalarFieldFilter::new(node_var, &format!("{}.type", attribute)),
         }
     }
 
     pub fn with_id(node_var: &str, attribute: &str, id: &str) -> Self {
         Self {
-            value_filter: ScalarPropertyFilter::with_id(node_var, attribute, id),
-            value_type_filter: ScalarPropertyFilter::with_id(
+            value_filter: ScalarFieldFilter::with_id(node_var, attribute, id),
+            value_type_filter: ScalarFieldFilter::with_id(
                 node_var,
                 &format!("{}.type", attribute),
                 &format!("vt_{id}"),
@@ -100,7 +100,7 @@ impl PropertyFilter {
     }
 }
 
-impl IntoQueryPart for PropertyFilter {
+impl IntoQueryPart for AttributeFilter {
     fn into_query_part(self) -> QueryPart {
         let query_parts = vec![
             self.value_filter.into_query_part(),
@@ -120,8 +120,8 @@ mod tests {
     use std::collections::HashMap;
 
     #[test]
-    fn test_property_filter() {
-        let filter = PropertyFilter::new("n", "name")
+    fn test_attribute_filter() {
+        let filter = AttributeFilter::new("n", "name")
             .value_in(vec!["test".to_string(), "test2".to_string()])
             .value_type("TEXT");
 

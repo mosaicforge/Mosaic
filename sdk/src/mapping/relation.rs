@@ -8,7 +8,7 @@ use crate::{
     models::BlockMetadata, neo4j_utils::serde_value_to_bolt, system_ids,
 };
 
-use super::{properties::SystemProperties, relation_queries, Entity, Triples};
+use super::{attributes::SystemProperties, relation_queries, Entity, Triples};
 
 pub struct Relation<T> {
     // pub id: String,
@@ -65,7 +65,7 @@ impl<T> Relation<T> {
     }
 
     pub fn system_properties(&self) -> &SystemProperties {
-        &self.entity.properties.system_properties
+        &self.entity.attributes.system_properties
     }
 
     pub fn with_type(mut self, type_id: &str) -> Self {

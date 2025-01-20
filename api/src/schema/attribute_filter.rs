@@ -26,38 +26,38 @@ impl EntityAttributeFilter {
         mut query: mapping::entity_queries::FindMany,
     ) -> mapping::entity_queries::FindMany {
         if let Some(value) = self.value {
-            query = query.property(&self.attribute, &value);
+            query = query.attribute(&self.attribute, &value);
         }
 
         if let Some(value_not) = self.value_not {
-            query = query.property_not(&self.attribute, &value_not);
+            query = query.attribute_not(&self.attribute, &value_not);
         }
 
         if let Some(value_in) = self.value_in {
-            query = query.property_in(&self.attribute, value_in.clone());
+            query = query.attribute_in(&self.attribute, value_in.clone());
         }
 
         if let Some(value_not_in) = self.value_not_in {
-            query = query.property_not_in(&self.attribute, value_not_in.clone());
+            query = query.attribute_not_in(&self.attribute, value_not_in.clone());
         }
 
         if let Some(value_type) = self.value_type {
-            query = query.property_value_type(&self.attribute, &value_type.to_string());
+            query = query.attribute_value_type(&self.attribute, &value_type.to_string());
         }
 
         if let Some(value_type_not) = self.value_type_not {
-            query = query.property_value_type_not(&self.attribute, &value_type_not.to_string());
+            query = query.attribute_value_type_not(&self.attribute, &value_type_not.to_string());
         }
 
         if let Some(value_type_in) = self.value_type_in {
-            query = query.property_value_type_in(
+            query = query.attribute_value_type_in(
                 &self.attribute,
                 value_type_in.into_iter().map(|vt| vt.to_string()).collect(),
             );
         }
 
         if let Some(value_type_not_in) = self.value_type_not_in {
-            query = query.property_value_type_not_in(
+            query = query.attribute_value_type_not_in(
                 &self.attribute,
                 value_type_not_in
                     .into_iter()
@@ -78,34 +78,34 @@ impl EntityAttributeFilter {
         }
 
         if let Some(value_not) = self.value_not {
-            query = query.property_not(&self.attribute, &value_not);
+            query = query.attribute_not(&self.attribute, &value_not);
         }
 
         if let Some(value_in) = self.value_in {
-            query = query.property_in(&self.attribute, value_in.clone());
+            query = query.attribute_in(&self.attribute, value_in.clone());
         }
 
         if let Some(value_not_in) = self.value_not_in {
-            query = query.property_not_in(&self.attribute, value_not_in.clone());
+            query = query.attribute_not_in(&self.attribute, value_not_in.clone());
         }
 
         if let Some(value_type) = self.value_type {
-            query = query.property_value_type(&self.attribute, &value_type.to_string());
+            query = query.attribute_value_type(&self.attribute, &value_type.to_string());
         }
 
         if let Some(value_type_not) = self.value_type_not {
-            query = query.property_value_type_not(&self.attribute, &value_type_not.to_string());
+            query = query.attribute_value_type_not(&self.attribute, &value_type_not.to_string());
         }
 
         if let Some(value_type_in) = self.value_type_in {
-            query = query.property_value_type_in(
+            query = query.attribute_value_type_in(
                 &self.attribute,
                 value_type_in.into_iter().map(|vt| vt.to_string()).collect(),
             );
         }
 
         if let Some(value_type_not_in) = self.value_type_not_in {
-            query = query.property_value_type_not_in(
+            query = query.attribute_value_type_not_in(
                 &self.attribute,
                 value_type_not_in
                     .into_iter()

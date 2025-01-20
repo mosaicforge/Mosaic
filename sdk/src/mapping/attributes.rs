@@ -15,7 +15,7 @@ pub struct SystemProperties {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-pub struct Properties<T> {
+pub struct Attributes<T> {
     pub id: String,
 
     // System properties
@@ -24,7 +24,7 @@ pub struct Properties<T> {
 
     // Actual node data
     #[serde(flatten)]
-    pub properties: T,
+    pub attributes: T,
 }
 
 #[cfg(test)]
@@ -39,7 +39,7 @@ mod tests {
     use serde_with::with_prefix;
 
     #[test]
-    fn test_properties_struct() {
+    fn test_attributes_struct() {
         with_prefix!(foo_prefix "foo");
         #[derive(Debug, Deserialize, Serialize, PartialEq)]
         struct Foo {
@@ -49,7 +49,7 @@ mod tests {
 
         let block = BlockMetadata::default();
 
-        let props = Properties {
+        let attributes = Attributes {
             id: "id".to_string(),
             system_properties: SystemProperties {
                 space_id: "space_id".to_string(),
@@ -58,7 +58,7 @@ mod tests {
                 updated_at: block.timestamp,
                 updated_at_block: block.block_number.to_string(),
             },
-            properties: Foo {
+            attributes: Foo {
                 foo: Triple {
                     value: "Hello, World!".to_string(),
                     value_type: ValueType::Text,
@@ -71,7 +71,7 @@ mod tests {
             },
         };
 
-        let serialized = serde_json::to_value(&props).unwrap();
+        let serialized = serde_json::to_value(&attributes).unwrap();
 
         assert_eq!(
             serialized,
@@ -89,13 +89,13 @@ mod tests {
             })
         );
 
-        let deserialized: Properties<Foo> = serde_json::from_value(serialized).unwrap();
+        let deserialized: Attributes<Foo> = serde_json::from_value(serialized).unwrap();
 
-        assert_eq!(props, deserialized);
+        assert_eq!(attributes, deserialized);
     }
 
     #[test]
-    fn test_properties_multiple_fields() {
+    fn test_attributes_multiple_fields() {
         with_prefix!(foo_prefix "foo");
         with_prefix!(bar_prefix "bar");
         #[derive(Debug, Deserialize, Serialize, PartialEq)]
@@ -111,7 +111,7 @@ mod tests {
 
         let block = BlockMetadata::default();
 
-        let props = Properties {
+        let attributes = Attributes {
             id: "id".to_string(),
             system_properties: SystemProperties {
                 space_id: "space_id".to_string(),
@@ -120,7 +120,7 @@ mod tests {
                 updated_at: block.timestamp,
                 updated_at_block: block.block_number.to_string(),
             },
-            properties: Foo {
+            attributes: Foo {
                 foo: Triple {
                     value: "Hello, World!".to_string(),
                     value_type: ValueType::Text,
@@ -141,7 +141,7 @@ mod tests {
             },
         };
 
-        let serialized = serde_json::to_value(&props).unwrap();
+        let serialized = serde_json::to_value(&attributes).unwrap();
 
         assert_eq!(
             serialized,
@@ -162,16 +162,16 @@ mod tests {
             })
         );
 
-        let deserialized: Properties<Foo> = serde_json::from_value(serialized).unwrap();
+        let deserialized: Attributes<Foo> = serde_json::from_value(serialized).unwrap();
 
-        assert_eq!(props, deserialized);
+        assert_eq!(attributes, deserialized);
     }
 
     #[test]
-    fn test_properties_triples() {
+    fn test_attribtes_triples() {
         let block = BlockMetadata::default();
 
-        let props = Properties {
+        let attributes = Attributes {
             id: "id".to_string(),
             system_properties: SystemProperties {
                 space_id: "space_id".to_string(),
@@ -180,7 +180,7 @@ mod tests {
                 updated_at: block.timestamp,
                 updated_at_block: block.block_number.to_string(),
             },
-            properties: Triples(HashMap::from([
+            attributes: Triples(HashMap::from([
                 (
                     "foo".to_string(),
                     Triple {
@@ -206,7 +206,7 @@ mod tests {
             ])),
         };
 
-        let serialized = serde_json::to_value(&props).expect("Failed to serialize Value");
+        let serialized = serde_json::to_value(&attributes).expect("Failed to serialize Value");
 
         assert_eq!(
             serialized,
@@ -226,9 +226,9 @@ mod tests {
             })
         );
 
-        let deserialized: Properties<Triples> =
+        let deserialized: Attributes<Triples> =
             serde_json::from_value(serialized).expect("Failed to deserialize Value");
 
-        assert_eq!(deserialized, props);
+        assert_eq!(deserialized, attributes);
     }
 }

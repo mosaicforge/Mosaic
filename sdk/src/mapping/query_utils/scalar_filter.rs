@@ -1,6 +1,6 @@
 use super::query_part::{IntoQueryPart, QueryPart};
 
-pub struct ScalarPropertyFilter {
+pub struct ScalarFieldFilter {
     /// Unique identifier for the filter
     id: String,
 
@@ -8,7 +8,7 @@ pub struct ScalarPropertyFilter {
     node_var: String,
 
     /// Name of the field on which the filter is applied
-    property: String,
+    field_name: String,
 
     /// Value to use for equality predicate (e.g. `n.name = "test"`)
     value: Option<String>,
@@ -23,13 +23,13 @@ pub struct ScalarPropertyFilter {
     value_not_in: Option<Vec<String>>,
 }
 
-impl ScalarPropertyFilter {
+impl ScalarFieldFilter {
     /// Create a new filter with a random ID
     pub fn new(node_var: &str, field_name: &str) -> Self {
         Self {
             id: format!("{}_{}", node_var, field_name.replace(".", "_")),
             node_var: node_var.to_owned(),
-            property: field_name.to_owned(),
+            field_name: field_name.to_owned(),
             value: None,
             value_in: None,
             value_not: None,
@@ -42,7 +42,7 @@ impl ScalarPropertyFilter {
         Self {
             id: id.to_owned(),
             node_var: node_var.to_owned(),
-            property: field_name.to_owned(),
+            field_name: field_name.to_owned(),
             value: None,
             value_in: None,
             value_not: None,
@@ -91,14 +91,14 @@ impl ScalarPropertyFilter {
     }
 }
 
-impl IntoQueryPart for ScalarPropertyFilter {
+impl IntoQueryPart for ScalarFieldFilter {
     fn into_query_part(self) -> QueryPart {
         let mut query_part = QueryPart::default();
 
         if let Some(value) = self.value {
             query_part = query_part.where_clause(&format!(
                 "{}.`{}` = $value_{}",
-                self.node_var, self.property, self.id,
+                self.node_var, self.field_name, self.id,
             ));
             query_part = query_part.params(format!("value_{}", self.id), value.into());
         }
@@ -106,7 +106,7 @@ impl IntoQueryPart for ScalarPropertyFilter {
         if let Some(value_not) = self.value_not {
             query_part = query_part.where_clause(&format!(
                 "{}.`{}` <> $value_not_{}",
-                self.node_var, self.property, self.id,
+                self.node_var, self.field_name, self.id,
             ));
             query_part = query_part.params(format!("value_not_{}", self.id), value_not.into());
         }
@@ -114,7 +114,7 @@ impl IntoQueryPart for ScalarPropertyFilter {
         if let Some(value_in) = self.value_in {
             query_part = query_part.where_clause(&format!(
                 "{}.`{}` IN $value_in_{}",
-                self.node_var, self.property, self.id,
+                self.node_var, self.field_name, self.id,
             ));
             query_part = query_part.params(format!("value_in_{}", self.id), value_in.into());
         }
@@ -122,7 +122,7 @@ impl IntoQueryPart for ScalarPropertyFilter {
         if let Some(value_not_in) = self.value_not_in {
             query_part = query_part.where_clause(&format!(
                 "{}.`{}` NOT IN $value_not_in_{}",
-                self.node_var, self.property, self.id,
+                self.node_var, self.field_name, self.id,
             ));
             query_part =
                 query_part.params(format!("value_not_in_{}", self.id), value_not_in.into());
@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn test_filter() {
-        let query = ScalarPropertyFilter::new("n", "name")
+        let query = ScalarFieldFilter::new("n", "name")
             .value("test")
             .value_not("test2")
             .value_in(vec!["test3".to_owned(), "test4".to_owned()])

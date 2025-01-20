@@ -15,7 +15,7 @@ use crate::{
 };
 
 use super::{
-    properties::{Properties, SystemProperties},
+    attributes::{Attributes, SystemProperties},
     entity_queries, relation_queries, Relation, Triples,
 };
 
@@ -25,7 +25,7 @@ pub struct Entity<T = ()> {
     #[serde(rename = "labels", default)]
     pub types: Vec<String>,
     #[serde(flatten)]
-    pub properties: Properties<T>,
+    pub attributes: Attributes<T>,
 }
 
 impl<T> Entity<T> {
@@ -33,7 +33,7 @@ impl<T> Entity<T> {
     pub fn new(id: &str, space_id: &str, block: &BlockMetadata, data: T) -> Self {
         Self {
             types: Vec::new(),
-            properties: Properties {
+            attributes: Attributes {
                 id: id.to_string(),
                 system_properties: SystemProperties {
                     space_id: space_id.to_string(),
@@ -42,29 +42,29 @@ impl<T> Entity<T> {
                     updated_at: block.timestamp,
                     updated_at_block: block.block_number.to_string(),
                 },
-                properties: data,
+                attributes: data,
             },
         }
     }
 
     /// Returns the ID of the entity
     pub fn id(&self) -> &str {
-        &self.properties.id
+        &self.attributes.id
     }
 
     /// Returns the space ID of the entity
     pub fn space_id(&self) -> &str {
-        &self.properties.system_properties.space_id
+        &self.attributes.system_properties.space_id
     }
 
     /// Returns the attributes of the entity
     pub fn attributes(&self) -> &T {
-        &self.properties.properties
+        &self.attributes.attributes
     }
 
     /// Returns a mutable reference to the attributes of the entity
     pub fn attributes_mut(&mut self) -> &mut T {
-        &mut self.properties.properties
+        &mut self.attributes.attributes
     }
 
     /// Adds a type label to the entity
@@ -434,22 +434,22 @@ where
             .param("space_id", self.space_id())
             .param(
                 "created_at",
-                self.properties.system_properties.created_at.to_rfc3339(),
+                self.attributes.system_properties.created_at.to_rfc3339(),
             )
             .param(
                 "created_at_block",
-                self.properties
+                self.attributes
                     .system_properties
                     .created_at_block
                     .to_string(),
             )
             .param(
                 "updated_at",
-                self.properties.system_properties.updated_at.to_rfc3339(),
+                self.attributes.system_properties.updated_at.to_rfc3339(),
             )
             .param(
                 "updated_at_block",
-                self.properties
+                self.attributes
                     .system_properties
                     .updated_at_block
                     .to_string(),
@@ -587,7 +587,7 @@ where
         let attributes = value.to()?;
         Ok(Self {
             types: labels,
-            properties: attributes,
+            attributes,
         })
     }
 }

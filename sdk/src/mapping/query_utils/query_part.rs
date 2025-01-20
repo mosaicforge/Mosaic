@@ -84,6 +84,12 @@ impl QueryPart {
             query.push('\n');
         }
 
+        // Deduplicate return clauses
+        // let unique = HashSet::from(self.return_clauses.iter());
+        // let unique_return_clauses = unique
+        //     .into_iter()
+        //     .collect::<Vec<_>>();
+
         if !self.return_clauses.is_empty() {
             query.push_str("RETURN ");
             query.push_str(
