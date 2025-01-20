@@ -15,7 +15,8 @@ use crate::{
 };
 
 use super::{
-    attributes::{Attributes, SystemProperties}, entity_queries, relation_queries, Relation, Triples
+    attributes::{Attributes, SystemProperties},
+    entity_queries, relation_queries, Relation, Triples,
 };
 
 /// GRC20 Node
@@ -82,12 +83,12 @@ impl<T> Entity<T> {
         R: for<'a> Deserialize<'a>,
     {
         Relation::<R>::find_many(
-            neo4j, 
-            Some(
-                filter.unwrap_or(relation_queries::FindMany::new("r")
-                    .from(|from_query| from_query.id(self.id())))
-            ),
-        ).await
+            neo4j,
+            Some(filter.unwrap_or(
+                relation_queries::FindMany::new("r").from(|from_query| from_query.id(self.id())),
+            )),
+        )
+        .await
     }
 
     // pub async fn find_relations<R>(

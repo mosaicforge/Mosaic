@@ -7,10 +7,7 @@ use crate::{
     schema::{Entity, Relation, RelationFilter},
 };
 
-use super::{
-    entity_order_by::OrderDirection,
-    EntityFilter,
-};
+use super::{entity_order_by::OrderDirection, EntityFilter};
 
 #[derive(Clone)]
 pub struct Query;
@@ -44,8 +41,7 @@ impl Query {
         order_direction: Option<OrderDirection>,
         r#where: Option<EntityFilter>,
     ) -> Vec<Entity> {
-        let mut base_query = mapping::entity_queries::FindMany::new("n")
-            .space_id(&space_id);
+        let mut base_query = mapping::entity_queries::FindMany::new("n").space_id(&space_id);
 
         if let Some(r#where) = r#where {
             base_query = r#where.add_to_entity_query(base_query);
@@ -59,10 +55,7 @@ impl Query {
             }
         }
 
-        mapping::Entity::<mapping::Triples>::find_many(
-            &executor.context().0, 
-            Some(base_query),
-        )
+        mapping::Entity::<mapping::Triples>::find_many(&executor.context().0, Some(base_query))
             .await
             .expect("Failed to find entities")
             .into_iter()
@@ -93,8 +86,7 @@ impl Query {
         order_direction: Option<OrderDirection>,
         filter: Option<RelationFilter>,
     ) -> Vec<Relation> {
-        let mut base_query = mapping::relation_queries::FindMany::new("r")
-            .space_id(&space_id);
+        let mut base_query = mapping::relation_queries::FindMany::new("r").space_id(&space_id);
 
         if let Some(filter) = filter {
             base_query = filter.add_to_relation_query(base_query);
@@ -108,10 +100,7 @@ impl Query {
             }
         }
 
-        mapping::Relation::<mapping::Triples>::find_many(
-            &executor.context().0, 
-            Some(base_query),
-        )
+        mapping::Relation::<mapping::Triples>::find_many(&executor.context().0, Some(base_query))
             .await
             .expect("Failed to find relations")
             .into_iter()

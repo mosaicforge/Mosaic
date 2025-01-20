@@ -4,8 +4,12 @@ use crate::{
     mapping::{
         entity_queries,
         query_utils::{
-            attributes_filter::AttributeFilter, order_by::FieldOrderBy, query_part::{IntoQueryPart, QueryPart}, scalar_filter::ScalarFieldFilter
-        }, OrderDirection,
+            attributes_filter::AttributeFilter,
+            order_by::FieldOrderBy,
+            query_part::{IntoQueryPart, QueryPart},
+            scalar_filter::ScalarFieldFilter,
+        },
+        OrderDirection,
     },
     system_ids,
 };
@@ -68,7 +72,7 @@ impl FindMany {
         self.space_filter = self.space_filter.value(space_id);
         self
     }
-    
+
     pub fn relation_type(mut self, relation_type: &str) -> Self {
         self.relation_type_filter = self.relation_type_filter.value(relation_type);
         self
@@ -89,13 +93,19 @@ impl FindMany {
         self
     }
 
-    pub fn to(mut self, f: impl FnOnce(entity_queries::FindMany) -> entity_queries::FindMany) -> Self {
+    pub fn to(
+        mut self,
+        f: impl FnOnce(entity_queries::FindMany) -> entity_queries::FindMany,
+    ) -> Self {
         self.to_filter = f(self.to_filter);
         self
     }
 
-    pub fn from(mut self, f: impl FnOnce(entity_queries::FindMany) -> entity_queries::FindMany) -> Self {
-       self.from_filter = f(self.from_filter);
+    pub fn from(
+        mut self,
+        f: impl FnOnce(entity_queries::FindMany) -> entity_queries::FindMany,
+    ) -> Self {
+        self.from_filter = f(self.from_filter);
         self
     }
 

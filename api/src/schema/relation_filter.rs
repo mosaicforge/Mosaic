@@ -30,7 +30,10 @@ pub struct RelationFilter {
 }
 
 impl RelationFilter {
-    pub fn add_to_relation_query(self, mut query: mapping::relation_queries::FindMany) -> mapping::relation_queries::FindMany {
+    pub fn add_to_relation_query(
+        self,
+        mut query: mapping::relation_queries::FindMany,
+    ) -> mapping::relation_queries::FindMany {
         if let Some(id) = self.id {
             query = query.id(&id);
         }
@@ -78,5 +81,5 @@ impl RelationFilter {
         }
 
         query
-    }    
+    }
 }

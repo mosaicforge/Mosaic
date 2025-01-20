@@ -25,7 +25,6 @@ pub struct EntityFilter {
     pub id_not_in: Option<Vec<String>>,
 
     // pub space_id: Option<String>,
-
     /// Exact match for the entity types
     pub types: Option<Vec<String>>,
     pub types_not: Option<Vec<String>>,
@@ -36,7 +35,10 @@ pub struct EntityFilter {
 }
 
 impl EntityFilter {
-    pub fn add_to_entity_query(self, mut query: mapping::entity_queries::FindMany) -> mapping::entity_queries::FindMany {
+    pub fn add_to_entity_query(
+        self,
+        mut query: mapping::entity_queries::FindMany,
+    ) -> mapping::entity_queries::FindMany {
         if let Some(id) = self.id {
             query = query.id(&id);
         }

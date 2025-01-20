@@ -21,7 +21,10 @@ pub struct EntityAttributeFilter {
 }
 
 impl EntityAttributeFilter {
-    pub fn add_to_entity_query(self, mut query: mapping::entity_queries::FindMany) -> mapping::entity_queries::FindMany {
+    pub fn add_to_entity_query(
+        self,
+        mut query: mapping::entity_queries::FindMany,
+    ) -> mapping::entity_queries::FindMany {
         if let Some(value) = self.value {
             query = query.attribute(&self.attribute, &value);
         }
@@ -47,17 +50,29 @@ impl EntityAttributeFilter {
         }
 
         if let Some(value_type_in) = self.value_type_in {
-            query = query.attribute_value_type_in(&self.attribute, value_type_in.into_iter().map(|vt| vt.to_string()).collect());
+            query = query.attribute_value_type_in(
+                &self.attribute,
+                value_type_in.into_iter().map(|vt| vt.to_string()).collect(),
+            );
         }
 
         if let Some(value_type_not_in) = self.value_type_not_in {
-            query = query.attribute_value_type_not_in(&self.attribute, value_type_not_in.into_iter().map(|vt| vt.to_string()).collect());
+            query = query.attribute_value_type_not_in(
+                &self.attribute,
+                value_type_not_in
+                    .into_iter()
+                    .map(|vt| vt.to_string())
+                    .collect(),
+            );
         }
 
         query
     }
 
-    pub fn add_to_relation_query(self, mut query: mapping::relation_queries::FindMany) -> mapping::relation_queries::FindMany {
+    pub fn add_to_relation_query(
+        self,
+        mut query: mapping::relation_queries::FindMany,
+    ) -> mapping::relation_queries::FindMany {
         if let Some(value) = self.value {
             query = query.attribute(&self.attribute, &value);
         }
@@ -83,11 +98,20 @@ impl EntityAttributeFilter {
         }
 
         if let Some(value_type_in) = self.value_type_in {
-            query = query.attribute_value_type_in(&self.attribute, value_type_in.into_iter().map(|vt| vt.to_string()).collect());
+            query = query.attribute_value_type_in(
+                &self.attribute,
+                value_type_in.into_iter().map(|vt| vt.to_string()).collect(),
+            );
         }
 
         if let Some(value_type_not_in) = self.value_type_not_in {
-            query = query.attribute_value_type_not_in(&self.attribute, value_type_not_in.into_iter().map(|vt| vt.to_string()).collect());
+            query = query.attribute_value_type_not_in(
+                &self.attribute,
+                value_type_not_in
+                    .into_iter()
+                    .map(|vt| vt.to_string())
+                    .collect(),
+            );
         }
 
         query

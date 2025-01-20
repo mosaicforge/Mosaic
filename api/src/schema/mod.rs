@@ -11,9 +11,7 @@ pub mod value_type;
 
 pub use attribute_filter::EntityAttributeFilter;
 pub use entity::Entity;
-pub use entity_filter::{
-    AttributeFilter, EntityFilter, EntityRelationFilter,
-};
+pub use entity_filter::{AttributeFilter, EntityFilter, EntityRelationFilter};
 pub use options::Options;
 pub use query::Query;
 pub use relation::Relation;

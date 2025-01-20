@@ -92,13 +92,27 @@ impl QueryPart {
 
         if !self.return_clauses.is_empty() {
             query.push_str("RETURN ");
-            query.push_str(&self.return_clauses.iter().map(|s| s.to_owned()).collect::<Vec<_>>().join(", "));
+            query.push_str(
+                &self
+                    .return_clauses
+                    .iter()
+                    .map(|s| s.to_owned())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            );
             query.push('\n');
         }
 
         if !self.order_by_clauses.is_empty() {
             query.push_str("ORDER BY ");
-            query.push_str(&self.order_by_clauses.iter().map(|s| s.to_owned()).collect::<Vec<_>>().join(", "));
+            query.push_str(
+                &self
+                    .order_by_clauses
+                    .iter()
+                    .map(|s| s.to_owned())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            );
         }
 
         query
