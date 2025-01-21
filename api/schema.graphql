@@ -1,3 +1,5 @@
+directive @specifiedBy(url: String!) on SCALAR
+
 input AttributeFilter {
   valueType: ValueType
 }
@@ -26,25 +28,80 @@ type Entity {
   attributes(filter: AttributeFilter): [Triple!]!
 
   """Relations outgoing from the entity"""
-  relations: [Relation!]!
+  relations(where: EntityRelationFilter): [Relation!]!
 }
 
+"""Filter the entities by attributes and their values and value types"""
 input EntityAttributeFilter {
   attribute: String!
   value: String
+  valueNot: String
+  valueIn: [String!]
+  valueNotIn: [String!]
   valueType: ValueType
+  valueTypeNot: ValueType
+  valueTypeIn: [ValueType!]
+  valueTypeNotIn: [ValueType!]
 }
 
-input EntityWhereFilter {
-  spaceId: String
-  typesContain: [String!]
-  attributesContain: [EntityAttributeFilter!]
+"""
+Entity filter input object
+
+```graphql
+query {
+    entities(where: {
+        space_id: "BJqiLPcSgfF8FRxkFr76Uy",
+        types_contain: ["XG26vy98XAA6cR6DosTALk", "XG26vy98XAA6cR6DosTALk"],
+        attributes_contain: [
+            {id: "XG26vy98XAA6cR6DosTALk", value: "value", value_type: TEXT},
+        ]
+    })
+}
+```
+"""
+input EntityFilter {
+  id: String
+  idNot: String
+  idIn: [String!]
+  idNotIn: [String!]
+
+  """Exact match for the entity types"""
+  types: [String!]
+  typesNot: [String!]
+  typesContains: [String!]
+  typesNotContains: [String!]
+  attributes: [EntityAttributeFilter!]
+}
+
+"""Filters the outgoing relations of the entity"""
+input EntityRelationFilter {
+  id: String
+  idNot: String
+  idIn: [String!]
+  idNotIn: [String!]
+  toId: String
+  toIdNot: String
+  toIdIn: [String!]
+  toIdNotIn: [String!]
+  relationType: String
+  relationTypeNot: String
+  relationTypeIn: [String!]
+  relationTypeNotIn: [String!]
+
+  """Filter the relations by the entity they point to"""
+  to: EntityFilter
+  attributes: [EntityAttributeFilter!]
 }
 
 type Options {
   format: String
   unit: String
   language: String
+}
+
+enum OrderDirection {
+  ASC
+  DESC
 }
 
 type Query {
@@ -54,7 +111,7 @@ type Query {
   """
   Returns multiple entities according to the provided space ID and filter
   """
-  entities(where: EntityWhereFilter): [Entity!]!
+  entities(spaceId: String!, orderBy: String, orderDirection: OrderDirection, where: EntityFilter): [Entity!]!
 
   """Returns a single relation identified by its ID and space ID"""
   relation(id: String!, spaceId: String!): Relation
@@ -62,7 +119,7 @@ type Query {
   """
   Returns multiple relations according to the provided space ID and filter
   """
-  relations(spaceId: String!, filter: RelationFilter): [Relation!]!
+  relations(spaceId: String!, orderBy: String, orderDirection: OrderDirection, filter: RelationFilter): [Relation!]!
 }
 
 """
@@ -86,8 +143,8 @@ type Relation {
   """Attributes of the relation"""
   attributes: [Triple!]!
 
-  """Relation types of the relation"""
-  relationTypes: [Entity!]!
+  """Relation type of the relation"""
+  relationType: [Entity!]!
 
   """Entity from which the relation originates"""
   from: Entity!
@@ -96,13 +153,31 @@ type Relation {
   to: Entity!
 
   """Relations outgoing from the relation"""
-  relations: [Relation!]!
+  relations(spaceId: String!, where: EntityRelationFilter): [Relation!]!
 }
 
 """Relation filter input object"""
 input RelationFilter {
-  """Filter by relation types"""
-  relationTypes: [String!]
+  """Filter the relations by their id"""
+  id: String
+  idNot: String
+  idIn: [String!]
+  idNotIn: [String!]
+
+  """Filter the relations by their relation type"""
+  relationType: String
+  relationTypeNot: String
+  relationTypeIn: [String!]
+  relationTypeNotIn: [String!]
+
+  """Filter the relations by the entity they point to"""
+  to: EntityFilter
+
+  """Filter the relations by the entity they point from"""
+  from: EntityFilter
+
+  """Filter the relations by their attributes"""
+  attributes: [EntityAttributeFilter!]
 }
 
 type Triple {
