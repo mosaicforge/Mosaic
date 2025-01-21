@@ -158,8 +158,8 @@ mod tests {
                     "n.`name` IN $value_in_n_name".to_owned(),
                     "n.`name` NOT IN $value_not_in_n_name".to_owned(),
                 ],
-                return_clauses: vec![],
-                order_by_clauses: vec![],
+                return_clauses: Vec::new(),
+                order_by_clauses: Vec::new(),
                 params: HashMap::from([
                     ("value_n_name".to_owned(), "test".into()),
                     ("value_not_n_name".to_owned(), "test2".into()),

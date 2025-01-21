@@ -161,8 +161,8 @@ mod tests {
                     "ALL(x IN $value_contains_n_name WHERE x IN n.`name`)".to_owned(),
                     "NOT ANY(x IN $value_not_contains_n_name WHERE x IN n.`name`)".to_owned(),
                 ],
-                return_clauses: vec![],
-                order_by_clauses: vec![],
+                return_clauses: Vec::new(),
+                order_by_clauses: Vec::new(),
                 params: HashMap::from([
                     ("value_n_name".to_owned(), vec!["test".to_owned()].into()),
                     (

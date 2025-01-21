@@ -210,8 +210,20 @@ impl IntoQueryPart for FindMany {
         base_query.merge_mut(self.id_filter.into_query_part());
         base_query.merge_mut(self.space_filter.into_query_part());
         base_query.merge_mut(self.relation_type_filter.into_query_part());
-        base_query.merge_mut(self.to_filter.into_query_part());
-        base_query.merge_mut(self.from_filter.into_query_part());
+
+        // Overwrite unneeded clauses from the "to" filter (probably a better way to do this)
+        let mut to_filter = self.to_filter.into_query_part();
+        to_filter.match_clauses = Default::default();
+        to_filter.order_by_clauses = Default::default();
+        to_filter.return_clauses = Default::default();
+        base_query.merge_mut(to_filter);
+
+        // Overwrite unneeded clauses from the "from" filter (probably a better way to do this)
+        let mut from_filter = self.from_filter.into_query_part();
+        from_filter.match_clauses = Default::default();
+        from_filter.order_by_clauses = Default::default();
+        from_filter.return_clauses = Default::default();
+        base_query.merge_mut(from_filter);
 
         for attribute_filter in self.attributes_filter.into_values() {
             base_query.merge_mut(attribute_filter.into_query_part());
@@ -264,13 +276,13 @@ mod tests {
                     "r.`attr.type` IN $value_in_r_attr_type".to_owned(),
                     "r.`attr.type` NOT IN $value_not_in_r_attr_type".to_owned(),
                 ],
-                order_by_clauses: vec![format!("r.`{}`", system_ids::RELATION_INDEX)],
-                return_clauses: vec![
+                order_by_clauses: Vec::from([format!("r.`{}`", system_ids::RELATION_INDEX)]),
+                return_clauses: Vec::from([
                     "from".to_owned(),
                     "to".to_owned(),
                     "r".to_owned(),
                     "rt".to_owned()
-                ],
+                ]),
                 params: HashMap::from([
                     ("value_r_id".to_owned(), "abc".into()),
                     ("value_rt_id".to_owned(), "test_relation_type".into()),
