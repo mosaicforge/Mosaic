@@ -7,7 +7,7 @@ use crate::{
     schema::{Entity, Relation, RelationFilter},
 };
 
-use super::EntityFilter;
+use super::{entity_order_by::OrderDirection, EntityFilter};
 
 #[derive(Clone)]
 pub struct Query;
@@ -36,28 +36,31 @@ impl Query {
     async fn entities<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        space_id: String,
+        order_by: Option<String>,
+        order_direction: Option<OrderDirection>,
         r#where: Option<EntityFilter>,
     ) -> Vec<Entity> {
-        // let query = QueryMapper::default().select_root_node(&id, &executor.look_ahead()).build();
-        // tracing::info!("Query: {}", query);
+        let mut base_query = mapping::entity_queries::FindMany::new("n").space_id(&space_id);
 
-        match r#where {
-            Some(r#where) => mapping::Entity::<mapping::Triples>::find_many(
-                &executor.context().0,
-                Some(r#where.into()),
-            )
+        if let Some(r#where) = r#where {
+            base_query = r#where.add_to_entity_query(base_query);
+
+            if let Some(order_by) = order_by {
+                base_query = base_query.order_by(&order_by);
+            }
+
+            if let Some(order_direction) = order_direction {
+                base_query = base_query.order_direction(order_direction.into());
+            }
+        }
+
+        mapping::Entity::<mapping::Triples>::find_many(&executor.context().0, Some(base_query))
             .await
             .expect("Failed to find entities")
             .into_iter()
             .map(Entity::from)
-            .collect::<Vec<_>>(),
-            _ => mapping::Entity::<mapping::Triples>::find_many(&executor.context().0, None)
-                .await
-                .expect("Failed to find entities")
-                .into_iter()
-                .map(Entity::from)
-                .collect::<Vec<_>>(),
-        }
+            .collect::<Vec<_>>()
     }
 
     /// Returns a single relation identified by its ID and space ID
@@ -79,36 +82,29 @@ impl Query {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         space_id: String,
-        // version_id: Option<String>,
+        order_by: Option<String>,
+        order_direction: Option<OrderDirection>,
         filter: Option<RelationFilter>,
     ) -> Vec<Relation> {
-        match filter {
-            Some(RelationFilter {
-                relation_types: Some(types),
-            }) if !types.is_empty() => {
-                mapping::Relation::<mapping::Triples>::find_by_relation_types(
-                    &executor.context().0,
-                    &types,
-                    &space_id,
-                )
-                .await
-                .expect("Failed to find relations")
-                .into_iter()
-                .map(|rel| rel.into())
-                .collect::<Vec<_>>()
+        let mut base_query = mapping::relation_queries::FindMany::new("r").space_id(&space_id);
+
+        if let Some(filter) = filter {
+            base_query = filter.add_to_relation_query(base_query);
+
+            if let Some(order_by) = order_by {
+                base_query = base_query.order_by(&order_by);
             }
-            _ => mapping::Relation::<mapping::Triples>::find_many(
-                &executor.context().0,
-                Some(mapping::RelationFilter {
-                    space_id: Some(space_id),
-                    ..Default::default()
-                }),
-            )
+
+            if let Some(order_direction) = order_direction {
+                base_query = base_query.order_direction(order_direction.into());
+            }
+        }
+
+        mapping::Relation::<mapping::Triples>::find_many(&executor.context().0, Some(base_query))
             .await
             .expect("Failed to find relations")
             .into_iter()
             .map(|rel| rel.into())
-            .collect::<Vec<_>>(),
-        }
+            .collect::<Vec<_>>()
     }
 }

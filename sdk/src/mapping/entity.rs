@@ -7,7 +7,7 @@ use crate::{
     error::DatabaseError,
     // graph_uri::{self, GraphUri},
     indexer_ids,
-    mapping,
+    mapping::{self, query_utils::query_part::IntoQueryPart},
     models::BlockMetadata,
     neo4j_utils::serde_value_to_bolt,
     pb,
@@ -16,7 +16,7 @@ use crate::{
 
 use super::{
     attributes::{Attributes, SystemProperties},
-    EntityFilter, EntityRelationFilter, Relation, Triples,
+    entity_queries, relation_queries, Relation, Triples,
 };
 
 /// GRC20 Node
@@ -77,61 +77,66 @@ impl<T> Entity<T> {
     pub async fn relations<R>(
         &self,
         neo4j: &neo4rs::Graph,
-        filter: Option<EntityRelationFilter>,
+        filter: Option<relation_queries::FindMany>,
     ) -> Result<Vec<Relation<R>>, DatabaseError>
     where
         R: for<'a> Deserialize<'a>,
     {
-        Self::find_relations(neo4j, self.id(), filter).await
+        Relation::<R>::find_many(
+            neo4j,
+            Some(filter.unwrap_or(
+                relation_queries::FindMany::new("r").from(|from_query| from_query.id(self.id())),
+            )),
+        )
+        .await
     }
 
-    pub async fn find_relations<R>(
-        neo4j: &neo4rs::Graph,
-        id: &str,
-        filter: Option<EntityRelationFilter>,
-    ) -> Result<Vec<Relation<R>>, DatabaseError>
-    where
-        R: for<'a> Deserialize<'a>,
-    {
-        const QUERY: &str = const_format::formatcp!(
-            r#"
-            MATCH ({{ id: $id }}) <-[:`{FROM_ENTITY}`]- (r) -[:`{TO_ENTITY}`]-> (to)
-            MATCH (r) -[:`{RELATION_TYPE}`]-> (rt)
-            RETURN to, r, rt
-            "#,
-            FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
-            TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
-            RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE
-        );
+    // pub async fn find_relations<R>(
+    //     neo4j: &neo4rs::Graph,
+    //     filter: Option<relation_queries::FindMany>,
+    // ) -> Result<Vec<Relation<R>>, DatabaseError>
+    // where
+    //     R: for<'a> Deserialize<'a>,
+    // {
+    //     const QUERY: &str = const_format::formatcp!(
+    //         r#"
+    //         MATCH ({{ id: $id }}) <-[:`{FROM_ENTITY}`]- (r) -[:`{TO_ENTITY}`]-> (to)
+    //         MATCH (r) -[:`{RELATION_TYPE}`]-> (rt)
+    //         RETURN to, r, rt
+    //         "#,
+    //         FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
+    //         TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+    //         RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE
+    //     );
 
-        let query = if let Some(filter) = filter {
-            filter.query(id)
-        } else {
-            neo4rs::query(QUERY).param("id", id)
-        };
+    //     let query = if let Some(filter) = filter {
+    //         filter.into_query_part().build()
+    //     } else {
+    //         neo4rs::query(QUERY).param("id", id)
+    //     };
 
-        #[derive(Debug, Deserialize)]
-        struct RowResult {
-            r: neo4rs::Node,
-            to: neo4rs::Node,
-            rt: neo4rs::Node,
-        }
+    //     #[derive(Debug, Deserialize)]
+    //     struct RowResult {
+    //         r: neo4rs::Node,
+    //         to: neo4rs::Node,
+    //         rt: neo4rs::Node,
+    //     }
 
-        neo4j
-            .execute(query)
-            .await?
-            .into_stream_as::<RowResult>()
-            .map_err(DatabaseError::from)
-            .and_then(|row| async move {
-                let rel: Entity<R> = row.r.try_into()?;
-                let to: Entity<()> = row.to.try_into()?;
-                let rel_type: Entity<()> = row.rt.try_into()?;
+    //     neo4j
+    //         .execute(query)
+    //         .await?
+    //         .into_stream_as::<RowResult>()
+    //         .map_err(DatabaseError::from)
+    //         .and_then(|row| async move {
+    //             let rel: Entity<R> = row.r.try_into()?;
+    //             let to: Entity<()> = row.to.try_into()?;
+    //             let rel_type: Entity<()> = row.rt.try_into()?;
 
-                Ok(Relation::from_entity(rel, id, to.id(), rel_type.id()))
-            })
-            .try_collect::<Vec<_>>()
-            .await
-    }
+    //             Ok(Relation::from_entity(rel, id, to.id(), rel_type.id()))
+    //         })
+    //         .try_collect::<Vec<_>>()
+    //         .await
+    // }
 
     pub async fn types(
         &self,
@@ -519,12 +524,12 @@ where
 
     pub async fn find_many(
         neo4j: &neo4rs::Graph,
-        r#where: Option<EntityFilter>,
+        query: Option<entity_queries::FindMany>,
     ) -> Result<Vec<Self>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!("MATCH (n) RETURN n LIMIT 100");
 
-        if let Some(filter) = r#where {
-            Self::_find_many(neo4j, filter.query()).await
+        if let Some(query) = query {
+            Self::_find_many(neo4j, query.into_query_part().build()).await
         } else {
             Self::_find_many(neo4j, neo4rs::query(QUERY)).await
         }

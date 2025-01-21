@@ -1,13 +1,10 @@
-use futures::TryStreamExt;
-use serde::Deserialize;
-
 use crate::bootstrap::constants;
 
 use sdk::{
     error::DatabaseError,
-    mapping::{self, Entity, Relation},
+    mapping::{Entity, Relation},
     models::{self, BlockMetadata},
-    pb, system_ids,
+    pb,
 };
 
 #[derive(Clone)]
@@ -54,71 +51,6 @@ impl Client {
         self.bootstrap(rollup).await?;
 
         Ok(())
-    }
-
-    pub async fn run(&self, query: mapping::Query<()>) -> Result<(), DatabaseError> {
-        self.neo4j.run(query.query).await?;
-        Ok(())
-    }
-
-    // pub async fn find_node_by_id<T: for<'a> Deserialize<'a> + Send>(
-    //     &self,
-    //     id: &str,
-    // ) -> Result<Option<Entity<T>>, DatabaseError> {
-    //     let query = Entity::<T>::find_by_id_query(id);
-    //     self.find_node(query).await
-    // }
-
-    pub async fn find_node<T: for<'a> Deserialize<'a> + Send>(
-        &self,
-        query: mapping::Query<T>,
-    ) -> Result<Option<Entity<T>>, DatabaseError> {
-        self.neo4j
-            .execute(query.query)
-            .await?
-            .next()
-            .await?
-            .map(|row| Ok::<_, DatabaseError>(Entity::<T>::try_from(row.to::<neo4rs::Node>()?)?))
-            .transpose()
-    }
-
-    pub async fn find_nodes<T: for<'a> Deserialize<'a> + Send>(
-        &self,
-        query: neo4rs::Query,
-    ) -> anyhow::Result<Vec<Entity<T>>, DatabaseError> {
-        self.neo4j
-            .execute(query)
-            .await?
-            .into_stream_as::<neo4rs::Node>()
-            .map_err(DatabaseError::from)
-            .and_then(|neo4j_node| async move { Ok(Entity::<T>::try_from(neo4j_node)?) })
-            .try_collect::<Vec<_>>()
-            .await
-    }
-
-    pub async fn find_node_from_relation<T: for<'a> Deserialize<'a> + Send>(
-        &self,
-        relation_id: &str,
-    ) -> Result<Option<Entity<T>>, DatabaseError> {
-        let query =
-            mapping::Query::new("MATCH (n) -[r {id: $id}]-> () RETURN n").param("id", relation_id);
-        self.find_node::<T>(query).await
-    }
-
-    pub async fn find_node_to_relation<T: for<'a> Deserialize<'a> + Send>(
-        &self,
-        relation_id: &str,
-    ) -> Result<Option<Entity<T>>, DatabaseError> {
-        let query =
-            mapping::Query::new("MATCH () -[r {id: $id}]-> (n) RETURN n").param("id", relation_id);
-        self.find_node::<T>(query).await
-    }
-
-    pub async fn find_types<T: for<'a> Deserialize<'a> + Send>(
-        &self,
-    ) -> Result<Vec<Entity<T>>, DatabaseError> {
-        let query = neo4rs::query(&format!("MATCH (t:`{}`) RETURN t", system_ids::SCHEMA_TYPE));
-        self.find_nodes::<T>(query).await
     }
 
     pub async fn process_ops(
@@ -169,6 +101,7 @@ impl Client {
 
                     Entity::<()>::delete_triple(&self.neo4j, block, space_id, triple).await?
                 }
+                // TODO: Handle these cases
                 // (pb::ipfs::OpType::SetTripleBatch, op) => {
                 // }
                 // (pb::ipfs::OpType::DeleteEntity, op) => {

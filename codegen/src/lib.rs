@@ -242,13 +242,15 @@ pub async fn gen_types(kg: &sink::kg::Client) -> anyhow::Result<Program> {
         quote!("import { Entity } from './kg';" as ModuleItem),
     ];
 
-    let types = kg
-        .find_types::<Named>()
-        .await?
-        .into_iter()
-        // .map(|node| node)
-        .unique()
-        .fix_name_collisions();
+    // let types = kg
+    //     .find_types::<Named>()
+    //     .await?
+    //     .into_iter()
+    //     // .map(|node| node)
+    //     .unique()
+    //     .fix_name_collisions();
+    // FIXME: Temporary while we figure out what to do with codegen
+    let types = vec![];
 
     let stmts = stream::iter(types)
         .then(|entity| async move {

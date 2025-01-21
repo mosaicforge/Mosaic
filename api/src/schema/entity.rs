@@ -13,7 +13,7 @@ use super::{AttributeFilter, EntityRelationFilter, Options};
 #[derive(Debug)]
 pub struct Entity {
     pub(crate) id: String,
-    pub(crate) types: Vec<String>,
+    pub(crate) _types: Vec<String>,
     pub(crate) space_id: String,
     pub(crate) created_at: DateTime<Utc>,
     pub(crate) created_at_block: String,
@@ -65,42 +65,16 @@ impl Entity {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Vec<Entity> {
-        if self.types.contains(&system_ids::RELATION_TYPE.to_string()) {
-            // Since relations are also entities, and a relation's types are modelled differently
-            // in Neo4j, we need to check fetch types differently if the entity is a relation.
-            // mapping::Relation::<mapping::Triples>::find_types(
-            //     &executor.context().0.neo4j,
-            //     &self.id,
-            //     &self.space_id,
-            // )
-            // .await
-            // .expect("Failed to find relations")
-            // .into_iter()
-            // .map(|rel| rel.into())
-            // .collect::<Vec<_>>()
-
-            // For now, we'll just return the relation type
-            mapping::Entity::<mapping::Triples>::find_by_id(
-                &executor.context().0,
-                system_ids::RELATION_TYPE,
-                &self.space_id,
-            )
-            .await
-            .expect("Failed to find types")
-            .map(|rel| vec![rel.into()])
-            .unwrap_or(vec![])
-        } else {
-            mapping::Entity::<mapping::Triples>::find_types(
-                &executor.context().0,
-                &self.id,
-                &self.space_id,
-            )
-            .await
-            .expect("Failed to find relations")
-            .into_iter()
-            .map(|rel| rel.into())
-            .collect::<Vec<_>>()
-        }
+        mapping::Entity::<mapping::Triples>::find_types(
+            &executor.context().0,
+            &self.id,
+            &self.space_id,
+        )
+        .await
+        .expect("Failed to find relations")
+        .into_iter()
+        .map(|rel| rel.into())
+        .collect::<Vec<_>>()
     }
 
     /// Attributes of the entity
@@ -123,16 +97,30 @@ impl Entity {
         r#where: Option<EntityRelationFilter>,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Vec<Relation> {
-        mapping::Entity::<mapping::Triples>::find_relations::<mapping::Triples>(
-            &executor.context().0,
-            &self.id,
-            r#where.map(Into::into),
-        )
-        .await
-        .expect("Failed to find relations")
-        .into_iter()
-        .map(|rel| rel.into())
-        .collect::<Vec<_>>()
+        let mut base_query = mapping::relation_queries::FindMany::new("r")
+            .from(|from_query| from_query.id(self.id()))
+            .space_id(&self.space_id);
+
+        if let Some(filter) = r#where {
+            if let Some(id) = filter.id {
+                base_query = base_query.id(&id);
+            }
+
+            if let Some(to_id) = filter.to_id {
+                base_query = base_query.to(|to_query| to_query.id(&to_id));
+            }
+
+            if let Some(relation_type) = filter.relation_type {
+                base_query = base_query.relation_type(&relation_type);
+            }
+        }
+
+        mapping::Relation::<mapping::Triples>::find_many(&executor.context().0, Some(base_query))
+            .await
+            .expect("Failed to find relations")
+            .into_iter()
+            .map(|rel| rel.into())
+            .collect::<Vec<_>>()
     }
 }
 
@@ -140,7 +128,7 @@ impl From<mapping::Entity<mapping::Triples>> for Entity {
     fn from(entity: mapping::Entity<mapping::Triples>) -> Self {
         Self {
             id: entity.attributes.id,
-            types: entity.types,
+            _types: entity.types,
             space_id: entity.attributes.system_properties.space_id.clone(),
             created_at: entity.attributes.system_properties.created_at,
             created_at_block: entity.attributes.system_properties.created_at_block,
