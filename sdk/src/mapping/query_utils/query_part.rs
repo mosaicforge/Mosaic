@@ -32,7 +32,7 @@ impl QueryPart {
 
     pub fn return_clause(mut self, clause: &str) -> Self {
         // Not the most efficient but important to keep the return clauses unique
-        if self.return_clauses.iter().find(|&x| x == clause).is_none() {
+        if self.return_clauses.iter().any(|x| x == clause) {
             self.return_clauses.push(clause.to_owned());
         }
         self
@@ -40,12 +40,7 @@ impl QueryPart {
 
     pub fn order_by_clause(mut self, clause: &str) -> Self {
         // Not the most efficient but important to keep the return clauses unique
-        if self
-            .order_by_clauses
-            .iter()
-            .find(|&x| x == clause)
-            .is_none()
-        {
+        if self.order_by_clauses.iter().any(|x| x == clause) {
             self.order_by_clauses.push(clause.to_owned());
         }
         self
