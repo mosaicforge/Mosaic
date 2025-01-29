@@ -63,7 +63,7 @@ impl EventHandler {
                     HandlerError::Other(
                         format!(
                             "Error querying space with plugin address {} {e:?}",
-                            checksum_address(&edit.plugin_address, None)
+                            checksum_address(&edit.plugin_address)
                         )
                         .into(),
                     )

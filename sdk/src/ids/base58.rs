@@ -52,16 +52,25 @@ mod tests {
     #[test]
     fn test_base58_encoding() {
         assert_eq!(
+            encode_uuid_to_base58("1cc6995f-6cc2-4c7a-9592-1466bf95f6be"),
             "4Z6VLmpipszCVZb21Fey5F",
-            encode_uuid_to_base58("1cc6995f-6cc2-4c7a-9592-1466bf95f6be")
         )
     }
 
     #[test]
+    fn test_base58_encoding_2() {
+        assert_eq!(
+            encode_uuid_to_base58("08c4f093-7858-ab7c-9b94-b82e448abcff"),
+            "25omwWh6HYgeRQKCaSpVpa",
+        )
+    }
+
+
+    #[test]
     fn test_base58_decoding() {
         assert_eq!(
+            decode_base58_to_uuid("4Z6VLmpipszCVZb21Fey5F").unwrap(),
             "1cc6995f-6cc2-4c7a-9592-1466bf95f6be",
-            decode_base58_to_uuid("4Z6VLmpipszCVZb21Fey5F").unwrap()
         )
     }
 

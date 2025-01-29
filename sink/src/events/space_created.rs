@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use sdk::{
     models::{self, GeoAccount, Space, SpaceType},
     network_ids,
-    pb::geo,
+    pb::{geo, self},
 };
 use web3_utils::checksum_address;
 
@@ -12,46 +14,59 @@ impl EventHandler {
     pub async fn handle_space_created(
         &self,
         space_created: &geo::GeoSpaceCreated,
-        // edits_published: &[geo::EditPublished],
+        edits_published: &[geo::EditPublished],
         block: &models::BlockMetadata,
     ) -> Result<String, HandlerError> {
-        // Match the space creation events with their corresponding initial proposal (if any)
-        // let initial_proposals = spaces_created
-        //     .iter()
-        //     .filter_map(|event| {
-        //         edits_published
-        //             .iter()
-        //             .find(|proposal| {
-        //                 checksum_address(&proposal.plugin_address, None)
-        //                     == checksum_address(&event.space_address, None)
-        //             })
-        //             .map(|proposal| (event.space_address.clone(), proposal))
-        //     })
-        //     .collect::<HashMap<_, _>>();
+        let maybe_initial_proposal = edits_published
+            .iter()
+            .find(|proposal| {
+                checksum_address(&proposal.plugin_address) == checksum_address(&space_created.space_address)
+            });
 
-        // tracing::info!()
+        let maybe_existing_space_id = match maybe_initial_proposal {
+            Some(initial_proposal) => {
+                let bytes = self
+                    .ipfs
+                    .get_bytes(&initial_proposal.content_uri.replace("ipfs://", ""), true)
+                    .await?;
 
-        // For spaces with an initial proposal, get the space ID from the import (if available)
-        // let space_ids = stream::iter(initial_proposals)
-        //     .filter_map(|(space_address, proposal_processed)| async move {
-        //         let ipfs_hash = proposal_processed.content_uri.replace("ipfs://", "");
-        //         self.ipfs
-        //             .get::<ipfs::Import>(&ipfs_hash, true)
-        //             .await
-        //             .ok()
-        //             .map(|import| {
-        //                 (
-        //                     space_address,
-        //                     Space::new_id(
-        //                         &import.previous_network,
-        //                         &import.previous_contract_address,
-        //                     ),
-        //                 )
-        //             })
-        //     })
-        //     .collect::<HashMap<_, _>>()
-        //     .await;
-        let space_id = Space::new_id(network_ids::GEO, &space_created.dao_address);
+                if let Ok(metadata) = ipfs::deserialize::<pb::ipfs::IpfsMetadata>(&bytes) {
+                    match metadata.r#type() {
+                        pb::ipfs::ActionType::ImportSpace => {
+                            let import = ipfs::deserialize::<pb::ipfs::Import>(&bytes)?;
+                            
+                            tracing::info!(
+                                "Block #{} ({}): Found import for space {} (derived id: {})",
+                                block.block_number,
+                                block.timestamp,
+                                checksum_address(&space_created.space_address),
+                                Space::new_id(
+                                    &import.previous_network,
+                                    &import.previous_contract_address,
+                                )
+                            );
+
+                            Some(
+                                Space::new_id(
+                                    &import.previous_network,
+                                    &import.previous_contract_address,
+                                )
+                            )
+                        }
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            }
+            None => {
+                None
+            }
+        };
+
+        let space_id = maybe_existing_space_id.unwrap_or_else(|| {
+            Space::new_id(network_ids::GEO, &space_created.dao_address)
+        });
 
         tracing::info!(
             "Block #{} ({}): Creating space {}",
@@ -118,7 +133,7 @@ impl EventHandler {
                 "Block #{} ({}): Could not create personal admin space plugin for unknown space with dao_address = {}",
                 block.block_number,
                 block.timestamp,
-                checksum_address(&personal_space_created.dao_address, None)
+                checksum_address(&personal_space_created.dao_address)
             );
         }
 
@@ -153,7 +168,7 @@ impl EventHandler {
                 "Block #{} ({}): Could not create governance plugin for unknown space with dao_address = {}",
                 block.block_number,
                 block.timestamp,
-                checksum_address(&governance_plugin_created.dao_address, None)
+                checksum_address(&governance_plugin_created.dao_address)
             );
         }
 

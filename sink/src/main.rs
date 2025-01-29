@@ -5,6 +5,8 @@ use axum::{response::Json, routing::get, Router};
 use clap::{Args, Parser};
 use sink::{events::EventHandler, kg, metrics};
 use substreams_utils::Sink;
+use tracing::Level;
+use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -17,8 +19,6 @@ const DEFAULT_HTTP_PORT: u16 = 8081;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    set_log_level();
-    init_tracing();
     let endpoint_url =
         env::var("SUBSTREAMS_ENDPOINT_URL").expect("SUBSTREAMS_ENDPOINT_URL not set");
     let start_block = env::var("SUBSTREAMS_START_BLOCK").unwrap_or_else(|_| {
@@ -37,6 +37,9 @@ async fn main() -> Result<(), Error> {
     });
 
     let args = AppArgs::parse();
+
+    set_log_level();
+    init_tracing(args.log_file);
 
     let kg_client = kg::Client::new(
         &args.neo4j_args.neo4j_uri,
@@ -82,6 +85,10 @@ struct AppArgs {
     /// Whether or not to reset the database
     #[arg(long)]
     reset_db: bool,
+
+    /// Log file path
+    #[arg(long)]
+    log_file: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -99,14 +106,27 @@ struct Neo4jArgs {
     neo4j_pass: String,
 }
 
-fn init_tracing() {
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "stdout=info".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+fn init_tracing(log_file: Option<String>) {
+    if let Some(log_file) = log_file {
+        // Set the path of the log file
+        let now = chrono::Utc::now();
+        let file_appender = tracing_appender::rolling::never(".", format!("{}-{log_file}", now.format("%Y-%m-%d-%H-%M-%S")),);
+        let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+        
+        tracing_subscriber::fmt::fmt()
+            .with_max_level(Level::INFO)
+            .with_writer(non_blocking)
+            .init();
+    } else {
+        tracing_subscriber::registry()
+            .with(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| "stdout=info".into()),
+            )
+            .with(tracing_subscriber::fmt::layer())
+            .init();
+    }
+
 }
 
 fn set_log_level() {

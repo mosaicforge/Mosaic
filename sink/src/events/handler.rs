@@ -82,7 +82,7 @@ impl substreams_utils::Sink for EventHandler {
             );
         }
         let created_space_ids = stream::iter(&value.spaces_created)
-            .then(|event| async { self.handle_space_created(event, &block).await })
+            .then(|event| async { self.handle_space_created(event, &value.edits_published, &block).await })
             .try_collect::<Vec<_>>()
             .await?;
 

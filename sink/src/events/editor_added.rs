@@ -41,7 +41,7 @@ impl EventHandler {
                     "Block #{} ({}): Could not add editor for unknown space with voting_plugin_address = {}",
                     block.block_number,
                     block.timestamp,
-                    checksum_address(&editor_added.main_voting_plugin_address, None)
+                    checksum_address(&editor_added.main_voting_plugin_address)
                 );
             }
         }

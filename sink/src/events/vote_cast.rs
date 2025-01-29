@@ -71,7 +71,7 @@ impl EventHandler {
                     "Block #{} ({}): Matching space in Proposal not found for plugin address = {}",
                     block.block_number,
                     block.timestamp,
-                    checksum_address(&vote.plugin_address, None),
+                    checksum_address(&vote.plugin_address),
                 );
             }
             // Errors

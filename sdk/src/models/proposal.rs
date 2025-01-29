@@ -90,7 +90,7 @@ impl Proposal {
 
         let query = neo4rs::query(QUERY)
             .param("proposal_id", proposal_id)
-            .param("plugin_address", checksum_address(plugin_address, None));
+            .param("plugin_address", checksum_address(plugin_address));
 
         #[derive(Debug, Deserialize)]
         struct ResultRow {

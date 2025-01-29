@@ -19,26 +19,26 @@ impl Client {
     }
 
     /// Bootstrap the database with the initial data
-    pub async fn bootstrap(&self, _rollup: bool) -> Result<(), DatabaseError> {
-        models::Space::builder(
-            constants::ROOT_SPACE_ID,
-            constants::ROOT_SPACE_DAO_ADDRESS,
-            &BlockMetadata::default(),
-        )
-        .space_plugin_address(constants::ROOT_SPACE_PLUGIN_ADDRESS)
-        .voting_plugin_address(constants::ROOT_SPACE_MAIN_VOTING_ADDRESS)
-        .member_access_plugin(constants::ROOT_SPACE_MEMBER_ACCESS_ADDRESS)
-        .build()
-        .upsert(&self.neo4j)
-        .await
+    // pub async fn bootstrap(&self, _rollup: bool) -> Result<(), DatabaseError> {
+    //     models::Space::builder(
+    //         constants::ROOT_SPACE_ID,
+    //         constants::ROOT_SPACE_DAO_ADDRESS,
+    //         &BlockMetadata::default(),
+    //     )
+    //     .space_plugin_address(constants::ROOT_SPACE_PLUGIN_ADDRESS)
+    //     .voting_plugin_address(constants::ROOT_SPACE_MAIN_VOTING_ADDRESS)
+    //     .member_access_plugin(constants::ROOT_SPACE_MEMBER_ACCESS_ADDRESS)
+    //     .build()
+    //     .upsert(&self.neo4j)
+    //     .await
 
-        // self.process_ops(
-        //     &BlockMetadata::default(),
-        //     constants::ROOT_SPACE_ID,
-        //     bootstrap::bootstrap(),
-        // )
-        // .await
-    }
+    //     // self.process_ops(
+    //     //     &BlockMetadata::default(),
+    //     //     constants::ROOT_SPACE_ID,
+    //     //     bootstrap::bootstrap(),
+    //     // )
+    //     // .await
+    // }
 
     /// Reset the database by deleting all nodes and relations and re-bootstrapping it
     pub async fn reset_db(&self, rollup: bool) -> anyhow::Result<()> {
@@ -48,7 +48,7 @@ impl Client {
         txn.commit().await?;
 
         // Re-bootstrap the database
-        self.bootstrap(rollup).await?;
+        // self.bootstrap(rollup).await?;
 
         Ok(())
     }

@@ -30,7 +30,7 @@ impl EventHandler {
                     "Block #{} ({}): Could not create subspace: parent space with plugin_address = {} not found",
                     block.block_number,
                     block.timestamp,
-                    checksum_address(&subspace_added.plugin_address, None)
+                    checksum_address(&subspace_added.plugin_address)
                 );
             }
             (Ok(Some(_)), Ok(None)) => {
@@ -38,7 +38,7 @@ impl EventHandler {
                     "Block #{} ({}): Could not create subspace: space with dao_address = {} not found",
                     block.block_number,
                     block.timestamp,
-                    checksum_address(&subspace_added.plugin_address, None)
+                    checksum_address(&subspace_added.plugin_address)
                 );
             }
             (Err(e), _) | (_, Err(e)) => {
