@@ -14,11 +14,11 @@ impl EventHandler {
     ) -> Result<(), HandlerError> {
         match try_join!(
             Space::find_by_voting_plugin_address(
-                &self.kg.neo4j,
+                &self.neo4j,
                 &member_added.main_voting_plugin_address
             ),
             Space::find_by_personal_plugin_address(
-                &self.kg.neo4j,
+                &self.neo4j,
                 &member_added.main_voting_plugin_address
             )
         )? {
@@ -27,11 +27,11 @@ impl EventHandler {
                 let member = GeoAccount::new(member_added.member_address.clone(), block);
 
                 // Add geo account
-                member.upsert(&self.kg.neo4j).await?;
+                member.upsert(&self.neo4j).await?;
 
                 // Add space member relation
                 SpaceMember::new(member.id(), space.id(), block)
-                    .upsert(&self.kg.neo4j)
+                    .upsert(&self.neo4j)
                     .await?;
             }
             // Space not found

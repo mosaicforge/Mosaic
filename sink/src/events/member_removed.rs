@@ -12,11 +12,11 @@ impl EventHandler {
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space =
-            models::Space::find_by_dao_address(&self.kg.neo4j, &member_removed.dao_address).await?;
+            models::Space::find_by_dao_address(&self.neo4j, &member_removed.dao_address).await?;
 
         if let Some(space) = space {
             SpaceMember::remove(
-                &self.kg.neo4j,
+                &self.neo4j,
                 &models::GeoAccount::new_id(&member_removed.member_address),
                 space.id(),
             )

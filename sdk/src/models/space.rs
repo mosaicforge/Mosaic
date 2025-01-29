@@ -33,7 +33,7 @@ pub struct Space {
 
 impl Space {
     pub fn new_id(network: &str, address: &str) -> String {
-        ids::create_id_from_unique_string(&format!("{network}:{}", checksum_address(address, None)))
+        ids::create_id_from_unique_string(&format!("{network}:{}", checksum_address(address)))
     }
 
     pub fn builder(id: &str, dao_contract_address: &str, block: &BlockMetadata) -> SpaceBuilder {
@@ -57,7 +57,7 @@ impl Space {
 
         let query = neo4rs::query(QUERY).param(
             "dao_contract_address",
-            checksum_address(dao_contract_address, None),
+            checksum_address(dao_contract_address),
         );
 
         #[derive(Debug, Deserialize)]
@@ -89,7 +89,7 @@ impl Space {
 
         let query = neo4rs::query(QUERY).param(
             "space_plugin_address",
-            checksum_address(space_plugin_address, None),
+            checksum_address(space_plugin_address),
         );
 
         #[derive(Debug, Deserialize)]
@@ -121,7 +121,7 @@ impl Space {
 
         let query = neo4rs::query(QUERY).param(
             "voting_plugin_address",
-            checksum_address(voting_plugin_address, None),
+            checksum_address(voting_plugin_address),
         );
 
         #[derive(Debug, Deserialize)]
@@ -153,7 +153,7 @@ impl Space {
 
         let query = neo4rs::query(QUERY).param(
             "member_access_plugin",
-            checksum_address(member_access_plugin, None),
+            checksum_address(member_access_plugin),
         );
 
         #[derive(Debug, Deserialize)]
@@ -185,7 +185,7 @@ impl Space {
 
         let query = neo4rs::query(QUERY).param(
             "personal_space_admin_plugin",
-            checksum_address(personal_space_admin_plugin, None),
+            checksum_address(personal_space_admin_plugin),
         );
 
         #[derive(Debug, Deserialize)]
@@ -256,7 +256,7 @@ impl SpaceBuilder {
             block: block.clone(),
             network: network_ids::GEO.to_string(),
             r#type: SpaceType::Public,
-            dao_contract_address: checksum_address(dao_contract_address, None),
+            dao_contract_address: checksum_address(dao_contract_address),
             space_plugin_address: None,
             voting_plugin_address: None,
             member_access_plugin: None,
@@ -275,28 +275,27 @@ impl SpaceBuilder {
     }
 
     pub fn dao_contract_address(mut self, dao_contract_address: &str) -> Self {
-        self.dao_contract_address = checksum_address(dao_contract_address, None);
+        self.dao_contract_address = checksum_address(dao_contract_address);
         self
     }
 
     pub fn space_plugin_address(mut self, space_plugin_address: &str) -> Self {
-        self.space_plugin_address = Some(checksum_address(space_plugin_address, None));
+        self.space_plugin_address = Some(checksum_address(space_plugin_address));
         self
     }
 
     pub fn voting_plugin_address(mut self, voting_plugin_address: &str) -> Self {
-        self.voting_plugin_address = Some(checksum_address(voting_plugin_address, None));
+        self.voting_plugin_address = Some(checksum_address(voting_plugin_address));
         self
     }
 
     pub fn member_access_plugin(mut self, member_access_plugin: &str) -> Self {
-        self.member_access_plugin = Some(checksum_address(member_access_plugin, None));
+        self.member_access_plugin = Some(checksum_address(member_access_plugin));
         self
     }
 
     pub fn personal_space_admin_plugin(mut self, personal_space_admin_plugin: &str) -> Self {
-        self.personal_space_admin_plugin =
-            Some(checksum_address(personal_space_admin_plugin, None));
+        self.personal_space_admin_plugin = Some(checksum_address(personal_space_admin_plugin));
         self
     }
 

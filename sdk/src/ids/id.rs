@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use md5::{Digest, Md5};
-use uuid::Uuid;
+use uuid::Builder;
 
 use super::base58::encode_uuid_to_base58;
 
@@ -58,12 +58,29 @@ pub fn create_space_id(network: &str, address: &str) -> String {
 pub fn create_id_from_unique_string(text: &str) -> String {
     let mut hasher = Md5::new();
     hasher.update(text);
-    let hashed = hasher.finalize();
+    let hashed: [u8; 16] = hasher.finalize().into();
 
-    let uuid = Uuid::from_slice(&hashed[..]).unwrap();
+    let uuid = Builder::from_random_bytes(hashed).into_uuid();
     encode_uuid_to_base58(&uuid.to_string())
 }
 
 pub fn create_geo_id() -> String {
     encode_uuid_to_base58(&uuid::Uuid::new_v4().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::network_ids;
+
+    #[test]
+    fn test_space_id() {
+        assert_eq!(
+            create_space_id(
+                network_ids::GEO,
+                "0xcD48eF54771d9cf7dDA324c64bF4e53C161aF294"
+            ),
+            "25omwWh6HYgeRQKCaSpVpa"
+        )
+    }
 }

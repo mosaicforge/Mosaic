@@ -29,6 +29,7 @@ substreams-utils = { version = "0.1.0", path = "../substreams-utils" }
 sdk = { version = "0.1.0", path = "../sdk" }
 ipfs = { version = "0.1.0", path = "../ipfs" }
 web3-utils = { version = "0.1.0", path = "../web3-utils" }
+tracing-appender = "0.2.3"
 
 [dev-dependencies]
 serde_path_to_error = "0.1.16"

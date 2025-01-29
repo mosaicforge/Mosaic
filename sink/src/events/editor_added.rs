@@ -15,11 +15,11 @@ impl EventHandler {
     ) -> Result<(), HandlerError> {
         match try_join!(
             Space::find_by_voting_plugin_address(
-                &self.kg.neo4j,
+                &self.neo4j,
                 &editor_added.main_voting_plugin_address,
             ),
             Space::find_by_personal_plugin_address(
-                &self.kg.neo4j,
+                &self.neo4j,
                 &editor_added.main_voting_plugin_address
             )
         )? {
@@ -28,11 +28,11 @@ impl EventHandler {
                 let editor = models::GeoAccount::new(editor_added.editor_address.clone(), block);
 
                 // Add geo account
-                editor.upsert(&self.kg.neo4j).await?;
+                editor.upsert(&self.neo4j).await?;
 
                 // Add space editor relation
                 SpaceEditor::new(editor.id(), space.id(), block)
-                    .upsert(&self.kg.neo4j)
+                    .upsert(&self.neo4j)
                     .await?;
             }
             // Space not found
@@ -41,7 +41,7 @@ impl EventHandler {
                     "Block #{} ({}): Could not add editor for unknown space with voting_plugin_address = {}",
                     block.block_number,
                     block.timestamp,
-                    checksum_address(&editor_added.main_voting_plugin_address, None)
+                    checksum_address(&editor_added.main_voting_plugin_address)
                 );
             }
         }

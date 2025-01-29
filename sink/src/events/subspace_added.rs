@@ -15,14 +15,14 @@ impl EventHandler {
     ) -> Result<(), HandlerError> {
         match join!(
             models::Space::find_by_space_plugin_address(
-                &self.kg.neo4j,
+                &self.neo4j,
                 &subspace_added.plugin_address
             ),
-            models::Space::find_by_dao_address(&self.kg.neo4j, &subspace_added.subspace)
+            models::Space::find_by_dao_address(&self.neo4j, &subspace_added.subspace)
         ) {
             (Ok(Some(parent_space)), Ok(Some(subspace))) => {
                 ParentSpace::new(subspace.id(), parent_space.id(), block)
-                    .upsert(&self.kg.neo4j)
+                    .upsert(&self.neo4j)
                     .await?;
             }
             (Ok(None), Ok(_)) => {
@@ -30,7 +30,7 @@ impl EventHandler {
                     "Block #{} ({}): Could not create subspace: parent space with plugin_address = {} not found",
                     block.block_number,
                     block.timestamp,
-                    checksum_address(&subspace_added.plugin_address, None)
+                    checksum_address(&subspace_added.plugin_address)
                 );
             }
             (Ok(Some(_)), Ok(None)) => {
@@ -38,7 +38,7 @@ impl EventHandler {
                     "Block #{} ({}): Could not create subspace: space with dao_address = {} not found",
                     block.block_number,
                     block.timestamp,
-                    checksum_address(&subspace_added.plugin_address, None)
+                    checksum_address(&subspace_added.plugin_address)
                 );
             }
             (Err(e), _) | (_, Err(e)) => {

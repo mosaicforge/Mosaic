@@ -2,9 +2,8 @@ use clap::{Args, Parser, Subcommand};
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::IpfsClient;
 use sdk::mapping::{Entity, Named};
-use sdk::{ids, pb};
+use sdk::{ids, neo4rs, pb};
 use sink::bootstrap::constants;
-use sink::kg;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -21,7 +20,7 @@ async fn main() -> anyhow::Result<()> {
     init_tracing();
     let args = AppArgs::parse();
 
-    let kg = kg::Client::new(
+    let neo4j: neo4rs::Graph = neo4rs::Graph::new(
         &args.neo4j_args.neo4j_uri,
         &args.neo4j_args.neo4j_user,
         &args.neo4j_args.neo4j_pass,
@@ -45,7 +44,7 @@ async fn main() -> anyhow::Result<()> {
             unimplemented!()
         }
         Command::Describe { id, space_id } => {
-            let entity = Entity::<Named>::find_by_id(&kg.neo4j, &id, &space_id)
+            let entity = Entity::<Named>::find_by_id(&neo4j, &id, &space_id)
                 .await?
                 .expect("Entity not found");
 
@@ -77,12 +76,12 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::ImportSpace {
             ipfs_hash,
-            space_id,
+            space_id: _,
         } => {
-            let ops = import_space(&ipfs_client, &ipfs_hash).await?;
+            let _ = import_space(&ipfs_client, &ipfs_hash).await?;
             // let rollups = conversions::batch_ops(ops);
 
-            kg.process_ops(&Default::default(), &space_id, ops).await?
+            // neo4j.process_ops(&Default::default(), &space_id, ops).await?
         }
         Command::CreateEntityId { n } => {
             for _ in 0..n {

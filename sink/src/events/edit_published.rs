@@ -1,6 +1,8 @@
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::deserialize;
 use sdk::{
+    error::DatabaseError,
+    mapping::{Entity, Relation},
     models::{self, EditProposal, Space},
     pb::{self, geo},
 };
@@ -42,9 +44,7 @@ impl EventHandler {
                     proposal.proposal_id
                 );
 
-                self.kg
-                    .process_ops(block, &proposal.space, proposal.ops)
-                    .await
+                self.process_ops(block, &proposal.space, proposal.ops).await
             })
             .await
             .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
@@ -57,13 +57,13 @@ impl EventHandler {
         edit: &geo::EditPublished,
     ) -> Result<Vec<EditProposal>, HandlerError> {
         let space = if let Some(space) =
-            Space::find_by_space_plugin_address(&self.kg.neo4j, &edit.plugin_address)
+            Space::find_by_space_plugin_address(&self.neo4j, &edit.plugin_address)
                 .await
                 .map_err(|e| {
                     HandlerError::Other(
                         format!(
                             "Error querying space with plugin address {} {e:?}",
-                            checksum_address(&edit.plugin_address, None)
+                            checksum_address(&edit.plugin_address)
                         )
                         .into(),
                     )
@@ -134,5 +134,104 @@ impl EventHandler {
             }
             _ => Ok(vec![]),
         }
+    }
+
+    pub async fn process_ops(
+        &self,
+        block: &models::BlockMetadata,
+        space_id: &str,
+        ops: impl IntoIterator<Item = pb::ipfs::Op>,
+    ) -> Result<(), DatabaseError> {
+        for op in ops {
+            match (op.r#type(), op) {
+                (
+                    pb::ipfs::OpType::SetTriple,
+                    pb::ipfs::Op {
+                        triple:
+                            Some(pb::ipfs::Triple {
+                                entity,
+                                attribute,
+                                value: Some(value),
+                            }),
+                        ..
+                    },
+                ) => {
+                    tracing::info!("SetTriple: {}, {}, {:?}", entity, attribute, value,);
+
+                    Entity::<()>::set_triple(
+                        &self.neo4j,
+                        block,
+                        space_id,
+                        &entity,
+                        &attribute,
+                        &value,
+                    )
+                    .await?
+                }
+                (
+                    pb::ipfs::OpType::DeleteTriple,
+                    pb::ipfs::Op {
+                        triple: Some(triple),
+                        ..
+                    },
+                ) => {
+                    tracing::info!(
+                        "DeleteTriple: {}, {}, {:?}",
+                        triple.entity,
+                        triple.attribute,
+                        triple.value,
+                    );
+
+                    Entity::<()>::delete_triple(&self.neo4j, block, space_id, triple).await?
+                }
+                // TODO: Handle these cases
+                // (pb::ipfs::OpType::SetTripleBatch, op) => {
+                // }
+                // (pb::ipfs::OpType::DeleteEntity, op) => {
+                // }
+                (
+                    pb::ipfs::OpType::CreateRelation,
+                    pb::ipfs::Op {
+                        relation: Some(relation),
+                        ..
+                    },
+                ) => {
+                    tracing::info!(
+                        "CreateRelation: {}, {}, {}, {}",
+                        relation.id,
+                        relation.r#type,
+                        relation.from_entity,
+                        relation.to_entity,
+                    );
+
+                    Relation::<()>::new(
+                        &relation.id,
+                        space_id,
+                        &relation.r#type,
+                        &relation.from_entity,
+                        &relation.to_entity,
+                        block,
+                        (),
+                    )
+                    .upsert(&self.neo4j)
+                    .await?
+                }
+                (
+                    pb::ipfs::OpType::DeleteRelation,
+                    pb::ipfs::Op {
+                        relation: Some(relation),
+                        ..
+                    },
+                ) => {
+                    tracing::info!("DeleteRelation: {}", relation.id);
+                    Entity::<()>::delete(&self.neo4j, block, &relation.id, space_id).await?
+                }
+                (typ, maybe_triple) => {
+                    tracing::warn!("Unhandled case: {:?} {:?}", typ, maybe_triple);
+                }
+            }
+        }
+
+        Ok(())
     }
 }

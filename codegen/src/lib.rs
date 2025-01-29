@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use futures::{stream, StreamExt, TryStreamExt};
 use sdk::mapping::{Entity, Named};
-use sdk::system_ids;
+use sdk::{neo4rs, system_ids};
 use swc::config::SourceMapsConfig;
 use swc::PrintArgs;
 use swc_common::{sync::Lrc, SourceMap, Span};
@@ -160,7 +160,7 @@ impl EntityExt for Entity<Named> {
 
 /// Generate a TypeScript class declaration from an entity.
 /// Note: The entity must be a `Type` entity.
-pub async fn gen_type(_kg: &sink::kg::Client, entity: &Entity<Named>) -> anyhow::Result<Decl> {
+pub async fn gen_type(_kg: &neo4rs::Graph, entity: &Entity<Named>) -> anyhow::Result<Decl> {
     // let attrs = kg.attribute_nodes::<Named>(entity.id()).await?;
     let attrs = vec![]; // FIXME: Temporary while we figure out what to do with codegen
 
@@ -236,7 +236,7 @@ pub async fn gen_type(_kg: &sink::kg::Client, entity: &Entity<Named>) -> anyhow:
 }
 
 /// Generate a TypeScript module containing class definitions from all types in the knowledge graph.
-pub async fn gen_types(kg: &sink::kg::Client) -> anyhow::Result<Program> {
+pub async fn gen_types(kg: &neo4rs::Graph) -> anyhow::Result<Program> {
     let import_stmts = vec![
         quote!("import { Driver, Node } from 'neo4j-driver';" as ModuleItem),
         quote!("import { Entity } from './kg';" as ModuleItem),
@@ -271,7 +271,7 @@ pub async fn gen_types(kg: &sink::kg::Client) -> anyhow::Result<Program> {
 }
 
 /// Generate and render TypeScript code from the knowledge graph.
-pub async fn codegen(kg: &sink::kg::Client) -> anyhow::Result<String> {
+pub async fn codegen(kg: &neo4rs::Graph) -> anyhow::Result<String> {
     let cm: Lrc<SourceMap> = Default::default();
     let compiler = swc::Compiler::new(cm.clone());
 

@@ -12,11 +12,9 @@ impl EventHandler {
         initial_editor_added: &geo::InitialEditorAdded,
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space = Space::find_by_voting_plugin_address(
-            &self.kg.neo4j,
-            &initial_editor_added.plugin_address,
-        )
-        .await?;
+        let space =
+            Space::find_by_voting_plugin_address(&self.neo4j, &initial_editor_added.plugin_address)
+                .await?;
 
         if let Some(space) = &space {
             stream::iter(&initial_editor_added.addresses)
@@ -25,11 +23,11 @@ impl EventHandler {
                     let editor = GeoAccount::new(editor.clone(), block);
 
                     // Add geo account
-                    editor.upsert(&self.kg.neo4j).await?;
+                    editor.upsert(&self.neo4j).await?;
 
                     // Add space editor relation
                     SpaceEditor::new(editor.id(), space.id(), block)
-                        .upsert(&self.kg.neo4j)
+                        .upsert(&self.neo4j)
                         .await?;
 
                     Ok(())
