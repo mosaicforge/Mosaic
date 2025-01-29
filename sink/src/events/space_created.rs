@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
 use sdk::{
     models::{self, GeoAccount, Space, SpaceType},
     network_ids,
-    pb::{geo, self},
+    pb::{self, geo},
 };
 use web3_utils::checksum_address;
 
@@ -17,11 +15,10 @@ impl EventHandler {
         edits_published: &[geo::EditPublished],
         block: &models::BlockMetadata,
     ) -> Result<String, HandlerError> {
-        let maybe_initial_proposal = edits_published
-            .iter()
-            .find(|proposal| {
-                checksum_address(&proposal.plugin_address) == checksum_address(&space_created.space_address)
-            });
+        let maybe_initial_proposal = edits_published.iter().find(|proposal| {
+            checksum_address(&proposal.plugin_address)
+                == checksum_address(&space_created.space_address)
+        });
 
         let maybe_existing_space_id = match maybe_initial_proposal {
             Some(initial_proposal) => {
@@ -34,7 +31,7 @@ impl EventHandler {
                     match metadata.r#type() {
                         pb::ipfs::ActionType::ImportSpace => {
                             let import = ipfs::deserialize::<pb::ipfs::Import>(&bytes)?;
-                            
+
                             tracing::info!(
                                 "Block #{} ({}): Found import for space {} (derived id: {})",
                                 block.block_number,
@@ -46,12 +43,10 @@ impl EventHandler {
                                 )
                             );
 
-                            Some(
-                                Space::new_id(
-                                    &import.previous_network,
-                                    &import.previous_contract_address,
-                                )
-                            )
+                            Some(Space::new_id(
+                                &import.previous_network,
+                                &import.previous_contract_address,
+                            ))
                         }
                         _ => None,
                     }
@@ -59,14 +54,11 @@ impl EventHandler {
                     None
                 }
             }
-            None => {
-                None
-            }
+            None => None,
         };
 
-        let space_id = maybe_existing_space_id.unwrap_or_else(|| {
-            Space::new_id(network_ids::GEO, &space_created.dao_address)
-        });
+        let space_id = maybe_existing_space_id
+            .unwrap_or_else(|| Space::new_id(network_ids::GEO, &space_created.dao_address));
 
         tracing::info!(
             "Block #{} ({}): Creating space {}",
@@ -79,7 +71,7 @@ impl EventHandler {
             .network(network_ids::GEO.to_string())
             .space_plugin_address(&space_created.space_address)
             .build()
-            .upsert(&self.kg.neo4j)
+            .upsert(&self.neo4j)
             .await?;
 
         // Create the spaces
@@ -104,7 +96,7 @@ impl EventHandler {
         personal_space_created: &geo::GeoPersonalSpaceAdminPluginCreated,
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space = Space::find_by_dao_address(&self.kg.neo4j, &personal_space_created.dao_address)
+        let space = Space::find_by_dao_address(&self.neo4j, &personal_space_created.dao_address)
             .await
             .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
 
@@ -113,13 +105,13 @@ impl EventHandler {
                 .r#type(SpaceType::Personal)
                 .personal_space_admin_plugin(&personal_space_created.personal_admin_address)
                 .build()
-                .upsert(&self.kg.neo4j)
+                .upsert(&self.neo4j)
                 .await?;
 
             // Add initial editors to the personal space
             let editor = GeoAccount::new(personal_space_created.initial_editor.clone(), block);
 
-            editor.upsert(&self.kg.neo4j).await?;
+            editor.upsert(&self.neo4j).await?;
 
             tracing::info!(
                 "Block #{} ({}): Creating personal admin space plugin for space {} with initial editor {}",
@@ -146,8 +138,7 @@ impl EventHandler {
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space =
-            Space::find_by_dao_address(&self.kg.neo4j, &governance_plugin_created.dao_address)
-                .await?;
+            Space::find_by_dao_address(&self.neo4j, &governance_plugin_created.dao_address).await?;
 
         if let Some(space) = space {
             tracing::info!(
@@ -161,7 +152,7 @@ impl EventHandler {
                 .voting_plugin_address(&governance_plugin_created.main_voting_address)
                 .member_access_plugin(&governance_plugin_created.member_access_address)
                 .build()
-                .upsert(&self.kg.neo4j)
+                .upsert(&self.neo4j)
                 .await?;
         } else {
             tracing::warn!(

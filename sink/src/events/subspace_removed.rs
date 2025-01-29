@@ -9,14 +9,14 @@ impl EventHandler {
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space = models::Space::find_by_space_plugin_address(
-            &self.kg.neo4j,
+            &self.neo4j,
             &subspace_removed.plugin_address,
         )
         .await
         .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
 
         if let Some(space) = space {
-            self.kg.neo4j
+            self.neo4j
                 .run(neo4rs::query(&format!(
                     "MATCH (subspace:`{INDEXED_SPACE}` {{parent_space: $space_id}}) DELETE subspace",
                     INDEXED_SPACE = system_ids::SPACE_TYPE,

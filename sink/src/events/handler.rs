@@ -5,7 +5,7 @@ use prost::Message;
 use sdk::{error::DatabaseError, ids::create_geo_id, models::BlockMetadata, pb::geo::GeoOutput};
 use substreams_utils::pb::sf::substreams::rpc::v2::BlockScopedData;
 
-use crate::{kg, metrics};
+use crate::metrics;
 
 #[derive(thiserror::Error, Debug)]
 pub enum HandlerError {
@@ -26,14 +26,14 @@ pub enum HandlerError {
 
 pub struct EventHandler {
     pub(crate) ipfs: IpfsClient,
-    pub(crate) kg: kg::Client,
+    pub(crate) neo4j: neo4rs::Graph,
 }
 
 impl EventHandler {
-    pub fn new(kg: kg::Client) -> Self {
+    pub fn new(neo4j: neo4rs::Graph) -> Self {
         Self {
             ipfs: IpfsClient::from_url("https://gateway.lighthouse.storage/ipfs/"),
-            kg,
+            neo4j,
         }
     }
 }
@@ -82,7 +82,10 @@ impl substreams_utils::Sink for EventHandler {
             );
         }
         let created_space_ids = stream::iter(&value.spaces_created)
-            .then(|event| async { self.handle_space_created(event, &value.edits_published, &block).await })
+            .then(|event| async {
+                self.handle_space_created(event, &value.edits_published, &block)
+                    .await
+            })
             .try_collect::<Vec<_>>()
             .await?;
 

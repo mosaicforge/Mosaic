@@ -9,7 +9,7 @@ impl EventHandler {
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         Ok(models::Proposal::set_status(
-            &self.kg.neo4j,
+            &self.neo4j,
             block,
             &proposal_executed.proposal_id,
             models::proposal::ProposalStatus::Executed,

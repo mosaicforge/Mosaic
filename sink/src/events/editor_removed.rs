@@ -11,11 +11,11 @@ impl EventHandler {
         editor_removed: &geo::EditorRemoved,
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space = Space::find_by_dao_address(&self.kg.neo4j, &editor_removed.dao_address).await?;
+        let space = Space::find_by_dao_address(&self.neo4j, &editor_removed.dao_address).await?;
 
         if let Some(space) = space {
             SpaceEditor::remove(
-                &self.kg.neo4j,
+                &self.neo4j,
                 &GeoAccount::new_id(&editor_removed.editor_address),
                 space.id(),
             )

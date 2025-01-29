@@ -65,7 +65,6 @@ mod tests {
         )
     }
 
-
     #[test]
     fn test_base58_decoding() {
         assert_eq!(

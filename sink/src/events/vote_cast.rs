@@ -16,20 +16,20 @@ impl EventHandler {
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         match join!(
-            Space::find_by_voting_plugin_address(&self.kg.neo4j, &vote.plugin_address),
-            Space::find_by_member_access_plugin(&self.kg.neo4j, &vote.plugin_address)
+            Space::find_by_voting_plugin_address(&self.neo4j, &vote.plugin_address),
+            Space::find_by_member_access_plugin(&self.neo4j, &vote.plugin_address)
         ) {
             // Space found
             (Ok(Some(_space)), Ok(_)) | (Ok(None), Ok(Some(_space))) => {
                 let maybe_proposal = models::Proposal::find_by_id_and_address(
-                    &self.kg.neo4j,
+                    &self.neo4j,
                     &vote.onchain_proposal_id,
                     &vote.plugin_address,
                 )
                 .await?;
 
                 let account = Entity::<models::GeoAccount>::find_by_id(
-                    &self.kg.neo4j,
+                    &self.neo4j,
                     &models::GeoAccount::new_id(&vote.voter),
                     indexer_ids::INDEXER_SPACE_ID,
                 )
@@ -45,7 +45,7 @@ impl EventHandler {
                                 .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?,
                             block,
                         )
-                        .upsert(&self.kg.neo4j)
+                        .upsert(&self.neo4j)
                         .await?;
                     }
                     // Proposal or account not found

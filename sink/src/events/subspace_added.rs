@@ -15,14 +15,14 @@ impl EventHandler {
     ) -> Result<(), HandlerError> {
         match join!(
             models::Space::find_by_space_plugin_address(
-                &self.kg.neo4j,
+                &self.neo4j,
                 &subspace_added.plugin_address
             ),
-            models::Space::find_by_dao_address(&self.kg.neo4j, &subspace_added.subspace)
+            models::Space::find_by_dao_address(&self.neo4j, &subspace_added.subspace)
         ) {
             (Ok(Some(parent_space)), Ok(Some(subspace))) => {
                 ParentSpace::new(subspace.id(), parent_space.id(), block)
-                    .upsert(&self.kg.neo4j)
+                    .upsert(&self.neo4j)
                     .await?;
             }
             (Ok(None), Ok(_)) => {

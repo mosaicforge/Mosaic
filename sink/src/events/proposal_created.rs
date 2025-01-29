@@ -19,7 +19,7 @@ impl EventHandler {
             },
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         // Create Space > PROPOSALS > Proposal relation
@@ -28,7 +28,7 @@ impl EventHandler {
             &models::Proposal::new_id(&add_member_proposal.proposal_id),
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         // Create Proposal > CREATOR > Account relation
@@ -37,7 +37,7 @@ impl EventHandler {
             &add_member_proposal.creator,
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         Ok(())
@@ -59,7 +59,7 @@ impl EventHandler {
             },
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         // Create Space > PROPOSALS > Proposal relation
@@ -68,7 +68,7 @@ impl EventHandler {
             &models::Proposal::new_id(&remove_member_proposal.proposal_id),
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         // Create Proposal > CREATOR > Account relation
@@ -77,7 +77,7 @@ impl EventHandler {
             &remove_member_proposal.creator,
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         Ok(())
@@ -99,7 +99,7 @@ impl EventHandler {
             },
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         // Create Space > PROPOSALS > Proposal relation
@@ -108,7 +108,7 @@ impl EventHandler {
             &models::Proposal::new_id(&add_editor_proposal.proposal_id),
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         // Create Proposal > CREATOR > Account relation
@@ -117,7 +117,7 @@ impl EventHandler {
             &add_editor_proposal.creator,
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         Ok(())
@@ -139,7 +139,7 @@ impl EventHandler {
             },
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         // Create Space > PROPOSALS > Proposal relation
@@ -148,7 +148,7 @@ impl EventHandler {
             &models::Proposal::new_id(&remove_editor_proposal.proposal_id),
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         // Create Proposal > CREATOR > Account relation
@@ -157,7 +157,7 @@ impl EventHandler {
             &remove_editor_proposal.creator,
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         Ok(())
@@ -179,7 +179,7 @@ impl EventHandler {
             },
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         // Create Space > PROPOSALS > Proposal relation
@@ -188,7 +188,7 @@ impl EventHandler {
             &models::Proposal::new_id(&add_subspace_proposal.proposal_id),
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         // Create Proposal > CREATOR > Account relation
@@ -197,7 +197,7 @@ impl EventHandler {
             &add_subspace_proposal.creator,
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         Ok(())
@@ -219,7 +219,7 @@ impl EventHandler {
             },
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         // Create Space > PROPOSALS > Proposal relation
@@ -228,7 +228,7 @@ impl EventHandler {
             &models::Proposal::new_id(&remove_subspace_proposal.proposal_id),
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         // Create Proposal > CREATOR > Account relation
@@ -237,7 +237,7 @@ impl EventHandler {
             &remove_subspace_proposal.creator,
             block,
         )
-        .upsert(&self.kg.neo4j)
+        .upsert(&self.neo4j)
         .await?;
 
         Ok(())

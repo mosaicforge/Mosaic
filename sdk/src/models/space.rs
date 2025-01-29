@@ -295,8 +295,7 @@ impl SpaceBuilder {
     }
 
     pub fn personal_space_admin_plugin(mut self, personal_space_admin_plugin: &str) -> Self {
-        self.personal_space_admin_plugin =
-            Some(checksum_address(personal_space_admin_plugin));
+        self.personal_space_admin_plugin = Some(checksum_address(personal_space_admin_plugin));
         self
     }
 

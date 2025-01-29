@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use md5::{Digest, Md5};
-use uuid::{Builder, Uuid};
+use uuid::Builder;
 
 use super::base58::encode_uuid_to_base58;
 
@@ -76,7 +76,10 @@ mod tests {
     #[test]
     fn test_space_id() {
         assert_eq!(
-            create_space_id(network_ids::GEO, "0xcD48eF54771d9cf7dDA324c64bF4e53C161aF294"),
+            create_space_id(
+                network_ids::GEO,
+                "0xcD48eF54771d9cf7dDA324c64bF4e53C161aF294"
+            ),
             "25omwWh6HYgeRQKCaSpVpa"
         )
     }
