@@ -60,7 +60,7 @@ mod tests {
     #[test]
     fn test_base58_encoding_2() {
         assert_eq!(
-            encode_uuid_to_base58("08c4f093-7858-ab7c-9b94-b82e448abcff"),
+            encode_uuid_to_base58("08c4f093-7858-4b7c-9b94-b82e448abcff"),
             "25omwWh6HYgeRQKCaSpVpa",
         )
     }
