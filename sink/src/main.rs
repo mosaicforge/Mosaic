@@ -38,7 +38,7 @@ async fn main() -> Result<(), Error> {
     let args = AppArgs::parse();
 
     set_log_level();
-    init_tracing(args.log_file);
+    let _guard = init_tracing(args.log_file);
 
     let neo4j = neo4rs::Graph::new(
         &args.neo4j_args.neo4j_uri,
@@ -114,7 +114,7 @@ pub async fn reset_db(neo4j: &neo4rs::Graph) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn init_tracing(log_file: Option<String>) {
+fn init_tracing(log_file: Option<String>) -> Option<tracing_appender::non_blocking::WorkerGuard> {
     if let Some(log_file) = log_file {
         // Set the path of the log file
         let now = chrono::Utc::now();
@@ -124,10 +124,12 @@ fn init_tracing(log_file: Option<String>) {
         );
         let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
 
-        tracing_subscriber::fmt::fmt()
-            .with_max_level(Level::INFO)
+        tracing_subscriber::fmt()
             .with_writer(non_blocking)
+            .with_ansi(false)
             .init();
+
+        Some(_guard)
     } else {
         tracing_subscriber::registry()
             .with(
@@ -136,6 +138,8 @@ fn init_tracing(log_file: Option<String>) {
             )
             .with(tracing_subscriber::fmt::layer())
             .init();
+
+        None
     }
 }
 

@@ -15,7 +15,7 @@ use crate::{
 };
 
 use super::{
-    attributes::{Attributes, SystemProperties},
+    attributes::SystemProperties,
     entity_queries, relation_queries, Relation, Triples,
 };
 
@@ -24,8 +24,11 @@ use super::{
 pub struct Entity<T = ()> {
     #[serde(rename = "labels", default)]
     pub types: Vec<String>,
+
     #[serde(flatten)]
-    pub attributes: Attributes<T>,
+    pub attributes: T,
+
+    pub system_properties: SystemProperties,
 }
 
 impl<T> Entity<T> {
@@ -33,38 +36,36 @@ impl<T> Entity<T> {
     pub fn new(id: &str, space_id: &str, block: &BlockMetadata, data: T) -> Self {
         Self {
             types: Vec::new(),
-            attributes: Attributes {
+            system_properties: SystemProperties {
                 id: id.to_string(),
-                system_properties: SystemProperties {
-                    space_id: space_id.to_string(),
-                    created_at: block.timestamp,
-                    created_at_block: block.block_number.to_string(),
-                    updated_at: block.timestamp,
-                    updated_at_block: block.block_number.to_string(),
-                },
-                attributes: data,
+                space_id: space_id.to_string(),
+                created_at: block.timestamp,
+                created_at_block: block.block_number.to_string(),
+                updated_at: block.timestamp,
+                updated_at_block: block.block_number.to_string(),
             },
+            attributes: data,
         }
     }
 
     /// Returns the ID of the entity
     pub fn id(&self) -> &str {
-        &self.attributes.id
+        &self.system_properties.id
     }
 
     /// Returns the space ID of the entity
     pub fn space_id(&self) -> &str {
-        &self.attributes.system_properties.space_id
+        &self.system_properties.space_id
     }
 
     /// Returns the attributes of the entity
     pub fn attributes(&self) -> &T {
-        &self.attributes.attributes
+        &self.attributes
     }
 
     /// Returns a mutable reference to the attributes of the entity
     pub fn attributes_mut(&mut self) -> &mut T {
-        &mut self.attributes.attributes
+        &mut self.attributes
     }
 
     /// Adds a type label to the entity
@@ -138,46 +139,46 @@ impl<T> Entity<T> {
     //         .await
     // }
 
-    pub async fn types(
-        &self,
-        neo4j: &neo4rs::Graph,
-    ) -> Result<Vec<Entity<Triples>>, DatabaseError> {
-        Self::find_types(neo4j, self.id(), self.space_id()).await
-    }
+    // pub async fn types(
+    //     &self,
+    //     neo4j: &neo4rs::Graph,
+    // ) -> Result<Vec<Entity<Triples>>, DatabaseError> {
+    //     Self::find_types(neo4j, self.id(), self.space_id()).await
+    // }
 
-    pub async fn find_types(
-        neo4j: &neo4rs::Graph,
-        id: &str,
-        space_id: &str,
-    ) -> Result<Vec<Entity<Triples>>, DatabaseError> {
-        const QUERY: &str = const_format::formatcp!(
-            r#"
-            MATCH ({{ id: $id, space_id: $space_id }}) <-[:`{FROM_ENTITY}`]- (:`{TYPES}` {{space_id: $space_id}}) -[:`{TO_ENTITY}`]-> (t {{space_id: $space_id}})
-            RETURN t
-            "#,
-            TYPES = system_ids::TYPES_ATTRIBUTE,
-            FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
-            TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
-        );
+    // pub async fn find_types(
+    //     neo4j: &neo4rs::Graph,
+    //     id: &str,
+    //     space_id: &str,
+    // ) -> Result<Vec<Entity<Triples>>, DatabaseError> {
+    //     const QUERY: &str = const_format::formatcp!(
+    //         r#"
+    //         MATCH ({{ id: $id, space_id: $space_id }}) <-[:`{FROM_ENTITY}`]- (:`{TYPES}` {{space_id: $space_id}}) -[:`{TO_ENTITY}`]-> (t {{space_id: $space_id}})
+    //         RETURN t
+    //         "#,
+    //         TYPES = system_ids::TYPES_ATTRIBUTE,
+    //         FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
+    //         TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+    //     );
 
-        let query = neo4rs::query(QUERY)
-            .param("id", id)
-            .param("space_id", space_id);
+    //     let query = neo4rs::query(QUERY)
+    //         .param("id", id)
+    //         .param("space_id", space_id);
 
-        #[derive(Debug, Deserialize)]
-        struct RowResult {
-            t: neo4rs::Node,
-        }
+    //     #[derive(Debug, Deserialize)]
+    //     struct RowResult {
+    //         t: neo4rs::Node,
+    //     }
 
-        neo4j
-            .execute(query)
-            .await?
-            .into_stream_as::<RowResult>()
-            .map_err(DatabaseError::from)
-            .and_then(|row| async move { Ok(row.t.try_into()?) })
-            .try_collect::<Vec<_>>()
-            .await
-    }
+    //     neo4j
+    //         .execute(query)
+    //         .await?
+    //         .into_stream_as::<RowResult>()
+    //         .map_err(DatabaseError::from)
+    //         .and_then(|row| async move { Ok(row.t.try_into()?) })
+    //         .try_collect::<Vec<_>>()
+    //         .await
+    // }
 
     pub async fn set_triple(
         neo4j: &neo4rs::Graph,
@@ -406,7 +407,7 @@ where
     pub async fn upsert(&self, neo4j: &neo4rs::Graph) -> Result<(), DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MERGE (n {{id: $id, space_id: $space_id}})
+            MERGE (n {{id: $id}})
             ON CREATE SET n += {{
                 `{CREATED_AT}`: datetime($created_at),
                 `{CREATED_AT_BLOCK}`: $created_at_block
@@ -416,7 +417,8 @@ where
                 `{UPDATED_AT}`: datetime($updated_at),
                 `{UPDATED_AT_BLOCK}`: $updated_at_block
             }}
-            SET n += $data
+            UNWIND $triples AS triple
+            MERGE (n) -[:TRIPLE {{space_id: $space_id, revision: 0}}]-> ()
             "#,
             CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
             CREATED_AT_BLOCK = indexer_ids::CREATED_AT_BLOCK,
@@ -434,23 +436,21 @@ where
             .param("space_id", self.space_id())
             .param(
                 "created_at",
-                self.attributes.system_properties.created_at.to_rfc3339(),
+                self.system_properties.created_at.to_rfc3339(),
             )
             .param(
                 "created_at_block",
                 self.attributes
-                    .system_properties
                     .created_at_block
                     .to_string(),
             )
             .param(
                 "updated_at",
-                self.attributes.system_properties.updated_at.to_rfc3339(),
+                self.system_properties.updated_at.to_rfc3339(),
             )
             .param(
                 "updated_at_block",
                 self.attributes
-                    .system_properties
                     .updated_at_block
                     .to_string(),
             )
@@ -542,6 +542,8 @@ where
         #[derive(Debug, Deserialize)]
         struct RowResult {
             n: neo4rs::Node,
+            r: neo4rs::Relation,
+            t: neo4rs::Node,
         }
 
         Ok(neo4j
@@ -576,21 +578,21 @@ where
     }
 }
 
-impl<T> TryFrom<neo4rs::Node> for Entity<T>
-where
-    T: for<'a> serde::Deserialize<'a>,
-{
-    type Error = neo4rs::DeError;
+// impl<T> TryFrom<neo4rs::Node> for Entity<T>
+// where
+//     T: for<'a> serde::Deserialize<'a>,
+// {
+//     type Error = neo4rs::DeError;
 
-    fn try_from(value: neo4rs::Node) -> Result<Self, Self::Error> {
-        let labels = value.labels().iter().map(|l| l.to_string()).collect();
-        let attributes = value.to()?;
-        Ok(Self {
-            types: labels,
-            attributes,
-        })
-    }
-}
+//     fn try_from(value: neo4rs::Node) -> Result<Self, Self::Error> {
+//         let labels = value.labels().iter().map(|l| l.to_string()).collect();
+//         let attributes = value.to()?;
+//         Ok(Self {
+//             types: labels,
+//             attributes,
+//         })
+//     }
+// }
 
 impl Entity<HashMap<String, neo4rs::BoltType>> {
     pub fn with_attribute<T>(mut self, attribute_id: String, value: T) -> Self
@@ -632,6 +634,8 @@ impl Entity<Named> {
         self.attributes().name.clone()
     }
 }
+
+
 
 #[cfg(test)]
 mod tests {
