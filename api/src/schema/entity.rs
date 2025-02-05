@@ -39,6 +39,39 @@ impl Entity {
             .map(|triple| triple.value.as_str())
     }
 
+    /// Entity description (if available)
+    fn description(&self) -> Option<&str> {
+        self.attributes
+            .iter()
+            .find(|triple| triple.attribute == system_ids::DESCRIPTION_ATTRIBUTE)
+            .map(|triple| triple.value.as_str())
+    }
+
+    /// Entity name (if available)
+    fn cover(&self) -> Option<&str> {
+        self.attributes
+            .iter()
+            .find(|triple| triple.attribute == system_ids::COVER_ATTRIBUTE)
+            .map(|triple| triple.value.as_str())
+    }
+
+    /// Entity name (if available)
+    async fn blocks<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> Vec<Entity> {
+        mapping::Entity::<mapping::Triples>::find_blocks(
+            &executor.context().0,
+            &self.id,
+            &self.space_id,
+        )
+        .await
+        .expect("Failed to find relations")
+        .into_iter()
+        .map(|rel| rel.into())
+        .collect::<Vec<_>>()
+    }
+
     /// The space ID of the entity (note: the same entity can exist in multiple spaces)
     fn space_id(&self) -> &str {
         &self.space_id

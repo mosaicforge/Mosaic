@@ -1,4 +1,4 @@
-use futures::stream::TryStreamExt;
+use futures::stream::{self, StreamExt, TryStreamExt};
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::DatabaseError,
     // graph_uri::{self, GraphUri},
+    ids::create_id_from_unique_string,
     indexer_ids,
     mapping::{self, query_utils::query_part::IntoQueryPart},
     models::BlockMetadata,
@@ -152,12 +153,14 @@ impl<T> Entity<T> {
     ) -> Result<Vec<Entity<Triples>>, DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MATCH ({{ id: $id, space_id: $space_id }}) <-[:`{FROM_ENTITY}`]- (:`{TYPES}` {{space_id: $space_id}}) -[:`{TO_ENTITY}`]-> (t {{space_id: $space_id}})
+            MATCH ({{ id: $id, space_id: $space_id }}) <-[:`{FROM_ENTITY}`]- (r {{space_id: $space_id}}) -[:`{TO_ENTITY}`]-> (t {{space_id: $space_id}})
+            MATCH (r) -[:`{RELATION_TYPE}`]-> ({{id: "{TYPES}"}})
             RETURN t
             "#,
-            TYPES = system_ids::TYPES_ATTRIBUTE,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+            RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
+            TYPES = system_ids::TYPES_ATTRIBUTE,
         );
 
         let query = neo4rs::query(QUERY)
@@ -175,6 +178,49 @@ impl<T> Entity<T> {
             .into_stream_as::<RowResult>()
             .map_err(DatabaseError::from)
             .and_then(|row| async move { Ok(row.t.try_into()?) })
+            .try_collect::<Vec<_>>()
+            .await
+    }
+
+    pub async fn blocks(
+        &self,
+        neo4j: &neo4rs::Graph,
+    ) -> Result<Vec<Entity<Triples>>, DatabaseError> {
+        Self::find_blocks(neo4j, self.id(), self.space_id()).await
+    }
+
+    pub async fn find_blocks(
+        neo4j: &neo4rs::Graph,
+        id: &str,
+        space_id: &str,
+    ) -> Result<Vec<Entity<Triples>>, DatabaseError> {
+        const QUERY: &str = const_format::formatcp!(
+            r#"
+            MATCH ({{ id: $id, space_id: $space_id }}) <-[:`{FROM_ENTITY}`]- (r {{space_id: $space_id}}) -[:`{TO_ENTITY}`]-> (block {{space_id: $space_id}})
+            MATCH (r) -[:`{RELATION_TYPE}`]-> ({{id: "{BLOCKS}"}})
+            RETURN block
+            "#,
+            FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
+            TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+            RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
+            BLOCKS = system_ids::BLOCKS,
+        );
+
+        let query = neo4rs::query(QUERY)
+            .param("id", id)
+            .param("space_id", space_id);
+
+        #[derive(Debug, Deserialize)]
+        struct RowResult {
+            block: neo4rs::Node,
+        }
+
+        neo4j
+            .execute(query)
+            .await?
+            .into_stream_as::<RowResult>()
+            .map_err(DatabaseError::from)
+            .and_then(|row| async move { Ok(row.block.try_into()?) })
             .try_collect::<Vec<_>>()
             .await
     }
@@ -347,7 +393,8 @@ impl<T> Entity<T> {
         let delete_triple_query = format!(
             r#"
             MATCH (n {{ id: $id, space_id: $space_id }})
-            REMOVE n.`{attribute_label}`
+            WITH n, [k IN keys(n) WHERE k CONTAINS "{attribute_label}" | k] as propertyKeys
+            FOREACH (i IN propertyKeys | REMOVE n[i])
             SET n += {{
                 `{UPDATED_AT}`: datetime($updated_at),
                 `{UPDATED_AT_BLOCK}`: $updated_at_block
@@ -457,7 +504,39 @@ where
             .param("labels", self.types.clone())
             .param("data", bolt_data);
 
-        Ok(neo4j.run(query).await?)
+        neo4j.run(query).await?;
+
+        // Add types relations
+        stream::iter(self.types.iter())
+            .map(Ok)
+            .try_for_each(|r#type| async move {
+                let relation = Relation::new(
+                    &create_id_from_unique_string(&format!(
+                        "{}-{}-{}",
+                        self.space_id(),
+                        self.id(),
+                        r#type
+                    )),
+                    self.space_id(),
+                    system_ids::TYPES_ATTRIBUTE,
+                    self.id(),
+                    r#type,
+                    &BlockMetadata {
+                        block_number: self
+                            .attributes
+                            .system_properties
+                            .created_at_block
+                            .parse()
+                            .expect("Failed to parse block number"),
+                        timestamp: self.attributes.system_properties.created_at,
+                        ..Default::default()
+                    },
+                    (),
+                );
+
+                relation.upsert(neo4j).await
+            })
+            .await
     }
 }
 
