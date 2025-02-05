@@ -182,6 +182,49 @@ impl<T> Entity<T> {
             .await
     }
 
+    pub async fn blocks(
+        &self,
+        neo4j: &neo4rs::Graph,
+    ) -> Result<Vec<Entity<Triples>>, DatabaseError> {
+        Self::find_blocks(neo4j, self.id(), self.space_id()).await
+    }
+
+    pub async fn find_blocks(
+        neo4j: &neo4rs::Graph,
+        id: &str,
+        space_id: &str,
+    ) -> Result<Vec<Entity<Triples>>, DatabaseError> {
+        const QUERY: &str = const_format::formatcp!(
+            r#"
+            MATCH ({{ id: $id, space_id: $space_id }}) <-[:`{FROM_ENTITY}`]- (r {{space_id: $space_id}}) -[:`{TO_ENTITY}`]-> (block {{space_id: $space_id}})
+            MATCH (r) -[:`{RELATION_TYPE}`]-> ({{id: "{BLOCKS}"}})
+            RETURN block
+            "#,
+            FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
+            TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+            RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
+            BLOCKS = system_ids::BLOCKS,
+        );
+
+        let query = neo4rs::query(QUERY)
+            .param("id", id)
+            .param("space_id", space_id);
+
+        #[derive(Debug, Deserialize)]
+        struct RowResult {
+            block: neo4rs::Node,
+        }
+
+        neo4j
+            .execute(query)
+            .await?
+            .into_stream_as::<RowResult>()
+            .map_err(DatabaseError::from)
+            .and_then(|row| async move { Ok(row.block.try_into()?) })
+            .try_collect::<Vec<_>>()
+            .await
+    }
+
     pub async fn set_triple(
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
