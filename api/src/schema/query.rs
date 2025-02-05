@@ -84,12 +84,12 @@ impl Query {
         space_id: String,
         order_by: Option<String>,
         order_direction: Option<OrderDirection>,
-        filter: Option<RelationFilter>,
+        r#where: Option<RelationFilter>,
     ) -> Vec<Relation> {
         let mut base_query = mapping::relation_queries::FindMany::new("r").space_id(&space_id);
 
-        if let Some(filter) = filter {
-            base_query = filter.add_to_relation_query(base_query);
+        if let Some(r#where) = r#where {
+            base_query = r#where.add_to_relation_query(base_query);
 
             if let Some(order_by) = order_by {
                 base_query = base_query.order_by(&order_by);

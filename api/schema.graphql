@@ -12,6 +12,15 @@ type Entity {
   """Entity name (if available)"""
   name: String
 
+  """Entity description (if available)"""
+  description: String
+
+  """Entity name (if available)"""
+  cover: String
+
+  """Entity name (if available)"""
+  blocks: [Entity!]!
+
   """
   The space ID of the entity (note: the same entity can exist in multiple spaces)
   """
@@ -119,7 +128,7 @@ type Query {
   """
   Returns multiple relations according to the provided space ID and filter
   """
-  relations(spaceId: String!, orderBy: String, orderDirection: OrderDirection, filter: RelationFilter): [Relation!]!
+  relations(spaceId: String!, orderBy: String, orderDirection: OrderDirection, where: RelationFilter): [Relation!]!
 }
 
 """
