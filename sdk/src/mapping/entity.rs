@@ -511,14 +511,24 @@ where
             .map(Ok)
             .try_for_each(|r#type| async move {
                 let relation = Relation::new(
-                    &create_id_from_unique_string(&format!("{}-{}-{}", self.space_id(), self.id(), r#type)),
+                    &create_id_from_unique_string(&format!(
+                        "{}-{}-{}",
+                        self.space_id(),
+                        self.id(),
+                        r#type
+                    )),
                     self.space_id(),
                     system_ids::TYPES_ATTRIBUTE,
                     self.id(),
-                    &r#type,
+                    r#type,
                     &BlockMetadata {
-                        block_number: self.attributes.system_properties.created_at_block.parse().expect("Failed to parse block number"),
-                        timestamp: self.attributes.system_properties.created_at.clone(),
+                        block_number: self
+                            .attributes
+                            .system_properties
+                            .created_at_block
+                            .parse()
+                            .expect("Failed to parse block number"),
+                        timestamp: self.attributes.system_properties.created_at,
                         ..Default::default()
                     },
                     (),

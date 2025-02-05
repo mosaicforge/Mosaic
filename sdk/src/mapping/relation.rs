@@ -304,7 +304,14 @@ where
             )
             .param("relation_type_id", self.r#type.clone())
             .param("r_types", self.entity.types.clone())
-            .param("from_types", if self.r#type == system_ids::TYPES_ATTRIBUTE { vec![self.to.clone()] } else { vec![] })
+            .param(
+                "from_types",
+                if self.r#type == system_ids::TYPES_ATTRIBUTE {
+                    vec![self.to.clone()]
+                } else {
+                    vec![]
+                },
+            )
             .param("data", bolt_data);
 
         Ok(neo4j.run(query).await?)

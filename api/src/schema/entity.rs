@@ -72,7 +72,6 @@ impl Entity {
         .collect::<Vec<_>>()
     }
 
-
     /// The space ID of the entity (note: the same entity can exist in multiple spaces)
     fn space_id(&self) -> &str {
         &self.space_id
