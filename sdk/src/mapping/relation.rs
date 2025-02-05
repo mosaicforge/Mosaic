@@ -77,9 +77,12 @@ impl<T> Relation<T> {
     pub fn delete_query(id: &str) -> neo4rs::Query {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MATCH (r {{id: $id}})
+            MATCH (from) <-[:`{FROM_ENTITY}`]- (r {{id: $id}}) -[:`{TO_ENTITY}`]-> (to)
+            REMOVE from:$(to.id)
             DETACH DELETE r
             "#,
+            FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
+            TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
         );
 
         neo4rs::query(QUERY).param("id", id)
@@ -227,6 +230,7 @@ where
                 `{CREATED_AT}`: datetime($created_at),
                 `{CREATED_AT_BLOCK}`: $created_at_block
             }}
+            SET from:$($from_types)
             SET from += {{
                 `{UPDATED_AT}`: datetime($updated_at),
                 `{UPDATED_AT_BLOCK}`: $updated_at_block
@@ -255,7 +259,7 @@ where
                 `{CREATED_AT}`: datetime($created_at),
                 `{CREATED_AT_BLOCK}`: $created_at_block
             }}
-            SET r:$($labels)
+            SET r:$($r_types)
             SET r += {{
                 `{UPDATED_AT}`: datetime($updated_at),
                 `{UPDATED_AT_BLOCK}`: $updated_at_block
@@ -299,7 +303,8 @@ where
                 self.system_properties().updated_at_block.to_string(),
             )
             .param("relation_type_id", self.r#type.clone())
-            .param("labels", self.entity.types.clone())
+            .param("r_types", self.entity.types.clone())
+            .param("from_types", if self.r#type == system_ids::TYPES_ATTRIBUTE { vec![self.to.clone()] } else { vec![] })
             .param("data", bolt_data);
 
         Ok(neo4j.run(query).await?)
