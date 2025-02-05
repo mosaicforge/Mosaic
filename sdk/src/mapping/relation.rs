@@ -222,9 +222,33 @@ where
     pub async fn upsert(&self, neo4j: &neo4rs::Graph) -> Result<(), DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MATCH (from {{id: $from_id, space_id: $space_id}})
-            MATCH (to {{id: $to_id, space_id: $space_id}})
-            MATCH (relation_type {{id: $relation_type_id, space_id: $space_id}})
+            MERGE (from {{id: $from_id, space_id: $space_id}})
+            ON CREATE SET from += {{
+                `{CREATED_AT}`: datetime($created_at),
+                `{CREATED_AT_BLOCK}`: $created_at_block
+            }}
+            SET from += {{
+                `{UPDATED_AT}`: datetime($updated_at),
+                `{UPDATED_AT_BLOCK}`: $updated_at_block
+            }}
+            MERGE (to {{id: $to_id, space_id: $space_id}})
+            ON CREATE SET to += {{
+                `{CREATED_AT}`: datetime($created_at),
+                `{CREATED_AT_BLOCK}`: $created_at_block
+            }}
+            SET to += {{
+                `{UPDATED_AT}`: datetime($updated_at),
+                `{UPDATED_AT_BLOCK}`: $updated_at_block
+            }}
+            MERGE (relation_type {{id: $relation_type_id, space_id: $space_id}})
+            ON CREATE SET relation_type += {{
+                `{CREATED_AT}`: datetime($created_at),
+                `{CREATED_AT_BLOCK}`: $created_at_block
+            }}
+            SET relation_type += {{
+                `{UPDATED_AT}`: datetime($updated_at),
+                `{UPDATED_AT_BLOCK}`: $updated_at_block
+            }}
             MERGE (from)<-[:`{FROM_ENTITY}`]-(r {{id: $id, space_id: $space_id}})-[:`{TO_ENTITY}`]->(to)
             MERGE (r) -[:`{RELATION_TYPE}`]-> (relation_type)
             ON CREATE SET r += {{
