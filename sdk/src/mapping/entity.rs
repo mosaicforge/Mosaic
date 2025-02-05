@@ -347,7 +347,8 @@ impl<T> Entity<T> {
         let delete_triple_query = format!(
             r#"
             MATCH (n {{ id: $id, space_id: $space_id }})
-            REMOVE n.`{attribute_label}`
+            WITH n, [k IN keys(n) WHERE k CONTAINS "{attribute_label}" | k] as propertyKeys
+            FOREACH (i IN propertyKeys | REMOVE n[i])
             SET n += {{
                 `{UPDATED_AT}`: datetime($updated_at),
                 `{UPDATED_AT_BLOCK}`: $updated_at_block
