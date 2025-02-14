@@ -2,21 +2,18 @@ use serde::{Deserialize, Serialize};
 
 use crate::{error::DatabaseError, ids, indexer_ids, mapping::Relation, system_ids};
 
-use super::BlockMetadata;
-
 /// Space editor relation.
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct SpaceMember;
 
 impl SpaceMember {
-    pub fn new(member_id: &str, space_id: &str, block: &BlockMetadata) -> Relation<Self> {
+    pub fn new(member_id: &str, space_id: &str) -> Relation<Self> {
         Relation::new(
-            &ids::create_geo_id(),
-            indexer_ids::INDEXER_SPACE_ID,
-            indexer_ids::MEMBER_RELATION,
+            &ids::create_id_from_unique_string(&format!("MEMBER:{space_id}:{member_id}")),
             member_id,
             space_id,
-            block,
+            indexer_ids::MEMBER_RELATION,
+            "0",
             Self,
         )
     }

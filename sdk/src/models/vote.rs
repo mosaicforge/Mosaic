@@ -4,9 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{ids, indexer_ids, mapping::Relation};
 
-use super::BlockMetadata;
-
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum VoteType {
     Accept,
@@ -28,30 +26,24 @@ impl TryFrom<u64> for VoteType {
 /// A vote cast by a user on a proposal.
 ///
 /// `Person > VOTE_CAST > Proposal`
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct VoteCast {
     pub vote_type: VoteType,
 }
 
 impl VoteCast {
     pub fn new_id(account_id: &str, proposal_id: &str) -> String {
-        ids::create_id_from_unique_string(&format!("{account_id}-{proposal_id}"))
+        ids::create_id_from_unique_string(&format!("VOTE:{account_id}:{proposal_id}"))
     }
 
     /// Creates a new vote cast with the given vote type.
-    pub fn new(
-        account_id: &str,
-        proposal_id: &str,
-        vote_type: VoteType,
-        block: &BlockMetadata,
-    ) -> Relation<Self> {
+    pub fn new(account_id: &str, proposal_id: &str, vote_type: VoteType) -> Relation<Self> {
         Relation::new(
             &Self::new_id(account_id, proposal_id),
-            indexer_ids::INDEXER_SPACE_ID,
-            indexer_ids::VOTE_CAST,
             account_id,
             proposal_id,
-            block,
+            indexer_ids::VOTE_CAST,
+            "0",
             Self { vote_type },
         )
     }

@@ -100,7 +100,7 @@ impl IntoQueryPart for ListFieldFilter {
                 "{}.`{}` = $value_{}",
                 self.node_var, self.field_name, self.id,
             ));
-            query_part = query_part.params(format!("value_{}", self.id), value);
+            query_part = query_part.params(format!("value_{}", self.id), value.into());
         }
 
         if let Some(value_not) = self.value_not {
@@ -108,7 +108,7 @@ impl IntoQueryPart for ListFieldFilter {
                 "{}.`{}` <> $value_not_{}",
                 self.node_var, self.field_name, self.id,
             ));
-            query_part = query_part.params(format!("value_not_{}", self.id), value_not);
+            query_part = query_part.params(format!("value_not_{}", self.id), value_not.into());
         }
 
         if let Some(value_contains) = self.value_contains {
@@ -116,7 +116,8 @@ impl IntoQueryPart for ListFieldFilter {
                 "ALL(x IN $value_contains_{} WHERE x IN {}.`{}`)",
                 self.id, self.node_var, self.field_name,
             ));
-            query_part = query_part.params(format!("value_contains_{}", self.id), value_contains);
+            query_part =
+                query_part.params(format!("value_contains_{}", self.id), value_contains.into());
         }
 
         if let Some(value_not_contains) = self.value_not_contains {
@@ -126,7 +127,7 @@ impl IntoQueryPart for ListFieldFilter {
             ));
             query_part = query_part.params(
                 format!("value_not_contains_{}", self.id),
-                value_not_contains,
+                value_not_contains.into(),
             );
         }
 

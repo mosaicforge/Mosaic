@@ -1,13 +1,23 @@
+pub mod attribute_node;
 pub mod attributes;
 pub mod entity;
+pub mod entity_node;
 pub mod entity_queries;
+pub mod error;
 pub mod query_utils;
 pub mod relation;
+pub mod relation_node;
 pub mod relation_queries;
 pub mod triple;
+pub mod value;
 
+pub use attribute_node::AttributeNode;
 pub use attributes::Attributes;
-pub use entity::{Entity, Named};
+pub use entity::Entity;
+pub use entity_node::EntityNode;
+pub use error::TriplesConversionError;
 pub use query_utils::order_by::{FieldOrderBy, OrderDirection};
 pub use relation::Relation;
-pub use triple::{Options, Triple, Triples, ValueType};
+pub use relation_node::RelationNode;
+pub use triple::Triple;
+pub use value::{Options, Value, ValueType};

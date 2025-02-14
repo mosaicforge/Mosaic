@@ -4,12 +4,7 @@ pub const CREATED_AT_BLOCK: &str = "59HTYnd2e4gBx2aA98JfNx";
 pub const UPDATED_AT_TIMESTAMP: &str = "5Ms1pYq8v8G1RXC3wWb9ix";
 pub const UPDATED_AT_BLOCK: &str = "7pXCVQDV9C7ozrXkpVg8RJ";
 
-/// Geo Account
-pub const GEO_ACCOUNT: &str = "FUS7nfaWo8Ugzv9AxsMPNX";
-
-// Space types and attributes
-pub const SPACE: &str = "HrFMSEDZ9kFAeJhhkHdsCQ";
-
+// Space attributes
 pub const SPACE_PLUGIN_ADDRESS: &str = "8WQFgjEoqNYHPS9niQGcfC";
 pub const SPACE_VOTING_PLUGIN_ADDRESS: &str = "GMuFbsoSsVmiMcCxc34zZA";
 pub const SPACE_MEMBER_PLUGIN_ADDRESS: &str = "AGaTTZWAbEaSrmZYTinQuc";
@@ -53,4 +48,4 @@ pub const PROPOSED_SUBSPACE: &str = "5ZVrZv7S3Mk2ATV9LAZAha";
 pub const PROPOSALS: &str = "3gmeTonVCB6B11p3YF8mj5";
 
 /// PROPOSAL > CREATOR > ACCOUNT
-pub const PROPOSAL_CREATOR: &str = "213";
+pub const PROPOSAL_CREATOR: &str = "FUS7nfaWo8Ugzv9AxsMPNX";

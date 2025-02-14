@@ -23,45 +23,42 @@ pub struct QueryPart {
 
 impl QueryPart {
     // Builder methods
-    pub fn match_clause(mut self, clause: impl Into<String>) -> Self {
-        self.match_clauses.push(clause.into());
+    pub fn match_clause(mut self, clause: &str) -> Self {
+        self.match_clauses.push(clause.to_owned());
         self
     }
 
-    pub fn where_clause(mut self, clause: impl Into<String>) -> Self {
-        self.where_clauses.push(clause.into());
+    pub fn where_clause(mut self, clause: &str) -> Self {
+        self.where_clauses.push(clause.to_owned());
         self
     }
 
-    pub fn return_clause(mut self, clause: impl Into<String>) -> Self {
+    pub fn return_clause(mut self, clause: &str) -> Self {
         // Not the most efficient but important to keep the return clauses unique
-        let clause = clause.into();
-        if !self.return_clauses.iter().any(|x| *x == clause) {
-            self.return_clauses.push(clause);
+        if !self.return_clauses.iter().any(|x| x == clause) {
+            self.return_clauses.push(clause.to_owned());
         }
         self
     }
 
-    pub fn with_clause(mut self, clause: impl Into<String>) -> Self {
+    pub fn with_clause(mut self, clause: &str) -> Self {
         // Not the most efficient but important to keep the return clauses unique
-        let clause = clause.into();
-        if !self.with_clauses.iter().any(|x| *x == clause) {
-            self.with_clauses.push(clause);
+        if !self.with_clauses.iter().any(|x| x == clause) {
+            self.with_clauses.push(clause.to_owned());
         }
         self
     }
 
-    pub fn order_by_clause(mut self, clause: impl Into<String>) -> Self {
+    pub fn order_by_clause(mut self, clause: &str) -> Self {
         // Not the most efficient but important to keep the return clauses unique
-        let clause = clause.into();
-        if !self.order_by_clauses.iter().any(|x| *x == clause) {
-            self.order_by_clauses.push(clause);
+        if !self.order_by_clauses.iter().any(|x| x == clause) {
+            self.order_by_clauses.push(clause.to_owned());
         }
         self
     }
 
-    pub fn params(mut self, key: impl Into<String>, value: impl Into<neo4rs::BoltType>) -> Self {
-        self.params.insert(key.into(), value.into());
+    pub fn params(mut self, key: String, value: neo4rs::BoltType) -> Self {
+        self.params.insert(key, value);
         self
     }
 

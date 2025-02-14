@@ -132,10 +132,7 @@ impl FindMany {
     pub fn attribute(mut self, attribute: &str, value: &str) -> Self {
         self.attributes_filter
             .entry(attribute.to_owned())
-            .or_insert_with(|| {
-                AttributeFilter::new(&self.node_var, attribute)
-                    .space_id_opt(self.space_filter.value.clone())
-            })
+            .or_insert_with(|| AttributeFilter::new(&self.node_var, attribute).space_id_opt(self.space_filter.value.clone()))
             .value_mut(value);
         self
     }
@@ -143,10 +140,7 @@ impl FindMany {
     pub fn attribute_not(mut self, attribute: &str, value: &str) -> Self {
         self.attributes_filter
             .entry(attribute.to_owned())
-            .or_insert_with(|| {
-                AttributeFilter::new(&self.node_var, attribute)
-                    .space_id_opt(self.space_filter.value.clone())
-            })
+            .or_insert_with(|| AttributeFilter::new(&self.node_var, attribute).space_id_opt(self.space_filter.value.clone()))
             .value_not_mut(value);
         self
     }
@@ -154,10 +148,7 @@ impl FindMany {
     pub fn attribute_in(mut self, attribute: &str, values: Vec<String>) -> Self {
         self.attributes_filter
             .entry(attribute.to_owned())
-            .or_insert_with(|| {
-                AttributeFilter::new(&self.node_var, attribute)
-                    .space_id_opt(self.space_filter.value.clone())
-            })
+            .or_insert_with(|| AttributeFilter::new(&self.node_var, attribute).space_id_opt(self.space_filter.value.clone()))
             .value_in_mut(values);
         self
     }
@@ -165,10 +156,7 @@ impl FindMany {
     pub fn attribute_not_in(mut self, attribute: &str, values: Vec<String>) -> Self {
         self.attributes_filter
             .entry(attribute.to_owned())
-            .or_insert_with(|| {
-                AttributeFilter::new(&self.node_var, attribute)
-                    .space_id_opt(self.space_filter.value.clone())
-            })
+            .or_insert_with(|| AttributeFilter::new(&self.node_var, attribute).space_id_opt(self.space_filter.value.clone()))
             .value_not_in_mut(values);
         self
     }
@@ -176,10 +164,7 @@ impl FindMany {
     pub fn attribute_value_type(mut self, attribute: &str, value_type: &str) -> Self {
         self.attributes_filter
             .entry(attribute.to_owned())
-            .or_insert_with(|| {
-                AttributeFilter::new(&self.node_var, attribute)
-                    .space_id_opt(self.space_filter.value.clone())
-            })
+            .or_insert_with(|| AttributeFilter::new(&self.node_var, attribute).space_id_opt(self.space_filter.value.clone()))
             .value_type_mut(value_type);
         self
     }
@@ -187,10 +172,7 @@ impl FindMany {
     pub fn attribute_value_type_not(mut self, attribute: &str, value_type: &str) -> Self {
         self.attributes_filter
             .entry(attribute.to_owned())
-            .or_insert_with(|| {
-                AttributeFilter::new(&self.node_var, attribute)
-                    .space_id_opt(self.space_filter.value.clone())
-            })
+            .or_insert_with(|| AttributeFilter::new(&self.node_var, attribute).space_id_opt(self.space_filter.value.clone()))
             .value_type_not_mut(value_type);
         self
     }
@@ -198,10 +180,7 @@ impl FindMany {
     pub fn attribute_value_type_in(mut self, attribute: &str, value_types: Vec<String>) -> Self {
         self.attributes_filter
             .entry(attribute.to_owned())
-            .or_insert_with(|| {
-                AttributeFilter::new(&self.node_var, attribute)
-                    .space_id_opt(self.space_filter.value.clone())
-            })
+            .or_insert_with(|| AttributeFilter::new(&self.node_var, attribute).space_id_opt(self.space_filter.value.clone()))
             .value_type_in_mut(value_types);
         self
     }
@@ -213,10 +192,7 @@ impl FindMany {
     ) -> Self {
         self.attributes_filter
             .entry(attribute.to_owned())
-            .or_insert_with(|| {
-                AttributeFilter::new(&self.node_var, attribute)
-                    .space_id_opt(self.space_filter.value.clone())
-            })
+            .or_insert_with(|| AttributeFilter::new(&self.node_var, attribute).space_id_opt(self.space_filter.value.clone()))
             .value_type_not_in_mut(value_types);
         self
     }
@@ -244,10 +220,12 @@ impl IntoQueryPart for FindMany {
     fn into_query_part(self) -> QueryPart {
         let mut query_part = QueryPart::default();
 
-        query_part = query_part.match_clause(&format!(
-            r#"({node_var}) -[r_attr_{node_var}:ATTRIBUTE]-> (attr_{node_var})"#,
-            node_var = self.node_var
-        ));
+        query_part = query_part.match_clause(
+            &format!(
+                r#"({node_var}) -[r_attr_{node_var}:ATTRIBUTE]-> (attr_{node_var})"#,
+                node_var = self.node_var
+            )
+        );
 
         if let Some(version) = self.version {
             query_part = query_part.where_clause(&format!(
@@ -255,14 +233,9 @@ impl IntoQueryPart for FindMany {
                 node_var = self.node_var,
             ));
 
-            query_part
-                .params
-                .insert("version".to_owned(), version.into());
+            query_part.params.insert("version".to_owned(), version.into());
         } else {
-            query_part = query_part.where_clause(&format!(
-                "r_attr_{node_var}.max_version IS NULL",
-                node_var = self.node_var
-            ));
+            query_part = query_part.where_clause(&format!("r_attr_{node_var}.max_version IS NULL", node_var = self.node_var));
         }
 
         query_part.merge_mut(self.types_filter.into_query_part());
@@ -280,14 +253,8 @@ impl IntoQueryPart for FindMany {
 
         query_part
             .with_clause(&self.node_var)
-            .with_clause(&format!(
-                "collect(attr_{node_var}{{.*}}) AS attributes",
-                node_var = self.node_var
-            ))
-            .return_clause(&format!(
-                "{node_var}{{.*, attributes: attributes}}",
-                node_var = self.node_var
-            ))
+            .with_clause(&format!("collect(attr_{node_var}{{.*}}) AS attributes", node_var = self.node_var))
+            .return_clause(&format!("{node_var}{{.*, attributes: attributes}}", node_var = self.node_var))
 
         // query_part
         //     .return_clause(&self.node_var)
@@ -312,8 +279,12 @@ mod tests {
         assert_eq!(
             query_part,
             QueryPart {
-                match_clauses: vec!["(n) -[r_attr_n:ATTRIBUTE]-> (attr_n)".to_owned(),],
-                where_clauses: vec!["r_attr_n.max_version IS NULL".to_owned(),],
+                match_clauses: vec![
+                    "(n) -[r_attr_n:ATTRIBUTE]-> (attr_n)".to_owned(),
+                ],
+                where_clauses: vec![
+                    "r_attr_n.max_version IS NULL".to_owned(),
+                ],
                 order_by_clauses: vec!["n.`id`".to_owned(),],
                 with_clauses: vec![
                     "n".to_owned(),

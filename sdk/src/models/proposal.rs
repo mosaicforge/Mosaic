@@ -6,11 +6,84 @@ use web3_utils::checksum_address;
 use crate::{
     error::DatabaseError,
     ids, indexer_ids,
-    mapping::{Entity, Relation},
+    mapping::{
+        entity,
+        query_utils::{AttributeFilter, PropFilter, Query},
+        Entity, Relation,
+    },
     pb::ipfs,
 };
 
 use super::BlockMetadata;
+
+/// Common fields for all proposals
+#[derive(Clone, Deserialize, Serialize)]
+pub struct Proposal {
+    pub onchain_proposal_id: String,
+    pub status: ProposalStatus,
+    pub plugin_address: String,
+    pub start_time: String,
+    pub end_time: String,
+}
+
+impl Proposal {
+    pub fn new_id(proposal_id: &str) -> String {
+        ids::create_id_from_unique_string(proposal_id)
+    }
+
+    /// Finds a proposal by its onchain ID and plugin address
+    pub async fn find_by_id_and_address(
+        neo4j: &neo4rs::Graph,
+        proposal_id: &str,
+        plugin_address: &str,
+    ) -> Result<Option<Self>, DatabaseError> {
+        Ok(
+            entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
+                .attribute(
+                    AttributeFilter::new("onchain_proposal_id")
+                        .value(PropFilter::new().value(checksum_address(proposal_id))),
+                )
+                .attribute(
+                    AttributeFilter::new("plugin_address")
+                        .value(PropFilter::new().value(checksum_address(plugin_address))),
+                )
+                .send()
+                .await?
+                .into_iter()
+                .next(),
+        )
+    }
+
+    /// Returns a query to set the status of a proposal given its ID
+    pub async fn set_status(
+        neo4j: &neo4rs::Graph,
+        block: &BlockMetadata,
+        proposal_id: &str,
+        status: ProposalStatus,
+    ) -> Result<(), DatabaseError> {
+        const QUERY: &str = const_format::formatcp!(
+            r#"
+            MATCH (n:`{PROPOSAL_TYPE}` {{onchain_proposal_id: $proposal_id}})
+            SET n.status = $status
+            SET n += {{
+                `{UPDATED_AT}`: datetime($updated_at),
+                `{UPDATED_AT_BLOCK}`: $updated_at_block
+            }}
+            "#,
+            PROPOSAL_TYPE = indexer_ids::PROPOSAL_TYPE,
+            UPDATED_AT = indexer_ids::UPDATED_AT_TIMESTAMP,
+            UPDATED_AT_BLOCK = indexer_ids::UPDATED_AT_BLOCK,
+        );
+
+        let query = neo4rs::query(QUERY)
+            .param("proposal_id", proposal_id)
+            .param("status", status.to_string())
+            .param("updated_at", block.timestamp.to_rfc3339())
+            .param("updated_at_block", block.block_number.to_string());
+
+        Ok(neo4j.run(query).await?)
+    }
+}
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -59,118 +132,35 @@ impl Display for ProposalStatus {
     }
 }
 
-/// Common fields for all proposals
-#[derive(Clone, Deserialize, Serialize)]
-pub struct Proposal {
-    pub onchain_proposal_id: String,
-    pub status: ProposalStatus,
-    pub plugin_address: String,
-    pub start_time: String,
-    pub end_time: String,
-}
-
-impl Proposal {
-    pub fn new_id(proposal_id: &str) -> String {
-        ids::create_id_from_unique_string(proposal_id)
-    }
-
-    /// Finds a proposal by its onchain ID and plugin address
-    pub async fn find_by_id_and_address(
-        neo4j: &neo4rs::Graph,
-        proposal_id: &str,
-        plugin_address: &str,
-    ) -> Result<Option<Entity<Self>>, DatabaseError> {
-        const QUERY: &str = const_format::formatcp!(
-            r#"
-            MATCH (n:`{PROPOSAL_TYPE}` {{onchain_proposal_id: $proposal_id, plugin_address: $plugin_address}})
-            RETURN n
-            "#,
-            PROPOSAL_TYPE = indexer_ids::PROPOSAL_TYPE,
-        );
-
-        let query = neo4rs::query(QUERY)
-            .param("proposal_id", proposal_id)
-            .param("plugin_address", checksum_address(plugin_address));
-
-        #[derive(Debug, Deserialize)]
-        struct ResultRow {
-            n: neo4rs::Node,
-        }
-
-        Ok(neo4j
-            .execute(query)
-            .await?
-            .next()
-            .await?
-            .map(|row| {
-                let row = row.to::<ResultRow>()?;
-                row.n.try_into()
-            })
-            .transpose()?)
-    }
-
-    /// Returns a query to set the status of a proposal given its ID
-    pub async fn set_status(
-        neo4j: &neo4rs::Graph,
-        block: &BlockMetadata,
-        proposal_id: &str,
-        status: ProposalStatus,
-    ) -> Result<(), DatabaseError> {
-        const QUERY: &str = const_format::formatcp!(
-            r#"
-            MATCH (n:`{PROPOSAL_TYPE}` {{onchain_proposal_id: $proposal_id}})
-            SET n.status = $status
-            SET n += {{
-                `{UPDATED_AT}`: datetime($updated_at),
-                `{UPDATED_AT_BLOCK}`: $updated_at_block
-            }}
-            "#,
-            PROPOSAL_TYPE = indexer_ids::PROPOSAL_TYPE,
-            UPDATED_AT = indexer_ids::UPDATED_AT_TIMESTAMP,
-            UPDATED_AT_BLOCK = indexer_ids::UPDATED_AT_BLOCK,
-        );
-
-        let query = neo4rs::query(QUERY)
-            .param("proposal_id", proposal_id)
-            .param("status", status.to_string())
-            .param("updated_at", block.timestamp.to_rfc3339())
-            .param("updated_at_block", block.block_number.to_string());
-
-        Ok(neo4j.run(query).await?)
-    }
-}
-
 // Relation for Space > PROPOSALS > Proposal
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Proposals;
 
 impl Proposals {
-    pub fn new(space_id: &str, proposal_id: &str, block: &BlockMetadata) -> Relation<Self> {
+    pub fn new(space_id: &str, proposal_id: &str) -> Relation<Self> {
         Relation::new(
-            &ids::create_id_from_unique_string(&format!("{space_id}-{proposal_id}")),
-            indexer_ids::INDEXER_SPACE_ID,
-            indexer_ids::PROPOSALS,
+            &ids::create_id_from_unique_string(&format!("{space_id}:{proposal_id}")),
             space_id,
             proposal_id,
-            block,
+            indexer_ids::PROPOSALS,
+            "0",
             Proposals {},
         )
     }
 }
 
 // Proposal > CREATOR > Account
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Creator;
 
 impl Creator {
-    pub fn new(proposal_id: &str, account_id: &str, block: &BlockMetadata) -> Relation<Self> {
+    pub fn new(proposal_id: &str, account_id: &str) -> Relation<Self> {
         Relation::new(
-            &ids::create_id_from_unique_string(&format!("{proposal_id}-{account_id}")),
-            indexer_ids::INDEXER_SPACE_ID,
-            indexer_ids::PROPOSAL_CREATOR,
+            &ids::create_id_from_unique_string(&format!("CREATOR:{proposal_id}:{account_id}")),
             proposal_id,
             account_id,
-            block,
+            indexer_ids::PROPOSAL_CREATOR,
+            "0",
             Creator {},
         )
     }
@@ -185,18 +175,16 @@ pub struct EditProposal {
     pub ops: Vec<ipfs::Op>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct AddMemberProposal {
     #[serde(flatten)]
     pub proposal: Proposal,
 }
 
 impl AddMemberProposal {
-    pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
+    pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            &Proposal::new_id(&proposal.onchain_proposal_id),
-            indexer_ids::INDEXER_SPACE_ID,
-            block,
+            Proposal::new_id(&proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -204,18 +192,16 @@ impl AddMemberProposal {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct RemoveMemberProposal {
     #[serde(flatten)]
     pub proposal: Proposal,
 }
 
 impl RemoveMemberProposal {
-    pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
+    pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            &Proposal::new_id(&proposal.onchain_proposal_id),
-            indexer_ids::INDEXER_SPACE_ID,
-            block,
+            Proposal::new_id(&proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -223,18 +209,16 @@ impl RemoveMemberProposal {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct AddEditorProposal {
     #[serde(flatten)]
     pub proposal: Proposal,
 }
 
 impl AddEditorProposal {
-    pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
+    pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            &Proposal::new_id(&proposal.onchain_proposal_id),
-            indexer_ids::INDEXER_SPACE_ID,
-            block,
+            Proposal::new_id(&proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -242,18 +226,16 @@ impl AddEditorProposal {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct RemoveEditorProposal {
     #[serde(flatten)]
     pub proposal: Proposal,
 }
 
 impl RemoveEditorProposal {
-    pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
+    pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            &Proposal::new_id(&proposal.onchain_proposal_id),
-            indexer_ids::INDEXER_SPACE_ID,
-            block,
+            Proposal::new_id(&proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -261,35 +243,39 @@ impl RemoveEditorProposal {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+/// AddEditorProposal > PROPOSED_ACCOUNT > ProposedAccount
+/// RemoveEditorProposal > PROPOSED_ACCOUNT > ProposedAccount
+/// AddMemberProposal > PROPOSED_ACCOUNT > ProposedAccount
+/// RemoveMemberProposal > PROPOSED_ACCOUNT > ProposedAccount
+#[derive(Clone, Deserialize, Serialize)]
 pub struct ProposedAccount;
 
 impl ProposedAccount {
-    pub fn new(proposal_id: &str, account_id: &str, block: &BlockMetadata) -> Relation<Self> {
+    pub fn new(proposal_id: &str, account_id: &str) -> Relation<Self> {
         Relation::new(
-            &ids::create_id_from_unique_string(&format!("{}-{}", proposal_id, account_id)),
-            indexer_ids::INDEXER_SPACE_ID,
-            indexer_ids::PROPOSED_ACCOUNT,
+            &ids::create_id_from_unique_string(&format!(
+                "PROPOSED_ACCOUNT:{}:{}",
+                proposal_id, account_id
+            )),
             proposal_id,
             account_id,
-            block,
+            indexer_ids::PROPOSED_ACCOUNT,
+            "0",
             Self {},
         )
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct AddSubspaceProposal {
     #[serde(flatten)]
     pub proposal: Proposal,
 }
 
 impl AddSubspaceProposal {
-    pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
+    pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            &Proposal::new_id(&proposal.onchain_proposal_id),
-            indexer_ids::INDEXER_SPACE_ID,
-            block,
+            Proposal::new_id(&proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -297,18 +283,16 @@ impl AddSubspaceProposal {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct RemoveSubspaceProposal {
     #[serde(flatten)]
     pub proposal: Proposal,
 }
 
 impl RemoveSubspaceProposal {
-    pub fn new(proposal: Proposal, block: &BlockMetadata) -> Entity<Self> {
+    pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            &Proposal::new_id(&proposal.onchain_proposal_id),
-            indexer_ids::INDEXER_SPACE_ID,
-            block,
+            Proposal::new_id(&proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -316,25 +300,21 @@ impl RemoveSubspaceProposal {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+/// AddSubspaceProposal > PROPOSED_SUBSPACE > ProposedSubspace
+/// RemoveSubspaceProposal > PROPOSED_SUBSPACE > ProposedSubspace
+#[derive(Clone, Deserialize, Serialize)]
 pub struct ProposedSubspace;
 
 impl ProposedSubspace {
-    pub fn new(
-        subspace_proposal_id: &str,
-        subspace_id: &str,
-        block: &BlockMetadata,
-    ) -> Relation<Self> {
+    pub fn new(subspace_proposal_id: &str, subspace_id: &str) -> Relation<Self> {
         Relation::new(
             &ids::create_id_from_unique_string(&format!(
-                "{}-{}",
-                subspace_proposal_id, subspace_id
+                "PROPOSED_SUBSPACE:{subspace_proposal_id}:{subspace_id}",
             )),
-            indexer_ids::INDEXER_SPACE_ID,
-            indexer_ids::PROPOSED_SUBSPACE,
             subspace_proposal_id,
             subspace_id,
-            block,
+            indexer_ids::PROPOSED_SUBSPACE,
+            "0",
             Self {},
         )
     }

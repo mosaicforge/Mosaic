@@ -100,7 +100,7 @@ impl IntoQueryPart for ScalarFieldFilter {
                 "{}.`{}` = $value_{}",
                 self.node_var, self.field_name, self.id,
             ));
-            query_part = query_part.params(format!("value_{}", self.id), value);
+            query_part = query_part.params(format!("value_{}", self.id), value.into());
         }
 
         if let Some(value_not) = self.value_not {
@@ -108,7 +108,7 @@ impl IntoQueryPart for ScalarFieldFilter {
                 "{}.`{}` <> $value_not_{}",
                 self.node_var, self.field_name, self.id,
             ));
-            query_part = query_part.params(format!("value_not_{}", self.id), value_not);
+            query_part = query_part.params(format!("value_not_{}", self.id), value_not.into());
         }
 
         if let Some(value_in) = self.value_in {
@@ -116,7 +116,7 @@ impl IntoQueryPart for ScalarFieldFilter {
                 "{}.`{}` IN $value_in_{}",
                 self.node_var, self.field_name, self.id,
             ));
-            query_part = query_part.params(format!("value_in_{}", self.id), value_in);
+            query_part = query_part.params(format!("value_in_{}", self.id), value_in.into());
         }
 
         if let Some(value_not_in) = self.value_not_in {
@@ -124,7 +124,8 @@ impl IntoQueryPart for ScalarFieldFilter {
                 "{}.`{}` NOT IN $value_not_in_{}",
                 self.node_var, self.field_name, self.id,
             ));
-            query_part = query_part.params(format!("value_not_in_{}", self.id), value_not_in);
+            query_part =
+                query_part.params(format!("value_not_in_{}", self.id), value_not_in.into());
         }
 
         query_part

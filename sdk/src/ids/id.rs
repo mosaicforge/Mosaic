@@ -42,8 +42,12 @@ pub fn create_merged_version_id(merged_version_ids: Vec<&str>) -> String {
     create_id_from_unique_string(&merged_version_ids.join(","))
 }
 
-pub fn create_version_id(proposal_id: &str, entity_id: &str) -> String {
-    create_id_from_unique_string(&format!("{}:{}", proposal_id, entity_id))
+pub fn create_version_id(space_id: &str, proposal_id: &str) -> String {
+    create_id_from_unique_string(&format!("{}:{}", space_id, proposal_id))
+}
+
+pub fn create_version_id_from_block(space_id: &str, block: u64) -> String {
+    create_id_from_unique_string(&format!("{}:{}", space_id, block))
 }
 
 /**
