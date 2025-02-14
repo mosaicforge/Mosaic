@@ -105,7 +105,7 @@ pub fn find_many(neo4j: &neo4rs::Graph) -> FindManyQuery {
     FindManyQuery::new(neo4j)
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct SystemProperties {
     #[serde(rename = "82nP7aFmHJLbaPFszj2nbx")] // CREATED_AT_TIMESTAMP
     pub created_at: DateTime<Utc>,
@@ -115,6 +115,17 @@ pub struct SystemProperties {
     pub updated_at: DateTime<Utc>,
     #[serde(rename = "7pXCVQDV9C7ozrXkpVg8RJ")] // UPDATED_AT_BLOCK
     pub updated_at_block: String,
+}
+
+impl Default for SystemProperties {
+    fn default() -> Self {
+        Self {
+            created_at: Default::default(),
+            created_at_block: "0".to_string(),
+            updated_at: Default::default(),
+            updated_at_block: "0".to_string(),
+        }
+    }
 }
 
 pub struct FindOneQuery {
@@ -134,8 +145,8 @@ impl FindOneQuery {
 impl Query<Option<EntityNode>> for FindOneQuery {
     async fn send(self) -> Result<Option<EntityNode>, DatabaseError> {
         const QUERY: &str = r#"
-            MATCH (e:Entity {id: $id})
-            RETURN e
+            MATCH (n {id: $id})
+            RETURN n
         "#;
 
         let query = neo4rs::query(QUERY).param("id", self.id);
@@ -288,7 +299,7 @@ mod tests {
     const HTTP_PORT: u16 = 7474;
 
     #[tokio::test]
-    async fn test_find_by_id_no_types() {
+    async fn test_find_by_id() {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
         let container = GenericImage::new("neo4j", "2025.01.0-community")
             .with_wait_for(WaitFor::Duration {
@@ -315,7 +326,7 @@ mod tests {
         };
 
         triple
-            .insert(&neo4j, &BlockMetadata::default(), "space_id".into(), 0)
+            .insert(&neo4j, &BlockMetadata::default(), "space_id", 0)
             .send()
             .await
             .expect("Failed to insert triple");

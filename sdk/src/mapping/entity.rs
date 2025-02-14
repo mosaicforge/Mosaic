@@ -9,6 +9,7 @@ use super::{
 };
 
 /// High level model encapsulating an entity and its attributes.
+#[derive(Clone, Debug, PartialEq)]
 pub struct Entity<T> {
     pub id: String,
     pub data: T,
@@ -33,23 +34,29 @@ impl<T> Entity<T> {
         self,
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
-        space_id: String,
+        space_id: impl Into<String>,
         space_version: i64,
     ) -> InsertOneQuery<T> {
-        InsertOneQuery::new(neo4j.clone(), block.clone(), self, space_id, space_version)
+        InsertOneQuery::new(
+            neo4j.clone(),
+            block.clone(),
+            self,
+            space_id.into(),
+            space_version,
+        )
     }
 }
 
 pub fn find_one(
     neo4j: &neo4rs::Graph,
-    space_id: impl Into<String>,
     entity_id: impl Into<String>,
+    space_id: impl Into<String>,
     space_version: Option<i64>,
 ) -> FindOneQuery {
     FindOneQuery::new(
         neo4j.clone(),
-        space_id.into(),
         entity_id.into(),
+        space_id.into(),
         space_version,
     )
 }
@@ -59,7 +66,7 @@ pub fn find_many(
     space_id: impl Into<String>,
     space_version: Option<i64>,
 ) -> FindManyQuery {
-    FindManyQuery::new(neo4j.clone(), space_id, space_version)
+    FindManyQuery::new(neo4j.clone(), space_id.into(), space_version)
 }
 
 pub struct InsertOneQuery<T> {
@@ -71,7 +78,7 @@ pub struct InsertOneQuery<T> {
 }
 
 impl<T> InsertOneQuery<T> {
-    pub fn new(
+    fn new(
         neo4j: neo4rs::Graph,
         block: BlockMetadata,
         entity: Entity<T>,
@@ -119,7 +126,7 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
                     &self.entity.id,
                     t,
                     system_ids::TYPES_ATTRIBUTE,
-                    "0".into(),
+                    "0",
                 )
             })
             .collect::<Vec<_>>();
@@ -141,22 +148,22 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
 
 pub struct FindOneQuery {
     neo4j: neo4rs::Graph,
-    space_id: String,
     entity_id: String,
+    space_id: String,
     space_version: Option<i64>,
 }
 
 impl FindOneQuery {
-    pub fn new(
+    fn new(
         neo4j: neo4rs::Graph,
-        space_id: String,
         entity_id: String,
+        space_id: String,
         space_version: Option<i64>,
     ) -> Self {
         FindOneQuery {
             neo4j,
-            space_id,
             entity_id,
+            space_id,
             space_version,
         }
     }
@@ -166,8 +173,8 @@ impl<T: FromAttributes> Query<Option<Entity<T>>> for FindOneQuery {
     async fn send(self) -> Result<Option<Entity<T>>, DatabaseError> {
         let attributes = attributes::find_one(
             &self.neo4j,
-            self.space_id,
             self.entity_id.clone(),
+            self.space_id,
             self.space_version,
         )
         .send()
@@ -186,14 +193,10 @@ pub struct FindManyQuery {
 }
 
 impl FindManyQuery {
-    pub fn new(
-        neo4j: neo4rs::Graph,
-        space_id: impl Into<String>,
-        space_version: Option<i64>,
-    ) -> Self {
+    fn new(neo4j: neo4rs::Graph, space_id: String, space_version: Option<i64>) -> Self {
         FindManyQuery {
             neo4j,
-            space_id: space_id.into(),
+            space_id,
             space_version,
             id: None,
             attributes: vec![],
@@ -226,8 +229,8 @@ impl FindManyQuery {
 }
 
 // TODO: (optimization) Turn this into a stream instead of returning vec
-impl<T: FromAttributes> Query<Vec<T>> for FindManyQuery {
-    async fn send(self) -> Result<Vec<T>, DatabaseError> {
+impl<T: FromAttributes> Query<Vec<Entity<T>>> for FindManyQuery {
+    async fn send(self) -> Result<Vec<Entity<T>>, DatabaseError> {
         let neo4j = &self.neo4j.clone();
         let space_id = &self.space_id.clone();
         let space_version = self.space_version.clone();
@@ -250,17 +253,84 @@ impl<T: FromAttributes> Query<Vec<T>> for FindManyQuery {
 
         Ok(stream::iter(entity_nodes)
             .map(|entity| async move {
-                entity
+                let attrs = entity
                     .get_attributes(neo4j, space_id, space_version)
                     .send()
-                    .await
-                    .map_err(DatabaseError::from)
+                    .await?;
+
+                Result::<_, DatabaseError>::Ok(
+                    attrs.map(|data| Entity::new(entity.id.clone(), data)),
+                )
             })
             .buffered(18)
-            .try_collect::<Vec<Option<T>>>()
+            .try_collect::<Vec<Option<Entity<T>>>>()
             .await?
             .into_iter()
             .filter_map(|attributes| attributes)
             .collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use testcontainers::{
+        core::{IntoContainerPort, WaitFor},
+        runners::AsyncRunner,
+        GenericImage, ImageExt,
+    };
+
+    const BOLT_PORT: u16 = 7687;
+    const HTTP_PORT: u16 = 7474;
+
+    #[tokio::test]
+    async fn test_insert_find_one() {
+        // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
+        let container = GenericImage::new("neo4j", "2025.01.0-community")
+            .with_wait_for(WaitFor::Duration {
+                length: std::time::Duration::from_secs(5),
+            })
+            .with_exposed_port(BOLT_PORT.tcp())
+            .with_exposed_port(HTTP_PORT.tcp())
+            .with_env_var("NEO4J_AUTH", "none")
+            .start()
+            .await
+            .expect("Failed to start Neo 4J container");
+
+        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
+        let host = container.get_host().await.unwrap().to_string();
+
+        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
+            .await
+            .unwrap();
+
+        #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq)]
+        struct Foo {
+            name: String,
+            bar: i32,
+        }
+
+        let foo = Foo {
+            name: "Alice".into(),
+            bar: 42,
+        };
+
+        let entity = Entity::new("abc", foo).with_type("Foo");
+
+        entity
+            .clone()
+            .insert(&neo4j, &BlockMetadata::default(), "space_id", 0)
+            .send()
+            .await
+            .expect("Failed to insert entity");
+
+        let found_entity = find_one(&neo4j, "space_id", "abc", None)
+            .send()
+            .await
+            .expect("Failed to find entity")
+            .expect("Entity not found");
+
+        assert_eq!(found_entity, entity);
     }
 }

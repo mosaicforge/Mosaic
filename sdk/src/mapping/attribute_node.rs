@@ -14,6 +14,15 @@ pub struct AttributeNode {
     pub(crate) value: Value,
 }
 
+impl AttributeNode {
+    pub fn new(id: impl Into<String>, value: impl Into<Value>) -> Self {
+        Self {
+            id: id.into(),
+            value: value.into(),
+        }
+    }
+}
+
 impl Into<BoltType> for AttributeNode {
     fn into(self) -> BoltType {
         let mut map = HashMap::new();
@@ -22,8 +31,39 @@ impl Into<BoltType> for AttributeNode {
             neo4rs::BoltString {
                 value: "value".into(),
             },
-            self.value.into(),
+            self.value.value.into(),
         );
+        map.insert(
+            neo4rs::BoltString {
+                value: "value_type".into(),
+            },
+            self.value.value_type.to_string().into(),
+        );
+        if let Some(format) = self.value.options.format {
+            map.insert(
+                neo4rs::BoltString {
+                    value: "format".into(),
+                },
+                format.into(),
+            );
+        }
+        if let Some(unit) = self.value.options.unit {
+            map.insert(
+                neo4rs::BoltString {
+                    value: "unit".into(),
+                },
+                unit.into(),
+            );
+        }
+        if let Some(language) = self.value.options.language {
+            map.insert(
+                neo4rs::BoltString {
+                    value: "language".into(),
+                },
+                language.into(),
+            );
+        }
+
         BoltType::Map(neo4rs::BoltMap { value: map })
     }
 }

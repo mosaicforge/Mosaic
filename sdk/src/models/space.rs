@@ -35,7 +35,7 @@ pub struct Space {
 }
 
 impl Space {
-    pub fn new_id(network: &str, address: &str) -> String {
+    pub fn generate_id(network: &str, address: &str) -> String {
         ids::create_id_from_unique_string(&format!("{network}:{}", checksum_address(address)))
     }
 
@@ -47,7 +47,7 @@ impl Space {
     pub async fn find_by_dao_address(
         neo4j: &neo4rs::Graph,
         dao_contract_address: &str,
-    ) -> Result<Option<Self>, DatabaseError> {
+    ) -> Result<Option<Entity<Self>>, DatabaseError> {
         Ok(
             entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
                 .attribute(
@@ -65,7 +65,7 @@ impl Space {
     pub async fn find_by_space_plugin_address(
         neo4j: &neo4rs::Graph,
         space_plugin_address: &str,
-    ) -> Result<Option<Self>, DatabaseError> {
+    ) -> Result<Option<Entity<Self>>, DatabaseError> {
         Ok(
             entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
                 .attribute(
@@ -83,7 +83,7 @@ impl Space {
     pub async fn find_by_voting_plugin_address(
         neo4j: &neo4rs::Graph,
         voting_plugin_address: &str,
-    ) -> Result<Option<Self>, DatabaseError> {
+    ) -> Result<Option<Entity<Self>>, DatabaseError> {
         Ok(
             entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
                 .attribute(
@@ -101,7 +101,7 @@ impl Space {
     pub async fn find_by_member_access_plugin(
         neo4j: &neo4rs::Graph,
         member_access_plugin: &str,
-    ) -> Result<Option<Self>, DatabaseError> {
+    ) -> Result<Option<Entity<Self>>, DatabaseError> {
         Ok(
             entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
                 .attribute(
@@ -119,7 +119,7 @@ impl Space {
     pub async fn find_by_personal_plugin_address(
         neo4j: &neo4rs::Graph,
         personal_space_admin_plugin: &str,
-    ) -> Result<Option<Self>, DatabaseError> {
+    ) -> Result<Option<Entity<Self>>, DatabaseError> {
         Ok(
             entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
                 .attribute(

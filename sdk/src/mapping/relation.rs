@@ -25,13 +25,7 @@ impl<T> Relation<T> {
         attributes: T,
     ) -> Self {
         Relation {
-            relation: RelationNode {
-                id: id.into(),
-                from: from.into(),
-                to: to.into(),
-                relation_type: relation_type.into(),
-                index: index.into(),
-            },
+            relation: RelationNode::new(id, from, to, relation_type, index),
             attributes,
             types: vec![],
         }
@@ -59,6 +53,22 @@ impl<T> Relation<T> {
     }
 }
 
+pub fn delete_one(
+    neo4j: &neo4rs::Graph,
+    block: &BlockMetadata,
+    relation_id: impl Into<String>,
+    space_id: impl Into<String>,
+    space_version: i64,
+) -> DeleteOneQuery {
+    DeleteOneQuery::new(
+        neo4j.clone(),
+        block.clone(),
+        relation_id.into(),
+        space_id.into(),
+        space_version,
+    )
+}
+
 pub struct DeleteOneQuery {
     neo4j: neo4rs::Graph,
     block: BlockMetadata,
@@ -68,7 +78,7 @@ pub struct DeleteOneQuery {
 }
 
 impl DeleteOneQuery {
-    pub fn new(
+    fn new(
         neo4j: neo4rs::Graph,
         block: BlockMetadata,
         relation_id: String,
@@ -118,7 +128,7 @@ pub struct InsertOneQuery<T> {
 }
 
 impl<T> InsertOneQuery<T> {
-    pub fn new(
+    fn new(
         neo4j: neo4rs::Graph,
         block: BlockMetadata,
         space_id: String,

@@ -4,24 +4,24 @@ use web3_utils::checksum_address;
 use crate::{ids, mapping::Entity, system_ids};
 
 #[derive(Clone, Deserialize, Serialize, PartialEq)]
-pub struct GeoAccount {
+pub struct Account {
     pub address: String,
 }
 
-impl GeoAccount {
+impl Account {
+    pub fn generate_id(address: &str) -> String {
+        ids::create_id_from_unique_string(&checksum_address(address))
+    }
+
     pub fn new(address: String) -> Entity<Self> {
         let checksummed_address = checksum_address(&address);
 
         Entity::new(
-            Self::new_id(&checksummed_address),
+            Self::generate_id(&checksummed_address),
             Self {
                 address: checksummed_address,
             },
         )
         .with_type(system_ids::ACCOUNT_TYPE)
-    }
-
-    pub fn new_id(address: &str) -> String {
-        ids::create_id_from_unique_string(&checksum_address(address))
     }
 }

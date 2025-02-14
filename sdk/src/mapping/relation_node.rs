@@ -11,29 +11,40 @@ use super::{
     triple, AttributeNode, Attributes, Triple, Value,
 };
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct RelationNode {
     pub id: String,
 
     pub from: String,
     pub to: String,
     pub relation_type: String,
-    pub index: Value,
+    pub index: AttributeNode,
 }
 
 impl RelationNode {
-    pub fn new(id: &str, from: &str, to: &str, relation_type: &str, index: Value) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        from: impl Into<String>,
+        to: impl Into<String>,
+        relation_type: impl Into<String>,
+        index: impl Into<Value>,
+    ) -> Self {
         Self {
-            id: id.to_owned(),
-            from: from.to_owned(),
-            to: to.to_owned(),
-            relation_type: relation_type.to_owned(),
-            index,
+            id: id.into(),
+            from: from.into(),
+            to: to.into(),
+            relation_type: relation_type.into(),
+            index: AttributeNode::new(system_ids::RELATION_INDEX, index),
         }
     }
 
     /// Create a new TYPES relation
-    pub fn new_types(id: &str, from: &str, to: &str, index: Value) -> Self {
+    pub fn new_types(
+        id: impl Into<String>,
+        from: impl Into<String>,
+        to: impl Into<String>,
+        index: impl Into<Value>,
+    ) -> Self {
         Self::new(id, from, to, system_ids::TYPES_ATTRIBUTE, index)
     }
 
@@ -291,19 +302,19 @@ impl Query<()> for InsertOneQuery {
                 `{CREATED_AT}`: datetime($block_timestamp),
                 `{CREATED_AT_BLOCK}`: $block_number
             }}
-            ON MATCH CALL (e) {{
+            SET e += {{
+                `{UPDATED_AT}`: datetime($block_timestamp),
+                `{UPDATED_AT_BLOCK}`: $block_number
+            }}
+            CALL (e) {{
                 MATCH (e) -[r_from:`{FROM_ENTITY}` {{space_id: $space_id, max_version: null}}]-> ()
                 MATCH (e) -[r_to:`{TO_ENTITY}` {{space_id: $space_id, max_version: null}}]-> ()
                 MATCH (e) -[r_rt:`{RELATION_TYPE}` {{space_id: $space_id, max_version: null}}]-> ()
-                MATCH (e) -[r_index:ATTRIBUTE {{space_id: $space_id, max_version: null}}]-> (index {{id: "{INDEX}}})
+                MATCH (e) -[r_index:ATTRIBUTE {{space_id: $space_id, max_version: null}}]-> (index {{id: "{INDEX}"}})
                 SET r_from.max_version = $space_version
                 SET r_to.max_version = $space_version
                 SET r_rt.max_version = $space_version
                 SET r_index.max_version = $space_version
-            }}
-            SET e += {{
-                `{UPDATED_AT}`: datetime($block_timestamp),
-                `{UPDATED_AT_BLOCK}`: $block_number
             }}
             MATCH (from {{id: $relation.from}})
             MATCH (to {{id: $relation.to}})
@@ -311,7 +322,7 @@ impl Query<()> for InsertOneQuery {
             CREATE (e) -[:`{FROM_ENTITY}` {{space_id: $space_id, min_version: $space_version}}]-> (from)
             CREATE (e) -[:`{TO_ENTITY}` {{space_id: $space_id, min_version: $space_version}}]-> (to)
             CREATE (e) -[:`{RELATION_TYPE}` {{space_id: $space_id, min_version: $space_version}}]-> (rt)
-            CREATE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (index {{id: "{INDEX}}})
+            CREATE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (index {{id: "{INDEX}"}})
             SET index += $relation.index
             "#,
             CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
@@ -373,19 +384,19 @@ impl Query<()> for InsertManyQuery {
                 `{CREATED_AT}`: datetime($block_timestamp),
                 `{CREATED_AT_BLOCK}`: $block_number
             }}
-            ON MATCH CALL (e) {{
+            SET e += {{
+                `{UPDATED_AT}`: datetime($block_timestamp),
+                `{UPDATED_AT_BLOCK}`: $block_number
+            }}
+            CALL (e) {{
                 MATCH (e) -[r_from:`{FROM_ENTITY}` {{space_id: $space_id, max_version: null}}]-> ()
                 MATCH (e) -[r_to:`{TO_ENTITY}` {{space_id: $space_id, max_version: null}}]-> ()
                 MATCH (e) -[r_rt:`{RELATION_TYPE}` {{space_id: $space_id, max_version: null}}]-> ()
-                MATCH (e) -[r_index:ATTRIBUTE {{space_id: $space_id, max_version: null}}]-> (index {{attribute: "{INDEX}}})
+                MATCH (e) -[r_index:ATTRIBUTE {{space_id: $space_id, max_version: null}}]-> (index {{id: "{INDEX}"}})
                 SET r_from.max_version = $space_version
                 SET r_to.max_version = $space_version
                 SET r_rt.max_version = $space_version
                 SET r_index.max_version = $space_version
-            }}
-            SET e += {{
-                `{UPDATED_AT}`: datetime($block_timestamp),
-                `{UPDATED_AT_BLOCK}`: $block_number
             }}
             MATCH (from {{id: relation.from}})
             MATCH (to {{id: relation.to}})
@@ -393,7 +404,7 @@ impl Query<()> for InsertManyQuery {
             CREATE (e) -[:`{FROM_ENTITY}` {{space_id: $space_id, min_version: $space_version}}]-> (from)
             CREATE (e) -[:`{TO_ENTITY}` {{space_id: $space_id, min_version: $space_version}}]-> (to)
             CREATE (e) -[:`{RELATION_TYPE}` {{space_id: $space_id, min_version: $space_version}}]-> (rt)
-            CREATE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (index {{attribute: "{INDEX}}})
+            CREATE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (index {{id: "{INDEX}"}})
             SET index += relation.index
             "#,
             CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
@@ -457,7 +468,7 @@ impl FindOneQuery {
                 system_ids::RELATION_TYPE_ATTRIBUTE
             ))
             .match_clause(format!(
-                r#"(e) -[r_index:ATTRIBUTE {{space_id: $space_id}}]-> (index {{attribute: "{}"}})"#,
+                r#"(e) -[r_index:ATTRIBUTE {{space_id: $space_id}}]-> (index {{id: "{}"}})"#,
                 system_ids::RELATION_INDEX
             ))
             .merge(self.space_version.clone().into_query_part("r_from"))
@@ -539,5 +550,73 @@ impl Query<Vec<RelationNode>> for FindManyQuery {
         //     .try_collect::<Vec<_>>()
         //     .await)
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use testcontainers::{
+        core::{IntoContainerPort, WaitFor},
+        runners::AsyncRunner,
+        GenericImage, ImageExt,
+    };
+
+    const BOLT_PORT: u16 = 7687;
+    const HTTP_PORT: u16 = 7474;
+
+    #[tokio::test]
+    async fn test_insert_find_one() {
+        // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
+        let container = GenericImage::new("neo4j", "2025.01.0-community")
+            .with_wait_for(WaitFor::Duration {
+                length: std::time::Duration::from_secs(5),
+            })
+            .with_exposed_port(BOLT_PORT.tcp())
+            .with_exposed_port(HTTP_PORT.tcp())
+            .with_env_var("NEO4J_AUTH", "none")
+            .start()
+            .await
+            .expect("Failed to start Neo 4J container");
+
+        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
+        let host = container.get_host().await.unwrap().to_string();
+
+        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
+            .await
+            .unwrap();
+
+        triple::insert_many(
+            &neo4j,
+            &BlockMetadata::default(),
+            "space_id",
+            0,
+            vec![
+                Triple::new("alice", "name", "Alice"),
+                Triple::new("bob", "name", "Bob"),
+                Triple::new("knows", "name", "knows"),
+            ],
+        )
+        .send()
+        .await
+        .expect("Failed to insert triples");
+
+        let relation_node = RelationNode::new("abc", "alice", "bob", "knows", "0");
+
+        relation_node
+            .clone()
+            .insert(&neo4j, &BlockMetadata::default(), "space_id", 0)
+            .send()
+            .await
+            .expect("Failed to insert relation");
+
+        let found_relation = find_one(&neo4j, "abc", "space_id", None)
+            .send()
+            .await
+            .expect("Failed to find relation")
+            .expect("Relation not found");
+
+        assert_eq!(found_relation, relation_node);
     }
 }

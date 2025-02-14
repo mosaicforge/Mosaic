@@ -27,7 +27,7 @@ pub struct Proposal {
 }
 
 impl Proposal {
-    pub fn new_id(proposal_id: &str) -> String {
+    pub fn generate_id(proposal_id: &str) -> String {
         ids::create_id_from_unique_string(proposal_id)
     }
 
@@ -36,7 +36,7 @@ impl Proposal {
         neo4j: &neo4rs::Graph,
         proposal_id: &str,
         plugin_address: &str,
-    ) -> Result<Option<Self>, DatabaseError> {
+    ) -> Result<Option<Entity<Self>>, DatabaseError> {
         Ok(
             entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
                 .attribute(
@@ -151,9 +151,9 @@ impl Proposals {
 
 // Proposal > CREATOR > Account
 #[derive(Clone, Deserialize, Serialize)]
-pub struct Creator;
+pub struct ProposalCreator;
 
-impl Creator {
+impl ProposalCreator {
     pub fn new(proposal_id: &str, account_id: &str) -> Relation<Self> {
         Relation::new(
             &ids::create_id_from_unique_string(&format!("CREATOR:{proposal_id}:{account_id}")),
@@ -161,7 +161,7 @@ impl Creator {
             account_id,
             indexer_ids::PROPOSAL_CREATOR,
             "0",
-            Creator {},
+            ProposalCreator {},
         )
     }
 }
@@ -184,7 +184,7 @@ pub struct AddMemberProposal {
 impl AddMemberProposal {
     pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            Proposal::new_id(&proposal.onchain_proposal_id),
+            Proposal::generate_id(&proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -201,7 +201,7 @@ pub struct RemoveMemberProposal {
 impl RemoveMemberProposal {
     pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            Proposal::new_id(&proposal.onchain_proposal_id),
+            Proposal::generate_id(&proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -218,7 +218,7 @@ pub struct AddEditorProposal {
 impl AddEditorProposal {
     pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            Proposal::new_id(&proposal.onchain_proposal_id),
+            Proposal::generate_id(&proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -235,7 +235,7 @@ pub struct RemoveEditorProposal {
 impl RemoveEditorProposal {
     pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            Proposal::new_id(&proposal.onchain_proposal_id),
+            Proposal::generate_id(&proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -243,10 +243,10 @@ impl RemoveEditorProposal {
     }
 }
 
-/// AddEditorProposal > PROPOSED_ACCOUNT > ProposedAccount
-/// RemoveEditorProposal > PROPOSED_ACCOUNT > ProposedAccount
-/// AddMemberProposal > PROPOSED_ACCOUNT > ProposedAccount
-/// RemoveMemberProposal > PROPOSED_ACCOUNT > ProposedAccount
+/// - AddEditorProposal > PROPOSED_ACCOUNT > ProposedAccount
+/// - RemoveEditorProposal > PROPOSED_ACCOUNT > ProposedAccount
+/// - AddMemberProposal > PROPOSED_ACCOUNT > ProposedAccount
+/// - RemoveMemberProposal > PROPOSED_ACCOUNT > ProposedAccount
 #[derive(Clone, Deserialize, Serialize)]
 pub struct ProposedAccount;
 
@@ -275,7 +275,7 @@ pub struct AddSubspaceProposal {
 impl AddSubspaceProposal {
     pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            Proposal::new_id(&proposal.onchain_proposal_id),
+            Proposal::generate_id(&proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -292,7 +292,7 @@ pub struct RemoveSubspaceProposal {
 impl RemoveSubspaceProposal {
     pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            Proposal::new_id(&proposal.onchain_proposal_id),
+            Proposal::generate_id(&proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)

@@ -170,12 +170,12 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
             UNWIND $attributes AS attribute
             CALL (e, attribute) {{
                 MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> ({{id: attribute.id}})
-                WHERE r.max_version IS null
+                WHERE r.max_version IS null AND r.min_version <> $space_version
                 SET r.max_version = $space_version
             }}
             CALL (e, attribute) {{
-                CREATE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m)
-                SET m = attribute
+                MERGE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m {{id: attribute.id}})
+                SET m += attribute
             }}
             "#,
             CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
@@ -250,12 +250,12 @@ impl Query<()> for InsertManyQuery {
             UNWIND attributes.attributes AS attribute
             CALL (e, attribute) {{
                 MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> ({{id: attribute.id}})
-                WHERE r.max_version IS null
+                WHERE r.max_version IS null AND r.min_version <> $space_version
                 SET r.max_version = $space_version
             }}
             CALL (e, attribute) {{
-                CREATE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m)
-                SET m = attribute
+                MERGE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m {{id: attribute.id}})
+                SET m += attribute
             }}
             "#,
             CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
@@ -324,10 +324,10 @@ impl FindOneQuery {
 
     fn into_query_part(self) -> QueryPart {
         QueryPart::default()
-            .match_clause("(e {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n {attribute: $attribute_id})")
+            .match_clause("({id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n)")
             .merge(self.space_version.into_query_part("r"))
-            .with_clause("e, collect(n{.*}) AS triples")
-            .return_clause("RETURN e{entity: .id, triples: triples")
+            .with_clause("collect(n{.*}) AS attrs")
+            .return_clause("attrs")
             .params("entity_id", self.entity_id)
             .params("space_id", self.space_id)
     }
@@ -343,7 +343,7 @@ where
 
         #[derive(Debug, Deserialize)]
         struct RowResult {
-            n: Vec<AttributeNode>,
+            attrs: Vec<AttributeNode>,
         }
 
         let result = neo4j
@@ -353,7 +353,7 @@ where
             .await?
             .map(|row| {
                 let row = row.to::<RowResult>()?;
-                Result::<_, DatabaseError>::Ok(row.n)
+                Result::<_, DatabaseError>::Ok(row.attrs)
             })
             .transpose()?;
 
@@ -429,32 +429,38 @@ where
                         value,
                         value_type: ValueType::Checkbox,
                         ..
-                    } => (attr.id, value.parse().expect("bool should parse")),
+                    } => (
+                        attr.id,
+                        serde_json::Value::Bool(value.parse().expect("bool should parse")),
+                    ),
                     Value {
                         value,
                         value_type: ValueType::Number,
                         ..
-                    } => (attr.id, value.parse().expect("number should parse")),
+                    } => (
+                        attr.id,
+                        serde_json::Value::Number(value.parse().expect("number should parse")),
+                    ),
                     Value {
                         value,
                         value_type: ValueType::Point,
                         ..
-                    } => (attr.id, value.parse().expect("point should parse")),
+                    } => (attr.id, serde_json::Value::String(value)),
                     Value {
                         value,
                         value_type: ValueType::Text,
                         ..
-                    } => (attr.id, value.parse().expect("text should parse")),
+                    } => (attr.id, serde_json::Value::String(value)),
                     Value {
                         value,
                         value_type: ValueType::Time,
                         ..
-                    } => (attr.id, value.parse().expect("time should parse")),
+                    } => (attr.id, serde_json::Value::String(value)),
                     Value {
                         value,
                         value_type: ValueType::Url,
                         ..
-                    } => (attr.id, value.parse().expect("url should parse")),
+                    } => (attr.id, serde_json::Value::String(value)),
                 }
             })
             .collect();
@@ -477,6 +483,8 @@ impl<'a> Iterator for Iter<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::mapping::{entity, Entity};
+
     use super::*;
 
     use testcontainers::{
@@ -511,12 +519,12 @@ mod tests {
 
         let attributes = Attributes(vec![
             AttributeNode {
-                id: "foo".to_string(),
-                value: "hello".into(),
-            },
-            AttributeNode {
                 id: "bar".to_string(),
                 value: 123u64.into(),
+            },
+            AttributeNode {
+                id: "foo".to_string(),
+                value: "hello".into(),
             },
         ]);
 
@@ -533,11 +541,14 @@ mod tests {
             .await
             .expect("Failed to insert triple set");
 
-        let result = find_one(&neo4j, "abc".to_string(), "space_id".to_string(), None)
-            .send()
-            .await
-            .expect("Failed to find triple set")
-            .expect("Triple set not found");
+        let mut result: Attributes =
+            find_one(&neo4j, "abc".to_string(), "space_id".to_string(), None)
+                .send()
+                .await
+                .expect("Failed to find triple set")
+                .expect("Triple set not found");
+
+        result.0.sort_by_key(|attr| attr.id.clone());
 
         assert_eq!(attributes, result);
     }
@@ -593,5 +604,94 @@ mod tests {
             .expect("Triple set not found");
 
         assert_eq!(foo, result);
+    }
+
+    #[tokio::test]
+    async fn test_versioning() {
+        // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
+        let container = GenericImage::new("neo4j", "2025.01.0-community")
+            .with_wait_for(WaitFor::Duration {
+                length: std::time::Duration::from_secs(5),
+            })
+            .with_exposed_port(BOLT_PORT.tcp())
+            .with_exposed_port(HTTP_PORT.tcp())
+            .with_env_var("NEO4J_AUTH", "none")
+            .start()
+            .await
+            .expect("Failed to start Neo 4J container");
+
+        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
+        let host = container.get_host().await.unwrap().to_string();
+
+        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
+            .await
+            .unwrap();
+
+        #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+        struct Foo {
+            foo: String,
+            bar: u64,
+        }
+
+        let foo = Foo {
+            foo: "hello".into(),
+            bar: 123,
+        };
+
+        insert_one(
+            &neo4j,
+            &BlockMetadata::default(),
+            "abc".to_string(),
+            "space_id".to_string(),
+            0,
+            foo,
+        )
+        .send()
+        .await
+        .expect("Insert failed");
+
+        Triple {
+            entity: "abc".to_string(),
+            attribute: "bar".to_string(),
+            value: 456u64.into(),
+        }
+        .insert(&neo4j, &BlockMetadata::default(), "space_id", 1)
+        .send()
+        .await
+        .expect("Failed to insert triple");
+
+        let foo_v2 = entity::find_one(&neo4j, "abc", "space_id", None)
+            .send()
+            .await
+            .expect("Failed to find entity")
+            .expect("Entity not found");
+
+        assert_eq!(
+            foo_v2,
+            Entity::new(
+                "abc",
+                Foo {
+                    foo: "hello".into(),
+                    bar: 456,
+                }
+            )
+        );
+
+        let foo_v1 = entity::find_one(&neo4j, "abc", "space_id", Some(0))
+            .send()
+            .await
+            .expect("Failed to find entity")
+            .expect("Entity not found");
+
+        assert_eq!(
+            foo_v1,
+            Entity::new(
+                "abc",
+                Foo {
+                    foo: "hello".into(),
+                    bar: 123,
+                }
+            )
+        );
     }
 }

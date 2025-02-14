@@ -8,12 +8,14 @@ use crate::{error::DatabaseError, indexer_ids, models::BlockMetadata};
 
 use super::{
     query_utils::{PropFilter, Query, QueryPart, VersionFilter},
-    Options, Value, ValueType,
+    Value,
 };
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
 pub struct Triple {
     pub entity: String,
+
+    #[serde(alias = "id")]
     pub attribute: String,
 
     #[serde(flatten)]
@@ -22,20 +24,14 @@ pub struct Triple {
 
 impl Triple {
     pub fn new(
-        entity: String,
-        attribute: String,
-        value: String,
-        value_type: ValueType,
-        options: Options,
+        entity: impl Into<String>,
+        attribute: impl Into<String>,
+        value: impl Into<Value>,
     ) -> Self {
         Self {
-            entity,
-            attribute,
-            value: Value {
-                value,
-                value_type,
-                options,
-            },
+            entity: entity.into(),
+            attribute: attribute.into(),
+            value: value.into(),
         }
     }
 
@@ -43,31 +39,55 @@ impl Triple {
         self,
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
-        space_id: String,
+        space_id: impl Into<String>,
         space_version: i64,
     ) -> InsertOneQuery {
-        InsertOneQuery::new(neo4j, block, space_id, space_version, self)
+        InsertOneQuery::new(neo4j, block, space_id.into(), space_version, self)
     }
+}
+
+pub fn delete_one(
+    neo4j: &neo4rs::Graph,
+    block: &BlockMetadata,
+    attribute_id: impl Into<String>,
+    entity_id: impl Into<String>,
+    space_id: impl Into<String>,
+    space_version: i64,
+) -> DeleteOneQuery {
+    DeleteOneQuery::new(
+        neo4j,
+        block,
+        attribute_id.into(),
+        entity_id.into(),
+        space_id.into(),
+        space_version,
+    )
 }
 
 pub fn insert_many(
     neo4j: &neo4rs::Graph,
     block: &BlockMetadata,
-    space_id: String,
+    space_id: impl Into<String>,
     space_version: i64,
     triples: Vec<Triple>,
 ) -> InsertManyQuery {
-    InsertManyQuery::new(neo4j, block, space_id, space_version, triples)
+    InsertManyQuery::new(neo4j, block, space_id.into(), space_version, triples)
 }
 
 pub fn find_one(
     neo4j: &neo4rs::Graph,
-    attribute_id: String,
-    entity_id: String,
-    space_id: String,
+    attribute_id: impl Into<String>,
+    entity_id: impl Into<String>,
+    space_id: impl Into<String>,
     space_version: Option<i64>,
 ) -> FindOneQuery {
-    FindOneQuery::new(neo4j, attribute_id, entity_id, space_id, space_version)
+    FindOneQuery::new(
+        neo4j,
+        attribute_id.into(),
+        entity_id.into(),
+        space_id.into(),
+        space_version,
+    )
 }
 
 pub fn find_many<T>(neo4j: &neo4rs::Graph) -> FindManyQuery<T> {
@@ -144,13 +164,12 @@ impl Query<()> for InsertOneQuery {
             WITH e
             CALL (e) {{
                 MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> ({{id: $triple.attribute}})
-                WHERE r.max_version IS null
+                WHERE r.max_version IS null AND r.min_version <> $space_version
                 SET r.max_version = $space_version
             }}
             CALL (e) {{
-                CREATE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m)
-                SET m = $triple.value
-                SET m.id = $triple.attribute
+                MERGE (e) -[r:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m {{id: $triple.attribute}})
+                SET m += $triple.value
             }}
             "#,
             CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
@@ -212,16 +231,15 @@ impl Query<()> for InsertManyQuery {
                 `{UPDATED_AT}`: datetime($block_timestamp),
                 `{UPDATED_AT_BLOCK}`: $block_number
             }}
-            WITH e
+            WITH e, triple
             CALL (e, triple) {{
                 MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> ({{id: triple.attribute}})
-                WHERE r.max_version IS null
+                WHERE r.max_version IS null AND r.min_version <> $space_version
                 SET r.max_version = $space_version
             }}
-            CALL {{
-                CREATE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m)
-                SET m = triple.value
-                SET m.id = triple.attribute
+            CALL (e, triple) {{
+                MERGE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m {{id: triple.attribute}})
+                SET m += triple.value
             }}
             "#,
             CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
@@ -252,7 +270,7 @@ pub struct FindOneQuery {
 }
 
 impl FindOneQuery {
-    pub fn new(
+    fn new(
         neo4j: &neo4rs::Graph,
         attribute_id: String,
         entity_id: String,
@@ -272,18 +290,13 @@ impl FindOneQuery {
 impl Query<Option<Triple>> for FindOneQuery {
     async fn send(self) -> Result<Option<Triple>, DatabaseError> {
         let query = QueryPart::default()
-            .match_clause("(e {{id: $entity_id}}) -[r:ATTRIBUTE {{space_id: $space_id}}]-> (n {{attribute: $attribute_id}})")
+            .match_clause("(e {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n {id: $attribute_id})")
             .merge(self.space_version.into_query_part("r"))
-            .return_clause("n{{.*, entity: e.id}}")
+            .return_clause("n{.*, entity: e.id} AS triple")
             .params("attribute_id", self.attribute_id)
             .params("entity_id", self.entity_id)
             .params("space_id", self.space_id)
             .build();
-
-        #[derive(Debug, Deserialize)]
-        struct RowResult {
-            n: Triple,
-        }
 
         Ok(self
             .neo4j
@@ -292,8 +305,12 @@ impl Query<Option<Triple>> for FindOneQuery {
             .next()
             .await?
             .map(|row| {
-                let row = row.to::<RowResult>()?;
-                Result::<_, DatabaseError>::Ok(row.n)
+                // NOTE: When returning a projection, you can deserialize directly to
+                // the struct without an intermediate "RowResult" struct since neo4j
+                // will not return the data as a "Node" but instead as raw JSON.
+                // let row = row.to::<RowResult>()?;
+                // Result::<_, DatabaseError>::Ok(row.triple)
+                row.to::<Triple>().map_err(DatabaseError::from)
             })
             .transpose()?)
     }
@@ -358,7 +375,7 @@ impl<T> FindManyQuery<T> {
         let mut query_part = QueryPart::default().match_clause("(e) -[r:ATTRIBUTE]-> (n)");
 
         if let Some(attribute_id) = self.attribute_id {
-            query_part = query_part.merge(attribute_id.into_query_part("n", "attribute"));
+            query_part = query_part.merge(attribute_id.into_query_part("n", "id"));
         }
 
         if let Some(value) = self.value {
@@ -379,60 +396,25 @@ impl<T> FindManyQuery<T> {
 
         query_part
             .merge(self.space_version.into_query_part("r"))
-            .return_clause("n{{.*, entity: e.id}}")
+            .return_clause("n{.*, entity: e.id}")
     }
 }
 
 impl Query<Vec<Triple>> for FindManyQuery<Vec<Triple>> {
     async fn send(self) -> Result<Vec<Triple>, DatabaseError> {
         let neo4j = self.neo4j.clone();
-        let query_part = self.to_query_part();
-        println!("{:?}", query_part.query());
-        let query = query_part.build();
-
-        #[derive(Debug, Deserialize)]
-        struct RowResult {
-            n: Triple,
-        }
+        let query = self.to_query_part().build();
 
         neo4j
             .execute(query)
             .await?
-            .into_stream_as::<RowResult>()
+            .into_stream_as::<Triple>()
             .map_err(DatabaseError::from)
-            .and_then(|row| async move { Ok(row.n) })
+            // .and_then(|row| async move { Ok(row.triple) })
             .try_collect::<Vec<Triple>>()
             .await
     }
 }
-
-// impl<T> Query<T> for FindManyQuery<T>
-// where
-//     T: FromAttributes,
-// {
-//     async fn send(self) -> Result<T, DatabaseError> {
-//         let neo4j = self.neo4j.clone();
-//         let query_part = self.to_query_part();
-//         println!("{:?}", query_part.query());
-//         let query = query_part.build();
-
-//         #[derive(Debug, Deserialize)]
-//         struct RowResult {
-//             n: Triple,
-//         }
-
-//         let triples = neo4j
-//             .execute(query)
-//             .await?
-//             .into_stream_as::<RowResult>()
-//             .map_err(DatabaseError::from)
-//             .and_then(|row| async move { Ok(row.n) })
-//             .try_collect::<Vec<Triple>>()
-//             .await?;
-
-//         T::from_attributes(triples.into()).map_err(DatabaseError::TripleError)
-//     }
-// }
 
 pub struct DeleteOneQuery {
     neo4j: neo4rs::Graph,
@@ -467,7 +449,8 @@ impl Query<()> for DeleteOneQuery {
     async fn send(self) -> Result<(), DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MATCH (e {{id: $entity_id}}) -[r:ATTRIBUTE {{space_id: $space_id, max_version: null}}]-> ({{attribute: $attribute_id}})
+            MATCH (e {{id: $entity_id}}) -[r:ATTRIBUTE {{space_id: $space_id}}]-> ({{id: $attribute_id}})
+            WHERE r.max_version IS null
             SET r.max_version = $space_version
             SET e += {{
                 `{UPDATED_AT}`: datetime($block_timestamp),
@@ -482,7 +465,9 @@ impl Query<()> for DeleteOneQuery {
             .param("attribute_id", self.attribute_id)
             .param("entity_id", self.entity_id)
             .param("space_id", self.space_id)
-            .param("space_version", self.space_version);
+            .param("space_version", self.space_version)
+            .param("block_number", self.block.block_number.to_string())
+            .param("block_timestamp", self.block.timestamp.to_rfc3339());
 
         self.neo4j.run(query).await?;
 
@@ -502,6 +487,48 @@ mod tests {
 
     const BOLT_PORT: u16 = 7687;
     const HTTP_PORT: u16 = 7474;
+
+    #[tokio::test]
+    async fn test_find_one() {
+        // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
+        let container = GenericImage::new("neo4j", "2025.01.0-community")
+            .with_wait_for(WaitFor::Duration {
+                length: std::time::Duration::from_secs(5),
+            })
+            .with_exposed_port(BOLT_PORT.tcp())
+            .with_exposed_port(HTTP_PORT.tcp())
+            .with_env_var("NEO4J_AUTH", "none")
+            .start()
+            .await
+            .expect("Failed to start Neo 4J container");
+
+        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
+        let host = container.get_host().await.unwrap().to_string();
+
+        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
+            .await
+            .unwrap();
+
+        neo4j.run(
+            neo4rs::query(r#"CREATE ({id: "abc"}) -[:ATTRIBUTE {space_id: "ROOT", min_version: 0}]-> ({id: "name", value: "Alice", value_type: "TEXT"})"#)
+        )
+        .await
+        .expect("Failed to create test data");
+
+        let triple = Triple {
+            entity: "abc".to_string(),
+            attribute: "name".to_string(),
+            value: "Alice".into(),
+        };
+
+        let found_triple = find_one(&neo4j, "name", "abc", "ROOT", None)
+            .send()
+            .await
+            .expect("Failed to find triple")
+            .expect("Triple not found");
+
+        assert_eq!(triple, found_triple);
+    }
 
     #[tokio::test]
     async fn test_insert_find_one() {
@@ -527,35 +554,21 @@ mod tests {
         let triple = Triple {
             entity: "abc".to_string(),
             attribute: "name".to_string(),
-            value: Value {
-                value: "Alice".to_string(),
-                value_type: ValueType::Text,
-                options: Options::default(),
-            },
+            value: "Alice".into(),
         };
 
         triple
             .clone()
-            .insert(&neo4j, &BlockMetadata::default(), "space_id".to_string(), 0)
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
             .send()
             .await
             .expect("Failed to insert triple");
 
-        // let result = neo4j.execute(
-        //     neo4rs::query("MATCH ({id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n {attribute: $attribute_id})
-        //     RETURN n")
-        //         .param("attribute_id", "name")
-        //         .param("entity_id", "entity_id")
-        //         .param("space_id", "space_id")
-        //         .param("space_version", 0)
-        // ).await.expect("Failed to execute query").next().await.expect("Failed to get result");
-        // println!("{:?}", result);
-
-        let found_triple = FindOneQuery::new(
+        let found_triple = find_one(
             &neo4j,
-            "name".to_string(),
-            "entity_id".to_string(),
-            "space_id".to_string(),
+            "name",
+            "abc",
+            "ROOT",
             Some(0),
         )
         .send()
@@ -590,27 +603,19 @@ mod tests {
         let triple = Triple {
             entity: "abc".to_string(),
             attribute: "name".to_string(),
-            value: Value {
-                value: "Alice".to_string(),
-                value_type: ValueType::Text,
-                options: Options::default(),
-            },
+            value: "Alice".into(),
         };
 
         let other_triple = Triple {
             entity: "def".to_string(),
             attribute: "name".to_string(),
-            value: Value {
-                value: "Bob".to_string(),
-                value_type: ValueType::Text,
-                options: Options::default(),
-            },
+            value: "Bob".into(),
         };
 
-        InsertManyQuery::new(
+        insert_many(
             &neo4j,
             &BlockMetadata::default(),
-            "space_id".to_string(),
+            "ROOT",
             0,
             vec![triple.clone(), other_triple],
         )
@@ -622,8 +627,8 @@ mod tests {
             .attribute_id(PropFilter::new().value("name"))
             .value(PropFilter::new().value("Alice"))
             .value_type(PropFilter::new().value("TEXT"))
-            .entity_id(PropFilter::new().value("entity_id"))
-            .space_id(PropFilter::new().value("space_id"))
+            .entity_id(PropFilter::new().value("abc"))
+            .space_id(PropFilter::new().value("ROOT"))
             .space_version(0)
             .send()
             .await
@@ -656,16 +661,12 @@ mod tests {
         let triple = Triple {
             entity: "abc".to_string(),
             attribute: "name".to_string(),
-            value: Value {
-                value: "Alice".to_string(),
-                value_type: ValueType::Text,
-                options: Options::default(),
-            },
+            value: "Alice".into(),
         };
 
         triple
             .clone()
-            .insert(&neo4j, &BlockMetadata::default(), "space_id".to_string(), 0)
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
             .send()
             .await
             .expect("Failed to insert triple");
@@ -673,16 +674,12 @@ mod tests {
         let other_triple = Triple {
             entity: "def".to_string(),
             attribute: "name".to_string(),
-            value: Value {
-                value: "Bob".to_string(),
-                value_type: ValueType::Text,
-                options: Options::default(),
-            },
+            value: "Bob".into(),
         };
 
         other_triple
             .clone()
-            .insert(&neo4j, &BlockMetadata::default(), "space_id".to_string(), 0)
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
             .send()
             .await
             .expect("Failed to insert triple");
@@ -691,13 +688,235 @@ mod tests {
             .attribute_id(PropFilter::new().value("name"))
             .value(PropFilter::new().value("Alice"))
             .value_type(PropFilter::new().value("TEXT"))
-            .entity_id(PropFilter::new().value("entity_id"))
-            .space_id(PropFilter::new().value("space_id"))
+            .entity_id(PropFilter::new().value("abc"))
+            .space_id(PropFilter::new().value("ROOT"))
             .space_version(0)
             .send()
             .await
             .expect("Failed to find triples");
 
         assert_eq!(vec![triple], found_triples);
+    }
+
+    #[tokio::test]
+    async fn test_versioning() {
+        // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
+        let container = GenericImage::new("neo4j", "2025.01.0-community")
+            .with_wait_for(WaitFor::Duration {
+                length: std::time::Duration::from_secs(5),
+            })
+            .with_exposed_port(BOLT_PORT.tcp())
+            .with_exposed_port(HTTP_PORT.tcp())
+            .with_env_var("NEO4J_AUTH", "none")
+            .start()
+            .await
+            .expect("Failed to start Neo 4J container");
+
+        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
+        let host = container.get_host().await.unwrap().to_string();
+
+        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
+            .await
+            .unwrap();
+
+        let triple_v1 = Triple {
+            entity: "abc".to_string(),
+            attribute: "name".to_string(),
+            value: "Alice".into(),
+        };
+
+        triple_v1
+            .clone()
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+            .send()
+            .await
+            .expect("Failed to insert triple");
+
+        let triple_v2 = Triple {
+            entity: "abc".to_string(),
+            attribute: "name".to_string(),
+            value: "NotAlice".into(),
+        };
+
+        triple_v2
+            .clone()
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 1)
+            .send()
+            .await
+            .expect("Failed to insert triple");
+
+        let triple_latest = find_one(
+            &neo4j,
+            "name".to_string(),
+            "abc".to_string(),
+            "ROOT".to_string(),
+            None,
+        )
+        .send()
+        .await
+        .expect("Failed to find triple")
+        .expect("Triple not found");
+
+        assert_eq!(triple_v2, triple_latest);
+        assert_eq!(triple_latest.value.value, "NotAlice".to_string());
+
+        let found_triple_v1 = find_one(
+            &neo4j,
+            "name".to_string(),
+            "abc".to_string(),
+            "ROOT".to_string(),
+            Some(0),
+        )
+        .send()
+        .await
+        .expect("Failed to find triple")
+        .expect("Triple not found");
+
+        assert_eq!(triple_v1, found_triple_v1);
+        assert_eq!(found_triple_v1.value.value, "Alice".to_string());
+    }
+
+    #[tokio::test]
+    async fn test_update_no_versioning() {
+        // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
+        let container = GenericImage::new("neo4j", "2025.01.0-community")
+            .with_wait_for(WaitFor::Duration {
+                length: std::time::Duration::from_secs(5),
+            })
+            .with_exposed_port(BOLT_PORT.tcp())
+            .with_exposed_port(HTTP_PORT.tcp())
+            .with_env_var("NEO4J_AUTH", "none")
+            .start()
+            .await
+            .expect("Failed to start Neo 4J container");
+
+        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
+        let host = container.get_host().await.unwrap().to_string();
+
+        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
+            .await
+            .unwrap();
+
+        let triple_v1 = Triple {
+            entity: "abc".to_string(),
+            attribute: "name".to_string(),
+            value: "Alice".into(),
+        };
+
+        triple_v1
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+            .send()
+            .await
+            .expect("Failed to insert triple");
+
+        let triple_v2 = Triple {
+            entity: "abc".to_string(),
+            attribute: "name".to_string(),
+            value: "NotAlice".into(),
+        };
+
+        triple_v2
+            .clone()
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+            .send()
+            .await
+            .expect("Failed to insert triple");
+
+        let triple_latest = find_one(
+            &neo4j,
+            "name".to_string(),
+            "abc".to_string(),
+            "ROOT".to_string(),
+            None,
+        )
+        .send()
+        .await
+        .expect("Failed to find triple")
+        .expect("Triple not found");
+
+        assert_eq!(triple_v2, triple_latest);
+        assert_eq!(triple_latest.value.value, "NotAlice".to_string());
+
+        let found_triple_v1 = find_one(
+            &neo4j,
+            "name".to_string(),
+            "abc".to_string(),
+            "ROOT".to_string(),
+            Some(0),
+        )
+        .send()
+        .await
+        .expect("Failed to find triple")
+        .expect("Triple not found");
+
+        assert_eq!(triple_v2, found_triple_v1);
+        assert_eq!(found_triple_v1.value.value, "NotAlice".to_string());
+    }
+
+    #[tokio::test]
+    async fn test_delete() {
+        // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
+        let container = GenericImage::new("neo4j", "2025.01.0-community")
+            .with_wait_for(WaitFor::Duration {
+                length: std::time::Duration::from_secs(5),
+            })
+            .with_exposed_port(BOLT_PORT.tcp())
+            .with_exposed_port(HTTP_PORT.tcp())
+            .with_env_var("NEO4J_AUTH", "none")
+            .start()
+            .await
+            .expect("Failed to start Neo 4J container");
+
+        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
+        let host = container.get_host().await.unwrap().to_string();
+
+        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
+            .await
+            .unwrap();
+
+        let triple = Triple {
+            entity: "abc".to_string(),
+            attribute: "name".to_string(),
+            value: "Alice".into(),
+        };
+
+        triple
+            .clone()
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+            .send()
+            .await
+            .expect("Failed to insert triple");
+
+        delete_one(&neo4j, &BlockMetadata::default(), "name", "abc", "ROOT", 1)
+            .send()
+            .await
+            .expect("Failed to delete triple");
+
+        let found_triple = find_one(
+            &neo4j,
+            "name".to_string(),
+            "abc".to_string(),
+            "ROOT".to_string(),
+            None,
+        )
+        .send()
+        .await
+        .expect("Failed to find triple");
+
+        assert_eq!(None, found_triple);
+
+        let found_triple_v1 = find_one(
+            &neo4j,
+            "name".to_string(),
+            "abc".to_string(),
+            "ROOT".to_string(),
+            Some(0),
+        )
+        .send()
+        .await
+        .expect("Failed to find triple")
+        .expect("Triple not found");
+
+        assert_eq!(triple, found_triple_v1);
     }
 }

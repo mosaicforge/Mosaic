@@ -6,12 +6,12 @@ pub mod proposal;
 pub mod space;
 pub mod vote;
 
-pub use account::GeoAccount;
+pub use account::Account;
 pub use block::{BlockMetadata, Cursor};
 pub use editor::SpaceEditor;
 pub use member::SpaceMember;
 pub use proposal::{
-    AddEditorProposal, AddMemberProposal, AddSubspaceProposal, Creator, EditProposal, Proposal,
+    AddEditorProposal, AddMemberProposal, AddSubspaceProposal, ProposalCreator, EditProposal, Proposal,
     Proposals, RemoveEditorProposal, RemoveMemberProposal, RemoveSubspaceProposal,
 };
 pub use space::{Space, SpaceBuilder, SpaceType};
