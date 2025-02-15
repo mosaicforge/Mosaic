@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use futures::TryStreamExt;
-use neo4rs::BoltType;
+use neo4rs::{BoltMap, BoltType};
 use serde::Deserialize;
 
-use crate::{error::DatabaseError, indexer_ids, models::BlockMetadata};
+use crate::{error::DatabaseError, indexer_ids, models::BlockMetadata, pb};
 
 use super::{
     query_utils::{PropFilter, Query, QueryPart, VersionFilter},
@@ -64,14 +64,22 @@ pub fn delete_one(
     )
 }
 
+pub fn delete_many(
+    neo4j: &neo4rs::Graph,
+    block: &BlockMetadata,
+    space_id: impl Into<String>,
+    space_version: i64,
+) -> DeleteManyQuery {
+    DeleteManyQuery::new(neo4j, block, space_id.into(), space_version)
+}
+
 pub fn insert_many(
     neo4j: &neo4rs::Graph,
     block: &BlockMetadata,
     space_id: impl Into<String>,
     space_version: i64,
-    triples: Vec<Triple>,
 ) -> InsertManyQuery {
-    InsertManyQuery::new(neo4j, block, space_id.into(), space_version, triples)
+    InsertManyQuery::new(neo4j, block, space_id.into(), space_version)
 }
 
 pub fn find_one(
@@ -92,6 +100,22 @@ pub fn find_one(
 
 pub fn find_many<T>(neo4j: &neo4rs::Graph) -> FindManyQuery<T> {
     FindManyQuery::new(neo4j)
+}
+
+impl TryFrom<pb::ipfs::Triple> for Triple {
+    type Error = String;
+
+    fn try_from(triple: pb::ipfs::Triple) -> Result<Self, Self::Error> {
+        if let Some(value) = triple.value {
+            Ok(Triple {
+                entity: triple.entity,
+                attribute: triple.attribute,
+                value: value.try_into()?,
+            })
+        } else {
+            Err("Triple value is required".to_string())
+        }
+    }
 }
 
 impl Into<BoltType> for Triple {
@@ -205,15 +229,32 @@ impl InsertManyQuery {
         block: &BlockMetadata,
         space_id: String,
         space_version: i64,
-        triples: Vec<Triple>,
     ) -> Self {
         Self {
             neo4j: neo4j.clone(),
             block: block.clone(),
             space_id,
             space_version,
-            triples,
+            triples: vec![],
         }
+    }
+
+    pub fn triple(mut self, triple: Triple) -> Self {
+        self.triples.push(triple);
+        self
+    }
+
+    pub fn triple_mut(&mut self, triple: Triple) {
+        self.triples.push(triple);
+    }
+
+    pub fn triples(mut self, triples: impl IntoIterator<Item = Triple>) -> Self {
+        self.triples.extend(triples);
+        self
+    }
+
+    pub fn triples_mut(&mut self, triples: impl IntoIterator<Item = Triple>) {
+        self.triples.extend(triples);
     }
 }
 
@@ -475,6 +516,100 @@ impl Query<()> for DeleteOneQuery {
     }
 }
 
+pub struct DeleteManyQuery {
+    neo4j: neo4rs::Graph,
+    block: BlockMetadata,
+    space_id: String,
+    space_version: i64,
+    triples: Vec<(String, String)>,
+}
+
+impl DeleteManyQuery {
+    pub fn new(
+        neo4j: &neo4rs::Graph,
+        block: &BlockMetadata,
+        space_id: String,
+        space_version: i64,
+    ) -> Self {
+        Self {
+            neo4j: neo4j.clone(),
+            block: block.clone(),
+            space_id,
+            space_version,
+            triples: vec![],
+        }
+    }
+
+    pub fn triple(mut self, entity_id: impl Into<String>, attribute_id: impl Into<String>) -> Self {
+        self.triples.push((entity_id.into(), attribute_id.into()));
+        self
+    }
+
+    pub fn triple_mut(&mut self, entity_id: impl Into<String>, attribute_id: impl Into<String>) {
+        self.triples.push((entity_id.into(), attribute_id.into()));
+    }
+
+    pub fn triples(mut self, triples: impl IntoIterator<Item = (String, String)>) -> Self {
+        self.triples.extend(triples);
+        self
+    }
+
+    pub fn triples_mut(&mut self, triples: impl IntoIterator<Item = (String, String)>) {
+        self.triples.extend(triples);
+    }
+}
+
+impl Query<()> for DeleteManyQuery {
+    async fn send(self) -> Result<(), DatabaseError> {
+        const QUERY: &str = const_format::formatcp!(
+            r#"
+            UNWIND $triples as triple
+            MATCH (e {{id: triple.entity_id}}) -[r:ATTRIBUTE {{space_id: $space_id}}]-> ({{id: triple.attribute_id}})
+            WHERE r.max_version IS null
+            SET r.max_version = $space_version
+            SET e += {{
+                `{UPDATED_AT}`: datetime($block_timestamp),
+                `{UPDATED_AT_BLOCK}`: $block_number
+            }}
+            "#,
+            UPDATED_AT = indexer_ids::UPDATED_AT_TIMESTAMP,
+            UPDATED_AT_BLOCK = indexer_ids::UPDATED_AT_BLOCK,
+        );
+
+        let query = neo4rs::query(QUERY)
+            .param("space_id", self.space_id)
+            .param("space_version", self.space_version)
+            .param("triples", self.triples
+                .into_iter()
+                .map(|(entity_id, attribute_id)| {
+                    BoltType::Map(BoltMap {
+                        value: HashMap::from([
+                            (
+                                neo4rs::BoltString {
+                                    value: "entity_id".into(),
+                                },
+                                entity_id.into(),
+                            ),
+                            (
+                                neo4rs::BoltString {
+                                    value: "attribute_id".into(),
+                                },
+                                attribute_id.into(),
+                            ),
+                        ]),
+                    })
+                })
+                .collect::<Vec<_>>(),
+            )
+            .param("block_number", self.block.block_number.to_string())
+            .param("block_timestamp", self.block.timestamp.to_rfc3339());
+
+        self.neo4j.run(query).await?;
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -612,16 +747,11 @@ mod tests {
             value: "Bob".into(),
         };
 
-        insert_many(
-            &neo4j,
-            &BlockMetadata::default(),
-            "ROOT",
-            0,
-            vec![triple.clone(), other_triple],
-        )
-        .send()
-        .await
-        .expect("Failed to insert triples");
+        insert_many(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+            .triples(vec![triple.clone(), other_triple])
+            .send()
+            .await
+            .expect("Failed to insert triples");
 
         let found_triples = FindManyQuery::<Vec<Triple>>::new(&neo4j)
             .attribute_id(PropFilter::new().value("name"))

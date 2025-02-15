@@ -103,6 +103,18 @@ impl Into<BoltType> for Value {
     }
 }
 
+impl TryFrom<pb::ipfs::Value> for Value {
+    type Error = String;
+
+    fn try_from(value: pb::ipfs::Value) -> Result<Self, Self::Error> {
+        Ok(Self {
+            value_type: value.r#type().try_into()?,
+            value: value.value,
+            options: Default::default(),
+        })
+    }
+}
+
 impl From<String> for Value {
     fn from(value: String) -> Self {
         Self {

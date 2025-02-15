@@ -12,21 +12,26 @@ use super::{
 #[derive(Clone, Debug, PartialEq)]
 pub struct Entity<T> {
     pub id: String,
-    pub data: T,
+    pub attributes: T,
     pub types: Vec<String>,
 }
 
 impl<T> Entity<T> {
-    pub fn new(id: impl Into<String>, data: T) -> Self {
+    pub fn new(id: impl Into<String>, attributes: T) -> Self {
         Entity {
             id: id.into(),
-            data,
+            attributes,
             types: vec![],
         }
     }
 
     pub fn with_type(mut self, r#type: impl Into<String>) -> Self {
         self.types.push(r#type.into());
+        self
+    }
+
+    pub fn with_types(mut self, types: impl IntoIterator<Item = String>) -> Self {
+        self.types.extend(types);
         self
     }
 
@@ -104,7 +109,7 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
             &self.entity.id,
             &self.space_id,
             self.space_version,
-            self.entity.data,
+            self.entity.attributes,
         )
         .send()
         .await?;
@@ -132,15 +137,10 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
             .collect::<Vec<_>>();
 
         // Insert the relations
-        relation_node::insert_many(
-            &self.neo4j,
-            &self.block,
-            &self.space_id,
-            self.space_version,
-            types_relations,
-        )
-        .send()
-        .await?;
+        relation_node::insert_many(&self.neo4j,&self.block,&self.space_id,self.space_version,)
+            .relations(types_relations)
+            .send()
+            .await?;
 
         Ok(())
     }
@@ -173,14 +173,24 @@ impl<T: FromAttributes> Query<Option<Entity<T>>> for FindOneQuery {
     async fn send(self) -> Result<Option<Entity<T>>, DatabaseError> {
         let attributes = attributes::find_one(
             &self.neo4j,
-            self.entity_id.clone(),
-            self.space_id,
+            &self.entity_id,
+            &self.space_id,
             self.space_version,
         )
         .send()
         .await?;
 
-        Ok(attributes.map(|data| Entity::new(self.entity_id, data)))
+        let types = relation_node::find_many(&self.neo4j)
+            .space_id(PropFilter::new().value(self.space_id.clone()))
+            .from_id(PropFilter::new().value(self.entity_id.clone()))
+            .relation_type(PropFilter::new().value(system_ids::TYPES_ATTRIBUTE))
+            .send()
+            .await?;
+
+        Ok(attributes.map(|data| 
+            Entity::new(self.entity_id, data)
+                .with_types(types.into_iter().map(|r| r.to))
+        ))
     }
 }
 
@@ -273,6 +283,8 @@ impl<T: FromAttributes> Query<Vec<Entity<T>>> for FindManyQuery {
 
 #[cfg(test)]
 mod tests {
+    use crate::mapping::{triple, Triple};
+
     use super::*;
 
     use testcontainers::{
@@ -316,16 +328,25 @@ mod tests {
             bar: 42,
         };
 
-        let entity = Entity::new("abc", foo).with_type("Foo");
+        triple::insert_many(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+            .triples(vec![
+                Triple::new("foo_type", "name", "Foo"),
+                Triple::new(system_ids::TYPES_ATTRIBUTE, "name", "Types"),
+            ])
+            .send()
+            .await
+            .expect("Failed to insert triples");
+
+        let entity = Entity::new("abc", foo).with_type("foo_type");
 
         entity
             .clone()
-            .insert(&neo4j, &BlockMetadata::default(), "space_id", 0)
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
             .send()
             .await
             .expect("Failed to insert entity");
 
-        let found_entity = find_one(&neo4j, "space_id", "abc", None)
+        let found_entity = find_one(&neo4j, "abc", "ROOT", None)
             .send()
             .await
             .expect("Failed to find entity")

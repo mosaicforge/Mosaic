@@ -3,6 +3,7 @@ use neo4rs::BoltType;
 use super::query_part::QueryPart;
 
 /// Filter for property P of node N
+#[derive(Debug, Clone)]
 pub struct PropFilter<T> {
     value: Option<T>,
     value_gt: Option<T>,

@@ -14,5 +14,5 @@ pub use proposal::{
     AddEditorProposal, AddMemberProposal, AddSubspaceProposal, ProposalCreator, EditProposal, Proposal,
     Proposals, RemoveEditorProposal, RemoveMemberProposal, RemoveSubspaceProposal,
 };
-pub use space::{Space, SpaceBuilder, SpaceType};
+pub use space::{Space, SpaceBuilder, SpaceGovernanceType};
 pub use vote::{VoteCast, VoteType};

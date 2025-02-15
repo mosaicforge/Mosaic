@@ -5,9 +5,7 @@ use crate::{
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
-        entity,
-        query_utils::{AttributeFilter, PropFilter, Query},
-        Entity, Relation, Value,
+        entity, query_utils::{AttributeFilter, PropFilter, Query}, relation, Entity, Relation, Value
     },
     network_ids, system_ids,
 };
@@ -17,7 +15,7 @@ use super::BlockMetadata;
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Space {
     pub network: String,
-    pub r#type: SpaceType,
+    pub governance_type: SpaceGovernanceType,
     /// The address of the space's DAO contract.
     pub dao_contract_address: String,
     /// The address of the space plugin contract.
@@ -39,8 +37,8 @@ impl Space {
         ids::create_id_from_unique_string(&format!("{network}:{}", checksum_address(address)))
     }
 
-    pub fn builder(id: &str, dao_contract_address: &str, block: &BlockMetadata) -> SpaceBuilder {
-        SpaceBuilder::new(id, dao_contract_address, block)
+    pub fn builder(id: &str, dao_contract_address: &str) -> SpaceBuilder {
+        SpaceBuilder::new(id, dao_contract_address)
     }
 
     /// Find a space by its DAO contract address.
@@ -161,26 +159,25 @@ impl Space {
 }
 
 #[derive(Clone, Default, Deserialize, Serialize)]
-pub enum SpaceType {
+pub enum SpaceGovernanceType {
     #[default]
     Public,
     Personal,
 }
 
-impl Into<Value> for SpaceType {
+impl Into<Value> for SpaceGovernanceType {
     fn into(self) -> Value {
         match self {
-            SpaceType::Public => Value::text("Public".to_string()),
-            SpaceType::Personal => Value::text("Personal".to_string()),
+            SpaceGovernanceType::Public => Value::text("Public".to_string()),
+            SpaceGovernanceType::Personal => Value::text("Personal".to_string()),
         }
     }
 }
 
 pub struct SpaceBuilder {
     id: String,
-    block: BlockMetadata,
     network: String,
-    r#type: SpaceType,
+    governance_type: SpaceGovernanceType,
     dao_contract_address: String,
     space_plugin_address: Option<String>,
     voting_plugin_address: Option<String>,
@@ -189,12 +186,11 @@ pub struct SpaceBuilder {
 }
 
 impl SpaceBuilder {
-    pub fn new(id: &str, dao_contract_address: &str, block: &BlockMetadata) -> Self {
+    pub fn new(id: &str, dao_contract_address: &str) -> Self {
         Self {
             id: id.to_string(),
-            block: block.clone(),
             network: network_ids::GEO.to_string(),
-            r#type: SpaceType::Public,
+            governance_type: SpaceGovernanceType::Public,
             dao_contract_address: checksum_address(dao_contract_address),
             space_plugin_address: None,
             voting_plugin_address: None,
@@ -208,8 +204,8 @@ impl SpaceBuilder {
         self
     }
 
-    pub fn r#type(mut self, r#type: SpaceType) -> Self {
-        self.r#type = r#type;
+    pub fn governance_type(mut self, governance_type: SpaceGovernanceType) -> Self {
+        self.governance_type = governance_type;
         self
     }
 
@@ -243,7 +239,7 @@ impl SpaceBuilder {
             &self.id,
             Space {
                 network: self.network,
-                r#type: self.r#type,
+                governance_type: self.governance_type,
                 dao_contract_address: self.dao_contract_address,
                 space_plugin_address: self.space_plugin_address,
                 voting_plugin_address: self.voting_plugin_address,
@@ -261,16 +257,41 @@ impl SpaceBuilder {
 pub struct ParentSpace;
 
 impl ParentSpace {
-    pub fn new(space_id: &str, parent_space_id: &str, block: &BlockMetadata) -> Relation<Self> {
+    pub fn generate_id(space_id: &str, parent_space_id: &str) -> String {
+        ids::create_id_from_unique_string(&format!(
+            "PARENT_SPACE:{space_id}:{parent_space_id}"
+        ))
+    }
+    
+    pub fn new(space_id: &str, parent_space_id: &str) -> Relation<Self> {
         Relation::new(
-            &ids::create_id_from_unique_string(&format!(
-                "PARENT_SPACE:{space_id}:{parent_space_id}"
-            )),
+            &Self::generate_id(space_id, parent_space_id),
             space_id,
             parent_space_id,
             indexer_ids::PARENT_SPACE,
             "0",
             Self,
         )
+    }
+
+    /// Delete a relation between a space and its parent space.
+    pub async fn remove(
+        neo4j: &neo4rs::Graph,
+        block: &BlockMetadata,
+        space_id: &str,
+        parent_space_id: &str,
+    ) -> Result<(), DatabaseError> {
+        relation::delete_one(
+            neo4j,
+            block, 
+            ParentSpace::generate_id(
+                space_id,
+                parent_space_id,
+            ), 
+            indexer_ids::INDEXER_SPACE_ID, 
+            0,
+        )
+        .send()
+        .await
     }
 }

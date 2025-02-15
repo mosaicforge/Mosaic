@@ -24,7 +24,7 @@ impl SpaceMember {
         )
     }
 
-    /// Returns a query to delete a relation between an member and a space.
+    /// Delete a relation between an member and a space.
     pub async fn remove(
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
