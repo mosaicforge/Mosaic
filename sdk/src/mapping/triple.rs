@@ -176,7 +176,7 @@ impl Query<()> for InsertOneQuery {
     async fn send(self) -> Result<(), DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MERGE (e {{id: $triple.entity}})
+            MERGE (e:Entity {{id: $triple.entity}})
             ON CREATE SET e += {{
                 `{CREATED_AT}`: datetime($block_timestamp),
                 `{CREATED_AT_BLOCK}`: $block_number
@@ -187,12 +187,12 @@ impl Query<()> for InsertOneQuery {
             }}
             WITH e
             CALL (e) {{
-                MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> ({{id: $triple.attribute}})
+                MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> (:Attribute {{id: $triple.attribute}})
                 WHERE r.max_version IS null AND r.min_version <> $space_version
                 SET r.max_version = $space_version
             }}
             CALL (e) {{
-                MERGE (e) -[r:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m {{id: $triple.attribute}})
+                MERGE (e) -[r:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m:Attribute {{id: $triple.attribute}})
                 SET m += $triple.value
             }}
             "#,
@@ -263,7 +263,7 @@ impl Query<()> for InsertManyQuery {
         const QUERY: &str = const_format::formatcp!(
             r#"
             UNWIND $triples as triple
-            MERGE (e {{id: triple.entity}})
+            MERGE (e:Entity {{id: triple.entity}})
             ON CREATE SET e += {{
                 `{CREATED_AT}`: datetime($block_timestamp),
                 `{CREATED_AT_BLOCK}`: $block_number
@@ -274,12 +274,12 @@ impl Query<()> for InsertManyQuery {
             }}
             WITH e, triple
             CALL (e, triple) {{
-                MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> ({{id: triple.attribute}})
+                MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> (:Attribute {{id: triple.attribute}})
                 WHERE r.max_version IS null AND r.min_version <> $space_version
                 SET r.max_version = $space_version
             }}
             CALL (e, triple) {{
-                MERGE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m {{id: triple.attribute}})
+                MERGE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m:Attribute {{id: triple.attribute}})
                 SET m += triple.value
             }}
             "#,
@@ -331,7 +331,7 @@ impl FindOneQuery {
 impl Query<Option<Triple>> for FindOneQuery {
     async fn send(self) -> Result<Option<Triple>, DatabaseError> {
         let query = QueryPart::default()
-            .match_clause("(e {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n {id: $attribute_id})")
+            .match_clause("(e:Entity {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute {id: $attribute_id})")
             .merge(self.space_version.into_query_part("r"))
             .return_clause("n{.*, entity: e.id} AS triple")
             .params("attribute_id", self.attribute_id)
@@ -413,7 +413,7 @@ impl<T> FindManyQuery<T> {
     }
 
     fn to_query_part(self) -> QueryPart {
-        let mut query_part = QueryPart::default().match_clause("(e) -[r:ATTRIBUTE]-> (n)");
+        let mut query_part = QueryPart::default().match_clause("(e:Entity) -[r:ATTRIBUTE]-> (n:Attribute)");
 
         if let Some(attribute_id) = self.attribute_id {
             query_part = query_part.merge(attribute_id.into_query_part("n", "id"));
@@ -490,7 +490,7 @@ impl Query<()> for DeleteOneQuery {
     async fn send(self) -> Result<(), DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MATCH (e {{id: $entity_id}}) -[r:ATTRIBUTE {{space_id: $space_id}}]-> ({{id: $attribute_id}})
+            MATCH (e:Entity {{id: $entity_id}}) -[r:ATTRIBUTE {{space_id: $space_id}}]-> (:Attribute {{id: $attribute_id}})
             WHERE r.max_version IS null
             SET r.max_version = $space_version
             SET e += {{
@@ -564,7 +564,7 @@ impl Query<()> for DeleteManyQuery {
         const QUERY: &str = const_format::formatcp!(
             r#"
             UNWIND $triples as triple
-            MATCH (e {{id: triple.entity_id}}) -[r:ATTRIBUTE {{space_id: $space_id}}]-> ({{id: triple.attribute_id}})
+            MATCH (e:Entity {{id: triple.entity_id}}) -[r:ATTRIBUTE {{space_id: $space_id}}]-> (:Attribute {{id: triple.attribute_id}})
             WHERE r.max_version IS null
             SET r.max_version = $space_version
             SET e += {{
@@ -645,7 +645,7 @@ mod tests {
             .unwrap();
 
         neo4j.run(
-            neo4rs::query(r#"CREATE ({id: "abc"}) -[:ATTRIBUTE {space_id: "ROOT", min_version: 0}]-> ({id: "name", value: "Alice", value_type: "TEXT"})"#)
+            neo4rs::query(r#"CREATE (:Entity {id: "abc"}) -[:ATTRIBUTE {space_id: "ROOT", min_version: 0}]-> (:Attribute {id: "name", value: "Alice", value_type: "TEXT"})"#)
         )
         .await
         .expect("Failed to create test data");

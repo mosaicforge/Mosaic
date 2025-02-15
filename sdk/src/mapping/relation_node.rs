@@ -255,14 +255,14 @@ impl Query<()> for DeleteOneQuery {
     async fn send(self) -> Result<(), DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
-                MATCH (r {{id: $relation_id}})
-                MATCH (r)-[r_to:`{TO_ENTITY}` {{space_id: $space_id}}]->()
+                MATCH (r:Entity:Relation {{id: $relation_id}})
+                MATCH (r)-[r_to:`{TO_ENTITY}` {{space_id: $space_id}}]->(:Entity)
                 WHERE r_to.max_version IS NULL
-                MATCH (r)-[r_from:`{FROM_ENTITY}` {{space_id: $space_id}}]->()
+                MATCH (r)-[r_from:`{FROM_ENTITY}` {{space_id: $space_id}}]->(:Entity)
                 WHERE r_from.max_version IS NULL
-                MATCH (r)-[r_rt:`{RELATION_TYPE}` {{space_id: $space_id}}]->()
+                MATCH (r)-[r_rt:`{RELATION_TYPE}` {{space_id: $space_id}}]->(:Entity)
                 WHERE r_rt.max_version IS NULL
-                MATCH (r)-[r_index:ATTRIBUTE {{space_id: $space_id}}]->({{id: "{INDEX}"}})
+                MATCH (r)-[r_index:ATTRIBUTE {{space_id: $space_id}}]->(:Attribute {{id: "{INDEX}"}})
                 WHERE r_index.max_version IS NULL
                 SET r_to.max_version = $space_version
                 SET r_from.max_version = $space_version
@@ -342,14 +342,14 @@ impl Query<()> for DeleteManyQuery {
         const QUERY: &str = const_format::formatcp!(
             r#"
                 UNWIND $relations as relation_id
-                MATCH (r {{id: relation_id}})
-                MATCH (r)-[r_to:`{TO_ENTITY}` {{space_id: $space_id}}]->()
+                MATCH (r:Entity:Relation {{id: relation_id}})
+                MATCH (r)-[r_to:`{TO_ENTITY}` {{space_id: $space_id}}]->(:Entity)
                 WHERE r_to.max_version IS NULL
-                MATCH (r)-[r_from:`{FROM_ENTITY}` {{space_id: $space_id}}]->()
+                MATCH (r)-[r_from:`{FROM_ENTITY}` {{space_id: $space_id}}]->(:Entity)
                 WHERE r_from.max_version IS NULL
-                MATCH (r)-[r_rt:`{RELATION_TYPE}` {{space_id: $space_id}}]->()
+                MATCH (r)-[r_rt:`{RELATION_TYPE}` {{space_id: $space_id}}]->(:Entity)
                 WHERE r_rt.max_version IS NULL
-                MATCH (r)-[r_index:ATTRIBUTE {{space_id: $space_id}}]->({{id: "{INDEX}"}})
+                MATCH (r)-[r_index:ATTRIBUTE {{space_id: $space_id}}]->(:Attribute {{id: "{INDEX}"}})
                 WHERE r_index.max_version IS NULL
                 SET r_to.max_version = $space_version
                 SET r_from.max_version = $space_version
@@ -409,7 +409,7 @@ impl Query<()> for InsertOneQuery {
     async fn send(self) -> Result<(), DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MERGE (e {{id: $relation.id}})
+            MERGE (e:Entity:Relation {{id: $relation.id}})
             ON CREATE SET e += {{
                 `{CREATED_AT}`: datetime($block_timestamp),
                 `{CREATED_AT_BLOCK}`: $block_number
@@ -420,22 +420,26 @@ impl Query<()> for InsertOneQuery {
             }}
             WITH e
             CALL (e) {{
-                MATCH (e) -[r_from:`{FROM_ENTITY}` {{space_id: $space_id, max_version: null}}]-> ()
-                MATCH (e) -[r_to:`{TO_ENTITY}` {{space_id: $space_id, max_version: null}}]-> ()
-                MATCH (e) -[r_rt:`{RELATION_TYPE}` {{space_id: $space_id, max_version: null}}]-> ()
-                MATCH (e) -[r_index:ATTRIBUTE {{space_id: $space_id, max_version: null}}]-> (index {{id: "{INDEX}"}})
+                MATCH (e) -[r_from:`{FROM_ENTITY}` {{space_id: $space_id}}]-> (:Entity)
+                WHERE r_from.max_version IS NULL
+                MATCH (e) -[r_to:`{TO_ENTITY}` {{space_id: $space_id, max_version: null}}]-> (:Entity)
+                WHERE r_to.max_version IS NULL
+                MATCH (e) -[r_rt:`{RELATION_TYPE}` {{space_id: $space_id, max_version: null}}]-> (:Entity)
+                WHERE r_rt.max_version IS NULL
+                MATCH (e) -[r_index:ATTRIBUTE {{space_id: $space_id, max_version: null}}]-> (:Attribute {{id: "{INDEX}"}})
+                WHERE r_index.max_version IS NULL
                 SET r_from.max_version = $space_version
                 SET r_to.max_version = $space_version
                 SET r_rt.max_version = $space_version
                 SET r_index.max_version = $space_version
             }}
-            MATCH (from {{id: $relation.from}})
-            MATCH (to {{id: $relation.to}})
-            MATCH (rt {{id: $relation.relation_type}})
+            MATCH (from:Entity {{id: $relation.from}})
+            MATCH (to:Entity {{id: $relation.to}})
+            MATCH (rt:Entity {{id: $relation.relation_type}})
             CREATE (e) -[:`{FROM_ENTITY}` {{space_id: $space_id, min_version: $space_version}}]-> (from)
             CREATE (e) -[:`{TO_ENTITY}` {{space_id: $space_id, min_version: $space_version}}]-> (to)
             CREATE (e) -[:`{RELATION_TYPE}` {{space_id: $space_id, min_version: $space_version}}]-> (rt)
-            CREATE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (index {{id: "{INDEX}"}})
+            CREATE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (index:Attribute {{id: "{INDEX}"}})
             SET index += $relation.index
             "#,
             CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
@@ -513,7 +517,7 @@ impl Query<()> for InsertManyQuery {
         const QUERY: &str = const_format::formatcp!(
             r#"
             UNWIND $relations as relation
-            MERGE (e {{id: relation.id}})
+            MERGE (e:Entity:Relation {{id: relation.id}})
             ON CREATE SET e += {{
                 `{CREATED_AT}`: datetime($block_timestamp),
                 `{CREATED_AT_BLOCK}`: $block_number
@@ -524,27 +528,29 @@ impl Query<()> for InsertManyQuery {
             }}
             WITH e, relation
             CALL (e) {{
-                MATCH (e) -[r_from:`{FROM_ENTITY}` {{space_id: $space_id}}]-> ()
+                MATCH (e) -[r_from:`{FROM_ENTITY}` {{space_id: $space_id}}]-> (:Entity)
                 WHERE r_from.max_version IS NULL
-                MATCH (e) -[r_to:`{TO_ENTITY}` {{space_id: $space_id}}]-> ()
+                MATCH (e) -[r_to:`{TO_ENTITY}` {{space_id: $space_id}}]-> (:Entity)
                 WHERE r_to.max_version IS NULL
-                MATCH (e) -[r_rt:`{RELATION_TYPE}` {{space_id: $space_id}}]-> ()
+                MATCH (e) -[r_rt:`{RELATION_TYPE}` {{space_id: $space_id}}]-> (:Entity)
                 WHERE r_rt.max_version IS NULL
-                MATCH (e) -[r_index:ATTRIBUTE {{space_id: $space_id}}]-> (index {{id: "{INDEX}"}})
+                MATCH (e) -[r_index:ATTRIBUTE {{space_id: $space_id}}]-> (index:Attribute {{id: "{INDEX}"}})
                 WHERE r_index.max_version IS NULL
                 SET r_from.max_version = $space_version
                 SET r_to.max_version = $space_version
                 SET r_rt.max_version = $space_version
                 SET r_index.max_version = $space_version
             }}
-            MATCH (from {{id: relation.from}})
-            MATCH (to {{id: relation.to}})
-            MATCH (rt {{id: relation.relation_type}})
-            CREATE (e) -[:`{FROM_ENTITY}` {{space_id: $space_id, min_version: $space_version}}]-> (from)
-            CREATE (e) -[:`{TO_ENTITY}` {{space_id: $space_id, min_version: $space_version}}]-> (to)
-            CREATE (e) -[:`{RELATION_TYPE}` {{space_id: $space_id, min_version: $space_version}}]-> (rt)
-            CREATE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (index {{id: "{INDEX}"}})
-            SET index += relation.index
+            CALL (e, relation) {{
+                MATCH (from:Entity {{id: relation.from}})
+                MATCH (to:Entity {{id: relation.to}})
+                MATCH (rt:Entity {{id: relation.relation_type}})
+                CREATE (e) -[:`{FROM_ENTITY}` {{space_id: $space_id, min_version: $space_version}}]-> (from)
+                CREATE (e) -[:`{TO_ENTITY}` {{space_id: $space_id, min_version: $space_version}}]-> (to)
+                CREATE (e) -[:`{RELATION_TYPE}` {{space_id: $space_id, min_version: $space_version}}]-> (rt)
+                CREATE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (index:Attribute {{id: "{INDEX}"}})
+                SET index += relation.index
+            }}
             "#,
             CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
             CREATED_AT_BLOCK = indexer_ids::CREATED_AT_BLOCK,
@@ -593,21 +599,21 @@ impl FindOneQuery {
 
     fn into_query_part(self) -> QueryPart {
         QueryPart::default()
-            .match_clause("(e {id: $id})")
+            .match_clause("(e:Entity:Relation {id: $id})")
             .match_clause(format!(
-                "(e) -[r_from:`{}` {{space_id: $space_id}}]-> (from)",
+                "(e) -[r_from:`{}` {{space_id: $space_id}}]-> (from:Entity)",
                 system_ids::RELATION_FROM_ATTRIBUTE
             ))
             .match_clause(format!(
-                "(e) -[r_to:`{}` {{space_id: $space_id}}]-> (to)",
+                "(e) -[r_to:`{}` {{space_id: $space_id}}]-> (to:Entity)",
                 system_ids::RELATION_TO_ATTRIBUTE
             ))
             .match_clause(format!(
-                "(e) -[r_rt:`{}` {{space_id: $space_id}}]-> (rt)",
+                "(e) -[r_rt:`{}` {{space_id: $space_id}}]-> (rt:Entity)",
                 system_ids::RELATION_TYPE_ATTRIBUTE
             ))
             .match_clause(format!(
-                r#"(e) -[r_index:ATTRIBUTE {{space_id: $space_id}}]-> (index {{id: "{}"}})"#,
+                r#"(e) -[r_index:ATTRIBUTE {{space_id: $space_id}}]-> (index:Attribute {{id: "{}"}})"#,
                 system_ids::RELATION_INDEX
             ))
             .merge(self.space_version.clone().into_query_part("r_from"))
@@ -684,21 +690,21 @@ impl FindManyQuery {
 
     fn into_query_part(self) -> QueryPart {
         let mut query_part = QueryPart::default()
-            .match_clause("(e)")
+            .match_clause("(e:Entity:Relation)")
             .match_clause(format!(
-                "(e) -[r_rt:`{}`]-> (rt)",
-                system_ids::RELATION_TYPE_ATTRIBUTE
-            ))
-            .match_clause(format!(
-                "(e) -[r_from:`{}`]-> (from)",
+                "(e) -[r_from:`{}`]-> (from:Entity)",
                 system_ids::RELATION_FROM_ATTRIBUTE
             ))
             .match_clause(format!(
-                "(e) -[r_to:`{}`]-> (to)",
+                "(e) -[r_to:`{}`]-> (to:Entity)",
                 system_ids::RELATION_TO_ATTRIBUTE
             ))
             .match_clause(format!(
-                r#"(e) -[r_index:ATTRIBUTE]-> (index {{id: "{}"}})"#,
+                "(e) -[r_rt:`{}`]-> (rt:Entity)",
+                system_ids::RELATION_TYPE_ATTRIBUTE
+            ))
+            .match_clause(format!(
+                r#"(e) -[r_index:ATTRIBUTE]-> (index:Attribute {{id: "{}"}})"#,
                 system_ids::RELATION_INDEX
             ))
             .merge(self.space_version.clone().into_query_part("r_index"))
@@ -791,14 +797,14 @@ mod tests {
 
         neo4j.run(neo4rs::query(&format!(
             r#"
-            CREATE (alice {{id: "alice"}})
-            CREATE (bob {{id: "bob"}})
-            CREATE (knows {{id: "knows"}})
-            CREATE (r {{id: "abc"}})
+            CREATE (alice:Entity {{id: "alice"}})
+            CREATE (bob:Entity {{id: "bob"}})
+            CREATE (knows:Entity {{id: "knows"}})
+            CREATE (r:Entity:Relation {{id: "abc"}})
             CREATE (r) -[:`{FROM_ENTITY}` {{space_id: "ROOT", min_version: 0}}]-> (alice)
             CREATE (r) -[:`{TO_ENTITY}` {{space_id: "ROOT", min_version: 0}}]-> (bob)
             CREATE (r) -[:`{RELATION_TYPE}` {{space_id: "ROOT", min_version: 0}}]-> (knows)
-            CREATE (r) -[:ATTRIBUTE {{space_id: "ROOT", min_version: 0}}]-> (index {{id: "{INDEX}", value: "0", value_type: "TEXT"}})
+            CREATE (r) -[:ATTRIBUTE {{space_id: "ROOT", min_version: 0}}]-> (index:Attribute {{id: "{INDEX}", value: "0", value_type: "TEXT"}})
             "#,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
@@ -891,20 +897,20 @@ mod tests {
 
         neo4j.run(neo4rs::query(&format!(
             r#"
-            CREATE (alice {{id: "alice"}})
-            CREATE (bob {{id: "bob"}})
-            CREATE (charlie {{id: "charlie"}})
-            CREATE (knows {{id: "knows"}})
-            CREATE (r1 {{id: "abc"}})
+            CREATE (alice:Entity {{id: "alice"}})
+            CREATE (bob:Entity {{id: "bob"}})
+            CREATE (charlie:Entity {{id: "charlie"}})
+            CREATE (knows:Entity {{id: "knows"}})
+            CREATE (r1:Entity:Relation {{id: "abc"}})
             CREATE (r1) -[:`{FROM_ENTITY}` {{space_id: "ROOT", min_version: 0}}]-> (alice)
             CREATE (r1) -[:`{TO_ENTITY}` {{space_id: "ROOT", min_version: 0}}]-> (bob)
             CREATE (r1) -[:`{RELATION_TYPE}` {{space_id: "ROOT", min_version: 0}}]-> (knows)
-            CREATE (r1) -[:ATTRIBUTE {{space_id: "ROOT", min_version: 0}}]-> ({{id: "{INDEX}", value: "0", value_type: "TEXT"}})
-            CREATE (r2 {{id: "dev"}})
+            CREATE (r1) -[:ATTRIBUTE {{space_id: "ROOT", min_version: 0}}]-> (:Attribute {{id: "{INDEX}", value: "0", value_type: "TEXT"}})
+            CREATE (r2:Entity:Relation {{id: "dev"}})
             CREATE (r2) -[:`{FROM_ENTITY}` {{space_id: "ROOT", min_version: 0}}]-> (alice)
             CREATE (r2) -[:`{TO_ENTITY}` {{space_id: "ROOT", min_version: 0}}]-> (charlie)
             CREATE (r2) -[:`{RELATION_TYPE}` {{space_id: "ROOT", min_version: 0}}]-> (knows)
-            CREATE (r2) -[:ATTRIBUTE {{space_id: "ROOT", min_version: 0}}]-> ({{id: "{INDEX}", value: "0", value_type: "TEXT"}})
+            CREATE (r2) -[:ATTRIBUTE {{space_id: "ROOT", min_version: 0}}]-> (:Attribute {{id: "{INDEX}", value: "0", value_type: "TEXT"}})
             "#,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,

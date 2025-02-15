@@ -145,15 +145,15 @@ impl FindOneQuery {
 impl Query<Option<EntityNode>> for FindOneQuery {
     async fn send(self) -> Result<Option<EntityNode>, DatabaseError> {
         const QUERY: &str = r#"
-            MATCH (n {id: $id})
-            RETURN n
+            MATCH (e:Entity {id: $id})
+            RETURN e
         "#;
 
         let query = neo4rs::query(QUERY).param("id", self.id);
 
         #[derive(Debug, Deserialize)]
         struct RowResult {
-            n: EntityNode,
+            e: EntityNode,
         }
 
         Ok(self
@@ -164,7 +164,7 @@ impl Query<Option<EntityNode>> for FindOneQuery {
             .await?
             .map(|row| {
                 let row = row.to::<RowResult>()?;
-                Result::<_, DatabaseError>::Ok(row.n)
+                Result::<_, DatabaseError>::Ok(row.e)
             })
             .transpose()?)
     }
@@ -196,7 +196,7 @@ impl FindManyQuery {
     }
 
     fn into_query_part(self) -> QueryPart {
-        let mut query_part = QueryPart::default().match_clause("(e)").return_clause("e");
+        let mut query_part = QueryPart::default().match_clause("(e:Entity)").return_clause("e");
 
         if let Some(id) = self.id {
             query_part.merge_mut(id.into_query_part("e", "id"));
@@ -261,7 +261,7 @@ impl Query<()> for DeleteOneQuery {
     async fn send(self) -> Result<(), DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MATCH (e {{id: $entity_id}}) -[r:ATTRIBUTE {{space_id: $space_id, max_version: null}}]-> ()
+            MATCH (e:Entity {{id: $entity_id}}) -[r:ATTRIBUTE {{space_id: $space_id, max_version: null}}]-> (:Attribute)
             SET r.max_version = $space_version
             SET e += {{
                 `{UPDATED_AT}`: datetime($block_timestamp),

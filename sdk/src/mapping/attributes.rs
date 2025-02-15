@@ -157,7 +157,7 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
     async fn send(self) -> Result<(), DatabaseError> {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MERGE (e {{id: $entity_id}})
+            MERGE (e:Entity {{id: $entity_id}})
             ON CREATE SET e += {{
                 `{CREATED_AT}`: datetime($block_timestamp),
                 `{CREATED_AT_BLOCK}`: $block_number
@@ -169,12 +169,12 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
             WITH e
             UNWIND $attributes AS attribute
             CALL (e, attribute) {{
-                MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> ({{id: attribute.id}})
+                MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> (:Attribute {{id: attribute.id}})
                 WHERE r.max_version IS null AND r.min_version <> $space_version
                 SET r.max_version = $space_version
             }}
             CALL (e, attribute) {{
-                MERGE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m {{id: attribute.id}})
+                MERGE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m:Attribute {{id: attribute.id}})
                 SET m += attribute
             }}
             "#,
@@ -237,7 +237,7 @@ impl Query<()> for InsertManyQuery {
         const QUERY: &str = const_format::formatcp!(
             r#"
             UNWIND $attributes AS attributes
-            MERGE (e {{id: attributes.entity}})
+            MERGE (e:Entity {{id: attributes.entity}})
             ON CREATE SET e += {{
                 `{CREATED_AT}`: datetime($block_timestamp),
                 `{CREATED_AT_BLOCK}`: $block_number
@@ -249,12 +249,12 @@ impl Query<()> for InsertManyQuery {
             WITH e
             UNWIND attributes.attributes AS attribute
             CALL (e, attribute) {{
-                MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> ({{id: attribute.id}})
+                MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> (:Attribute {{id: attribute.id}})
                 WHERE r.max_version IS null AND r.min_version <> $space_version
                 SET r.max_version = $space_version
             }}
             CALL (e, attribute) {{
-                MERGE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m {{id: attribute.id}})
+                MERGE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m:Attribute {{id: attribute.id}})
                 SET m += attribute
             }}
             "#,
@@ -324,7 +324,7 @@ impl FindOneQuery {
 
     fn into_query_part(self) -> QueryPart {
         QueryPart::default()
-            .match_clause("({id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n)")
+            .match_clause("(:Entity {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute)")
             .merge(self.space_version.into_query_part("r"))
             .with_clause("collect(n{.*}) AS attrs")
             .return_clause("attrs")
