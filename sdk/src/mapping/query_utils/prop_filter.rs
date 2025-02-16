@@ -2,6 +2,38 @@ use neo4rs::BoltType;
 
 use super::query_part::QueryPart;
 
+pub fn value<T>(value: impl Into<T>) -> PropFilter<T> {
+    PropFilter::new().value(value)
+}
+
+pub fn value_gt<T>(value: impl Into<T>) -> PropFilter<T> {
+    PropFilter::new().value_gt(value)
+}
+
+pub fn value_gte<T>(value: impl Into<T>) -> PropFilter<T> {
+    PropFilter::new().value_gte(value)
+}
+
+pub fn value_lt<T>(value: impl Into<T>) -> PropFilter<T> {
+    PropFilter::new().value_lt(value)
+}
+
+pub fn value_lte<T>(value: impl Into<T>) -> PropFilter<T> {
+    PropFilter::new().value_lte(value)
+}
+
+pub fn value_not<T>(value: impl Into<T>) -> PropFilter<T> {
+    PropFilter::new().value_not(value)
+}
+
+pub fn value_in<T>(values: Vec<T>) -> PropFilter<T> {
+    PropFilter::new().value_in(values)
+}
+
+pub fn value_not_in<T>(values: Vec<T>) -> PropFilter<T> {
+    PropFilter::new().value_not_in(values)
+}
+
 /// Filter for property P of node N
 #[derive(Debug, Clone)]
 pub struct PropFilter<T> {

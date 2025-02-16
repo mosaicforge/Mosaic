@@ -7,7 +7,7 @@ use crate::{
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
-        attributes::{FromAttributes, IntoAttributes}, entity, query_utils::{AttributeFilter, PropFilter, Query}, Entity, Relation, Value
+        self, attributes::{FromAttributes, IntoAttributes}, entity, query_utils::{AttributeFilter, PropFilter, Query}, Entity, Relation, Value
     },
     pb::ipfs,
 };
@@ -181,7 +181,7 @@ impl Display for ProposalStatus {
 }
 
 // Relation for Space > PROPOSALS > Proposal
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone)]
 pub struct Proposals;
 
 impl Proposals {
@@ -197,8 +197,20 @@ impl Proposals {
     }
 }
 
+impl mapping::IntoAttributes for Proposals {
+    fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
+        Ok(mapping::Attributes::default())
+    }
+}
+
+impl FromAttributes for Proposals {
+    fn from_attributes(_attributes: mapping::Attributes) -> Result<Self, mapping::TriplesConversionError> {
+        Ok(Self {})
+    }
+}
+
 // Proposal > CREATOR > Account
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone)]
 pub struct ProposalCreator;
 
 impl ProposalCreator {
@@ -214,6 +226,17 @@ impl ProposalCreator {
     }
 }
 
+impl mapping::IntoAttributes for ProposalCreator {
+    fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
+        Ok(mapping::Attributes::default())
+    }
+}
+
+impl FromAttributes for ProposalCreator {
+    fn from_attributes(_attributes: mapping::Attributes) -> Result<Self, mapping::TriplesConversionError> {
+        Ok(Self {})
+    }
+}
 pub struct EditProposal {
     pub name: String,
     pub proposal_id: String,

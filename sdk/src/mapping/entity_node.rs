@@ -3,12 +3,10 @@ use futures::stream::TryStreamExt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{error::DatabaseError, indexer_ids, models::BlockMetadata};
+use crate::{error::DatabaseError, indexer_ids, models::{space, BlockMetadata}};
 
 use super::{
-    attributes,
-    query_utils::{AttributeFilter, PropFilter, Query, QueryPart},
-    triple, AttributeNode, Triple,
+    attributes, query_utils::{prop_filter, AttributeFilter, PropFilter, Query, QueryPart}, relation_node, triple, AttributeNode, Triple
 };
 
 /// Neo4j model of an Entity
@@ -22,27 +20,61 @@ pub struct EntityNode {
 }
 
 impl EntityNode {
+    pub fn delete(
+        self,
+        neo4j: &neo4rs::Graph,
+        block: &BlockMetadata,
+        space_id: impl Into<String>,
+        space_version: i64,
+    ) -> DeleteOneQuery {
+        DeleteOneQuery::new(neo4j, block, self.id, space_id.into(), space_version)
+    }
+
     pub fn get_attributes(
         &self,
         neo4j: &neo4rs::Graph,
-        space_id: &str,
+        space_id: impl Into<String>,
         space_version: Option<i64>,
     ) -> attributes::FindOneQuery {
-        attributes::FindOneQuery::new(neo4j, self.id.clone(), space_id.to_owned(), space_version)
+        attributes::FindOneQuery::new(neo4j, self.id.clone(), space_id.into(), space_version)
+    }
+
+    pub fn get_outbound_relations(
+        &self,
+        neo4j: &neo4rs::Graph,
+        space_id: impl Into<String>,
+        space_version: Option<i64>,
+    ) -> relation_node::FindManyQuery {
+        relation_node::FindManyQuery::new(neo4j)
+            .from_id(prop_filter::value(self.id.clone()))
+            .space_id(prop_filter::value(space_id.into()))
+            .version(space_version)
+    }
+
+    pub fn get_inbound_relations(
+        &self,
+        neo4j: &neo4rs::Graph,
+        space_id: impl Into<String>,
+        space_version: Option<i64>,
+    ) -> relation_node::FindManyQuery {
+        relation_node::FindManyQuery::new(neo4j)
+            .to_id(prop_filter::value(self.id.clone()))
+            .space_id(prop_filter::value(space_id.into()))
+            .version(space_version)
     }
 
     pub fn set_attribute(
         &self,
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
-        space_id: &str,
+        space_id: impl Into<String>,
         space_version: i64,
         attribute: AttributeNode,
     ) -> triple::InsertOneQuery {
         triple::InsertOneQuery::new(
             neo4j,
             block,
-            space_id.to_owned(),
+            space_id.into(),
             space_version,
             Triple {
                 entity: self.id.clone(),
@@ -68,16 +100,6 @@ impl EntityNode {
             space_version,
             attributes,
         )
-    }
-
-    pub fn delete(
-        self,
-        neo4j: &neo4rs::Graph,
-        block: &BlockMetadata,
-        space_id: impl Into<String>,
-        space_version: i64,
-    ) -> DeleteOneQuery {
-        DeleteOneQuery::new(neo4j, block, self.id, space_id.into(), space_version)
     }
 }
 
@@ -193,6 +215,19 @@ impl FindManyQuery {
     pub fn attribute(mut self, attribute: AttributeFilter) -> Self {
         self.attributes.push(attribute);
         self
+    }
+
+    pub fn attribute_mut(&mut self, attribute: AttributeFilter) {
+        self.attributes.push(attribute);
+    }
+
+    pub fn attributes(mut self, attributes: impl IntoIterator<Item = AttributeFilter>) -> Self {
+        self.attributes.extend(attributes);
+        self
+    }
+
+    pub fn attributes_mut(&mut self, attributes: impl IntoIterator<Item = AttributeFilter>) {
+        self.attributes.extend(attributes);
     }
 
     fn into_query_part(self) -> QueryPart {

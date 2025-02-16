@@ -16,7 +16,7 @@ pub use attributes::{Attributes, FromAttributes, IntoAttributes};
 pub use entity::Entity;
 pub use entity_node::EntityNode;
 pub use error::TriplesConversionError;
-pub use query_utils::order_by::{FieldOrderBy, OrderDirection};
+pub use query_utils::{AttributeFilter, PropFilter, Query};
 pub use relation::Relation;
 pub use relation_node::RelationNode;
 pub use triple::Triple;

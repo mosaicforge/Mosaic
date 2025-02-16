@@ -155,7 +155,7 @@ pub struct InsertOneQuery {
 }
 
 impl InsertOneQuery {
-    pub fn new(
+    pub(crate) fn new(
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
         space_id: String,
@@ -224,7 +224,7 @@ pub struct InsertManyQuery {
 }
 
 impl InsertManyQuery {
-    pub fn new(
+    fn new(
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
         space_id: String,

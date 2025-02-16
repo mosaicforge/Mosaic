@@ -427,90 +427,90 @@ impl IntoAttributes for Attributes {
     }
 }
 
-impl<T> IntoAttributes for T
-where
-    T: Serialize,
-{
-    fn into_attributes(self) -> Result<Attributes, TriplesConversionError> {
-        if let serde_json::Value::Object(map) = serde_json::to_value(self)? {
-            map.into_iter()
-                .try_fold(Attributes::default(), |acc, (key, value)| match value {
-                    serde_json::Value::Bool(value) => Ok(acc.attribute((key, value))),
-                    serde_json::Value::Number(value) => {
-                        Ok(acc.attribute((key, Value::number(value.to_string()))))
-                    }
-                    serde_json::Value::String(value) => Ok(acc.attribute((key, value))),
-                    serde_json::Value::Array(_) => {
-                        Err(TriplesConversionError::InvalidValue("Array".into()))
-                    }
-                    serde_json::Value::Object(_) => {
-                        Err(TriplesConversionError::InvalidValue("Object".into()))
-                    }
-                    serde_json::Value::Null => {
-                        Err(TriplesConversionError::InvalidValue("null".into()))
-                    }
-                })
-        } else {
-            Err(TriplesConversionError::InvalidValue(
-                "must serialize to serde_json::Map of (String, Scalar) values".into(),
-            ))
-        }
-    }
-}
+// impl<T> IntoAttributes for T
+// where
+//     T: Serialize,
+// {
+//     fn into_attributes(self) -> Result<Attributes, TriplesConversionError> {
+//         if let serde_json::Value::Object(map) = serde_json::to_value(self)? {
+//             map.into_iter()
+//                 .try_fold(Attributes::default(), |acc, (key, value)| match value {
+//                     serde_json::Value::Bool(value) => Ok(acc.attribute((key, value))),
+//                     serde_json::Value::Number(value) => {
+//                         Ok(acc.attribute((key, Value::number(value.to_string()))))
+//                     }
+//                     serde_json::Value::String(value) => Ok(acc.attribute((key, value))),
+//                     serde_json::Value::Array(_) => {
+//                         Err(TriplesConversionError::InvalidValue("Array".into()))
+//                     }
+//                     serde_json::Value::Object(_) => {
+//                         Err(TriplesConversionError::InvalidValue("Object".into()))
+//                     }
+//                     serde_json::Value::Null => {
+//                         Err(TriplesConversionError::InvalidValue("null".into()))
+//                     }
+//                 })
+//         } else {
+//             Err(TriplesConversionError::InvalidValue(
+//                 "must serialize to serde_json::Map of (String, Scalar) values".into(),
+//             ))
+//         }
+//     }
+// }
 
-impl<T> FromAttributes for T
-where
-    T: for<'a> Deserialize<'a>,
-{
-    fn from_attributes(attributes: Attributes) -> Result<Self, TriplesConversionError> {
-        let obj = attributes
-            .0
-            .into_iter()
-            .map(|(_, attr)| -> (_, serde_json::Value) {
-                match attr.value {
-                    Value {
-                        value,
-                        value_type: ValueType::Checkbox,
-                        ..
-                    } => (
-                        attr.id,
-                        serde_json::Value::Bool(value.parse().expect("bool should parse")),
-                    ),
-                    Value {
-                        value,
-                        value_type: ValueType::Number,
-                        ..
-                    } => (
-                        attr.id,
-                        serde_json::Value::Number(value.parse().expect("number should parse")),
-                    ),
-                    Value {
-                        value,
-                        value_type: ValueType::Point,
-                        ..
-                    } => (attr.id, serde_json::Value::String(value)),
-                    Value {
-                        value,
-                        value_type: ValueType::Text,
-                        ..
-                    } => (attr.id, serde_json::Value::String(value)),
-                    Value {
-                        value,
-                        value_type: ValueType::Time,
-                        ..
-                    } => (attr.id, serde_json::Value::String(value)),
-                    Value {
-                        value,
-                        value_type: ValueType::Url,
-                        ..
-                    } => (attr.id, serde_json::Value::String(value)),
-                }
-            })
-            .collect();
+// impl<T> FromAttributes for T
+// where
+//     T: for<'a> Deserialize<'a>,
+// {
+//     fn from_attributes(attributes: Attributes) -> Result<Self, TriplesConversionError> {
+//         let obj = attributes
+//             .0
+//             .into_iter()
+//             .map(|(_, attr)| -> (_, serde_json::Value) {
+//                 match attr.value {
+//                     Value {
+//                         value,
+//                         value_type: ValueType::Checkbox,
+//                         ..
+//                     } => (
+//                         attr.id,
+//                         serde_json::Value::Bool(value.parse().expect("bool should parse")),
+//                     ),
+//                     Value {
+//                         value,
+//                         value_type: ValueType::Number,
+//                         ..
+//                     } => (
+//                         attr.id,
+//                         serde_json::Value::Number(value.parse().expect("number should parse")),
+//                     ),
+//                     Value {
+//                         value,
+//                         value_type: ValueType::Point,
+//                         ..
+//                     } => (attr.id, serde_json::Value::String(value)),
+//                     Value {
+//                         value,
+//                         value_type: ValueType::Text,
+//                         ..
+//                     } => (attr.id, serde_json::Value::String(value)),
+//                     Value {
+//                         value,
+//                         value_type: ValueType::Time,
+//                         ..
+//                     } => (attr.id, serde_json::Value::String(value)),
+//                     Value {
+//                         value,
+//                         value_type: ValueType::Url,
+//                         ..
+//                     } => (attr.id, serde_json::Value::String(value)),
+//                 }
+//             })
+//             .collect();
 
-        Ok(serde_json::from_value(obj)?)
-    }
-}
+//         Ok(serde_json::from_value(obj)?)
+//     }
+// }
 
 pub struct Iter<'a> {
     items: hash_map::Iter<'a, String, Triple>,
@@ -526,7 +526,7 @@ impl<'a> Iterator for Iter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::mapping::{entity, Entity};
+    use crate::mapping::{self, entity, Entity};
 
     use super::*;
 
@@ -538,6 +538,29 @@ mod tests {
 
     const BOLT_PORT: u16 = 7687;
     const HTTP_PORT: u16 = 7474;
+
+    #[derive(Clone, Debug, PartialEq)]
+    struct Foo {
+        foo: String,
+        bar: u64,
+    }
+
+    impl mapping::IntoAttributes for Foo {
+        fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
+            Ok(mapping::Attributes::default()
+                .attribute(("foo", self.foo))
+                .attribute(("bar", self.bar)))
+        }
+    }
+
+    impl mapping::FromAttributes for Foo {
+        fn from_attributes(mut attributes: mapping::Attributes) -> Result<Self, mapping::TriplesConversionError> {
+            Ok(Self {
+                foo: attributes.pop("foo")?,
+                bar: attributes.pop("bar")?,
+            })
+        }
+    }
 
     #[tokio::test]
     async fn test_attributes_insert_find_one() {
@@ -615,12 +638,6 @@ mod tests {
             .await
             .unwrap();
 
-        #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-        struct Foo {
-            foo: String,
-            bar: u64,
-        }
-
         let foo = Foo {
             foo: "abc".into(),
             bar: 123,
@@ -667,12 +684,6 @@ mod tests {
         let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
             .await
             .unwrap();
-
-        #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-        struct Foo {
-            foo: String,
-            bar: u64,
-        }
 
         let foo = Foo {
             foo: "hello".into(),

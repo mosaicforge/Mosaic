@@ -283,7 +283,7 @@ impl<T: FromAttributes> Query<Vec<Entity<T>>> for FindManyQuery {
 
 #[cfg(test)]
 mod tests {
-    use crate::mapping::{triple, Triple};
+    use crate::mapping::{self, triple, Triple};
 
     use super::*;
 
@@ -295,6 +295,29 @@ mod tests {
 
     const BOLT_PORT: u16 = 7687;
     const HTTP_PORT: u16 = 7474;
+
+    #[derive(Clone, Debug, PartialEq)]
+    struct Foo {
+        name: String,
+        bar: u64,
+    }
+
+    impl mapping::IntoAttributes for Foo {
+        fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
+            Ok(mapping::Attributes::default()
+                .attribute(("name", self.name))
+                .attribute(("bar", self.bar)))
+        }
+    }
+
+    impl mapping::FromAttributes for Foo {
+        fn from_attributes(mut attributes: mapping::Attributes) -> Result<Self, mapping::TriplesConversionError> {
+            Ok(Self {
+                name: attributes.pop("name")?,
+                bar: attributes.pop("bar")?,
+            })
+        }
+    }
 
     #[tokio::test]
     async fn test_insert_find_one() {
@@ -316,12 +339,6 @@ mod tests {
         let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
             .await
             .unwrap();
-
-        #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq)]
-        struct Foo {
-            name: String,
-            bar: i32,
-        }
 
         let foo = Foo {
             name: "Alice".into(),

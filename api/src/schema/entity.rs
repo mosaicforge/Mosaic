@@ -1,25 +1,48 @@
-use chrono::{DateTime, Utc};
 use juniper::{graphql_object, Executor, ScalarValue};
 
-use sdk::{mapping, system_ids};
+use sdk::{
+    mapping::{entity_node, query_utils::{prop_filter, Query}, triple, EntityNode},
+    neo4rs, system_ids,
+};
 
 use crate::{
     context::KnowledgeGraph,
     schema::{Relation, Triple},
 };
 
-use super::{AttributeFilter, EntityRelationFilter, Options};
+use super::{AttributeFilter, EntityRelationFilter};
 
 #[derive(Debug)]
 pub struct Entity {
-    pub(crate) id: String,
-    pub(crate) _types: Vec<String>,
-    pub(crate) space_id: String,
-    pub(crate) created_at: DateTime<Utc>,
-    pub(crate) created_at_block: String,
-    pub(crate) updated_at: DateTime<Utc>,
-    pub(crate) updated_at_block: String,
-    pub(crate) attributes: Vec<Triple>,
+    node: EntityNode,
+    space_id: String,
+    space_version: Option<i64>,
+}
+
+impl Entity {
+    pub fn new(node: EntityNode, space_id: String, space_version: Option<i64>) -> Self {
+        Self {
+            node,
+            space_id,
+            space_version,
+        }
+    }
+
+    pub async fn load(
+        neo4j: &neo4rs::Graph,
+        id: impl Into<String>,
+        space_id: impl Into<String>,
+        space_version: Option<i64>,
+    ) -> Option<Self> {
+        let id = id.into();
+        let space_id = space_id.into();
+
+        entity_node::find_one(neo4j, id)
+            .send()
+            .await
+            .expect("Failed to find entity")
+            .map(|node| Entity::new(node, space_id, space_version))
+    }
 }
 
 #[graphql_object]
@@ -28,48 +51,77 @@ pub struct Entity {
 impl Entity {
     /// Entity ID
     fn id(&self) -> &str {
-        &self.id
+        &self.node.id
     }
 
     /// Entity name (if available)
-    fn name(&self) -> Option<&str> {
-        self.attributes
-            .iter()
-            .find(|triple| triple.attribute == system_ids::NAME_ATTRIBUTE)
-            .map(|triple| triple.value.as_str())
+    async fn name<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> Option<String> {
+        triple::find_one(
+            &executor.context().0,
+            system_ids::NAME_ATTRIBUTE,
+            &self.node.id,
+            &self.space_id,
+            self.space_version,
+        )
+        .send()
+        .await
+        .expect("Failed to find name")
+        .map(|triple| triple.value.value)
     }
 
     /// Entity description (if available)
-    fn description(&self) -> Option<&str> {
-        self.attributes
-            .iter()
-            .find(|triple| triple.attribute == system_ids::DESCRIPTION_ATTRIBUTE)
-            .map(|triple| triple.value.as_str())
+    async fn description<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> Option<String> {
+        triple::find_one(
+            &executor.context().0,
+            system_ids::DESCRIPTION_ATTRIBUTE,
+            &self.node.id,
+            &self.space_id,
+            self.space_version,
+        )
+        .send()
+        .await
+        .expect("Failed to find name")
+        .map(|triple| triple.value.value)
     }
 
-    /// Entity name (if available)
-    fn cover(&self) -> Option<&str> {
-        self.attributes
-            .iter()
-            .find(|triple| triple.attribute == system_ids::COVER_ATTRIBUTE)
-            .map(|triple| triple.value.as_str())
+    /// Entity cover (if available)
+    async fn cover<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> Option<String> {
+        triple::find_one(
+            &executor.context().0,
+            system_ids::COVER_ATTRIBUTE,
+            &self.node.id,
+            &self.space_id,
+            self.space_version,
+        )
+        .send()
+        .await
+        .expect("Failed to find name")
+        .map(|triple| triple.value.value)
     }
 
-    /// Entity name (if available)
+    /// Entity blocks (if available)
     async fn blocks<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Vec<Entity> {
-        mapping::Entity::<mapping::Triples>::find_blocks(
-            &executor.context().0,
-            &self.id,
-            &self.space_id,
-        )
-        .await
-        .expect("Failed to find relations")
-        .into_iter()
-        .map(|rel| rel.into())
-        .collect::<Vec<_>>()
+        todo!()
+    }
+
+    /// Types of the entity (which are entities themselves)
+    async fn types<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> Vec<Entity> {
+        todo!()
     }
 
     /// The space ID of the entity (note: the same entity can exist in multiple spaces)
@@ -78,50 +130,42 @@ impl Entity {
     }
 
     fn created_at(&self) -> String {
-        self.created_at.to_rfc3339()
+        self.node.system_properties.created_at.to_rfc3339()
     }
 
     fn created_at_block(&self) -> &str {
-        &self.created_at_block
+        &self.node.system_properties.created_at_block
     }
 
     fn updated_at(&self) -> String {
-        self.updated_at.to_rfc3339()
+        self.node.system_properties.updated_at.to_rfc3339()
     }
 
     fn updated_at_block(&self) -> &str {
-        &self.updated_at_block
-    }
-
-    /// Types of the entity (which are entities themselves)
-    async fn types<'a, S: ScalarValue>(
-        &'a self,
-        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-    ) -> Vec<Entity> {
-        mapping::Entity::<mapping::Triples>::find_types(
-            &executor.context().0,
-            &self.id,
-            &self.space_id,
-        )
-        .await
-        .expect("Failed to find relations")
-        .into_iter()
-        .map(|rel| rel.into())
-        .collect::<Vec<_>>()
+        &self.node.system_properties.updated_at_block
     }
 
     /// Attributes of the entity
-    fn attributes(&self, filter: Option<AttributeFilter>) -> Vec<&Triple> {
-        match filter {
-            Some(AttributeFilter {
-                value_type: Some(value_type),
-            }) => self
-                .attributes
-                .iter()
-                .filter(|triple| triple.value_type == value_type)
-                .collect::<Vec<_>>(),
-            _ => self.attributes.iter().collect::<Vec<_>>(),
+    async fn attributes<'a, S: ScalarValue>(
+        &self,
+        filter: Option<AttributeFilter>,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> Vec<Triple> {
+        let mut query = triple::find_many(&executor.context().0)
+            .entity_id(prop_filter::value(&self.node.id))
+            .space_id(prop_filter::value(&self.space_id));
+
+        if let Some(version) = self.space_version {
+            query = query.space_version(version);
         }
+
+        query
+            .send()
+            .await
+            .expect("Failed to get attributes")
+            .into_iter()
+            .map(|triple| Triple::new(triple, self.space_id.clone(), self.space_version))
+            .collect()
     }
 
     /// Relations outgoing from the entity
@@ -130,59 +174,22 @@ impl Entity {
         r#where: Option<EntityRelationFilter>,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Vec<Relation> {
-        let mut base_query = mapping::relation_queries::FindMany::new("r")
-            .from(|from_query| from_query.id(self.id()))
-            .space_id(&self.space_id);
+        let mut base_query = self.node.get_outbound_relations(
+            &executor.context().0,
+            &self.space_id,
+            self.space_version,
+        );
 
         if let Some(filter) = r#where {
-            if let Some(id) = filter.id {
-                base_query = base_query.id(&id);
-            }
-
-            if let Some(to_id) = filter.to_id {
-                base_query = base_query.to(|to_query| to_query.id(&to_id));
-            }
-
-            if let Some(relation_type) = filter.relation_type {
-                base_query = base_query.relation_type(&relation_type);
-            }
+            base_query = filter.apply_filter(base_query);
         }
 
-        mapping::Relation::<mapping::Triples>::find_many(&executor.context().0, Some(base_query))
+        base_query
+            .send()
             .await
-            .expect("Failed to find relations")
+            .expect("Failed to get relations")
             .into_iter()
-            .map(|rel| rel.into())
-            .collect::<Vec<_>>()
-    }
-}
-
-impl From<mapping::Entity<mapping::Triples>> for Entity {
-    fn from(entity: mapping::Entity<mapping::Triples>) -> Self {
-        Self {
-            id: entity.attributes.id,
-            _types: entity.types,
-            space_id: entity.attributes.system_properties.space_id.clone(),
-            created_at: entity.attributes.system_properties.created_at,
-            created_at_block: entity.attributes.system_properties.created_at_block,
-            updated_at: entity.attributes.system_properties.updated_at,
-            updated_at_block: entity.attributes.system_properties.updated_at_block,
-            attributes: entity
-                .attributes
-                .attributes
-                .into_iter()
-                .map(|(key, triple)| Triple {
-                    space_id: entity.attributes.system_properties.space_id.clone(),
-                    attribute: key,
-                    value: triple.value,
-                    value_type: triple.value_type.into(),
-                    options: Options {
-                        format: triple.options.format,
-                        unit: triple.options.unit,
-                        language: triple.options.language,
-                    },
-                })
-                .collect(),
-        }
+            .map(|relation| Relation::new(relation, self.space_id.clone(), self.space_version))
+            .collect()
     }
 }

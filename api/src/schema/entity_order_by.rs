@@ -14,11 +14,11 @@ pub enum OrderDirection {
     Desc,
 }
 
-impl From<OrderDirection> for mapping::OrderDirection {
-    fn from(value: OrderDirection) -> Self {
-        match value {
-            OrderDirection::Asc => Self::Asc,
-            OrderDirection::Desc => Self::Desc,
-        }
-    }
-}
+// impl From<OrderDirection> for mapping::OrderDirection {
+//     fn from(value: OrderDirection) -> Self {
+//         match value {
+//             OrderDirection::Asc => Self::Asc,
+//             OrderDirection::Desc => Self::Desc,
+//         }
+//     }
+// }

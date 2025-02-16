@@ -647,11 +647,11 @@ impl Query<Option<RelationNode>> for FindOneQuery {
 pub struct FindManyQuery {
     neo4j: neo4rs::Graph,
     id: Option<PropFilter<String>>,
-    space_id: Option<PropFilter<String>>,
     from_id: Option<PropFilter<String>>,
     to_id: Option<PropFilter<String>>,
     relation_type: Option<PropFilter<String>>,
-
+    
+    space_id: Option<PropFilter<String>>,
     space_version: VersionFilter,
 }
 
@@ -668,13 +668,8 @@ impl FindManyQuery {
         }
     }
 
-    pub fn space_id(mut self, space_id: PropFilter<String>) -> Self {
-        self.space_id = Some(space_id);
-        self
-    }
-
-    pub fn relation_type(mut self, relation_type: PropFilter<String>) -> Self {
-        self.relation_type = Some(relation_type);
+    pub fn id(mut self, id: PropFilter<String>) -> Self {
+        self.id = Some(id);
         self
     }
 
@@ -685,6 +680,23 @@ impl FindManyQuery {
 
     pub fn to_id(mut self, to_id: PropFilter<String>) -> Self {
         self.to_id = Some(to_id);
+        self
+    }
+
+    pub fn relation_type(mut self, relation_type: PropFilter<String>) -> Self {
+        self.relation_type = Some(relation_type);
+        self
+    }
+
+    pub fn space_id(mut self, space_id: PropFilter<String>) -> Self {
+        self.space_id = Some(space_id);
+        self
+    }
+
+    pub fn version(mut self, space_version: Option<i64>) -> Self {
+        if let Some(space_version) = space_version {
+            self.space_version.version_mut(space_version);
+        }
         self
     }
 

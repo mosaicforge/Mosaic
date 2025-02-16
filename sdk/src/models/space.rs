@@ -5,10 +5,7 @@ use crate::{
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
-        attributes::{FromAttributes, IntoAttributes},
-        entity,
-        query_utils::{AttributeFilter, PropFilter, Query},
-        relation, Attributes, Entity, Relation, TriplesConversionError, Value,
+        self, attributes::{FromAttributes, IntoAttributes}, entity, query_utils::{AttributeFilter, PropFilter, Query}, relation, Attributes, Entity, Relation, TriplesConversionError, Value
     },
     network_ids, system_ids,
 };
@@ -45,17 +42,14 @@ impl Space {
         neo4j: &neo4rs::Graph,
         dao_contract_address: &str,
     ) -> Result<Option<Entity<Self>>, DatabaseError> {
-        Ok(
-            entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
-                .attribute(
-                    AttributeFilter::new("dao_contract_address")
-                        .value(PropFilter::new().value(checksum_address(dao_contract_address))),
-                )
-                .send()
-                .await?
-                .into_iter()
-                .next(),
+        entity::find_one(
+            neo4j,
+            Space::generate_id(network_ids::GEO, dao_contract_address),
+            indexer_ids::INDEXER_SPACE_ID,
+            None,
         )
+        .send()
+        .await
     }
 
     /// Find a space by its space plugin address.
@@ -66,7 +60,7 @@ impl Space {
         Ok(
             entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
                 .attribute(
-                    AttributeFilter::new("space_plugin_address")
+                    AttributeFilter::new(indexer_ids::SPACE_PLUGIN_ADDRESS)
                         .value(PropFilter::new().value(checksum_address(space_plugin_address))),
                 )
                 .send()
@@ -84,7 +78,7 @@ impl Space {
         Ok(
             entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
                 .attribute(
-                    AttributeFilter::new("voting_plugin_address")
+                    AttributeFilter::new(indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS)
                         .value(PropFilter::new().value(checksum_address(voting_plugin_address))),
                 )
                 .send()
@@ -102,7 +96,7 @@ impl Space {
         Ok(
             entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
                 .attribute(
-                    AttributeFilter::new("member_access_plugin")
+                    AttributeFilter::new(indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS)
                         .value(PropFilter::new().value(checksum_address(member_access_plugin))),
                 )
                 .send()
@@ -120,7 +114,7 @@ impl Space {
         Ok(
             entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
                 .attribute(
-                    AttributeFilter::new("personal_space_admin_plugin").value(
+                    AttributeFilter::new(indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS).value(
                         PropFilter::new().value(checksum_address(personal_space_admin_plugin)),
                     ),
                 )
@@ -161,7 +155,7 @@ impl IntoAttributes for Space {
     fn into_attributes(self) -> Result<Attributes, TriplesConversionError> {
         let mut attributes = Attributes::default()
             .attribute((system_ids::NETWORK_ATTRIBUTE, self.network))
-            .attribute((indexer_ids::SPACE_KIND, self.governance_type))
+            .attribute((indexer_ids::SPACE_GOVERNANCE_TYPE, self.governance_type))
             .attribute((indexer_ids::SPACE_DAO_ADDRESS, self.dao_contract_address));
 
         if let Some(space_plugin_address) = self.space_plugin_address {
@@ -197,12 +191,13 @@ impl FromAttributes for Space {
     fn from_attributes(mut attributes: Attributes) -> Result<Self, TriplesConversionError> {
         Ok(Self {
             network: attributes.pop(system_ids::NETWORK_ATTRIBUTE)?,
-            governance_type: attributes.pop(indexer_ids::SPACE_KIND)?,
+            governance_type: attributes.pop(indexer_ids::SPACE_GOVERNANCE_TYPE)?,
             dao_contract_address: attributes.pop(indexer_ids::SPACE_DAO_ADDRESS)?,
             space_plugin_address: attributes.pop_opt(indexer_ids::SPACE_PLUGIN_ADDRESS)?,
             voting_plugin_address: attributes.pop_opt(indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS)?,
             member_access_plugin: attributes.pop_opt(indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS)?,
-            personal_space_admin_plugin: attributes.pop_opt(indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS)?,
+            personal_space_admin_plugin: attributes
+                .pop_opt(indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS)?,
         })
     }
 }
@@ -317,7 +312,7 @@ impl SpaceBuilder {
 
 /// Parent space relation (for subspaces).
 /// Space > PARENT_SPACE > Space
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone)]
 pub struct ParentSpace;
 
 impl ParentSpace {
@@ -352,5 +347,17 @@ impl ParentSpace {
         )
         .send()
         .await
+    }
+}
+
+impl mapping::IntoAttributes for ParentSpace {
+    fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
+        Ok(mapping::Attributes::default())
+    }
+}
+
+impl FromAttributes for ParentSpace {
+    fn from_attributes(_attributes: mapping::Attributes) -> Result<Self, mapping::TriplesConversionError> {
+        Ok(Self {})
     }
 }
