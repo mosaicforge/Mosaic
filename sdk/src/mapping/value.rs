@@ -16,9 +16,9 @@ pub struct Value {
 }
 
 impl Value {
-    pub fn text(value: String) -> Self {
+    pub fn text(value: impl Into<String>) -> Self {
         Self {
-            value,
+            value: value.into(),
             value_type: ValueType::Text,
             options: Options::default(),
         }
@@ -182,6 +182,56 @@ impl From<DateTime<Utc>> for Value {
             value_type: ValueType::Time,
             options: Options::default(),
         }
+    }
+}
+
+impl TryFrom<Value> for String {
+    type Error = String;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        Ok(value.value)
+    }
+}
+
+impl TryFrom<Value> for i64 {
+    type Error = String;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        value.value.parse().map_err(|_| format!("Failed to parse i64 value: {}", value.value))
+    }
+}
+
+impl TryFrom<Value> for u64 {
+    type Error = String;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        value.value.parse().map_err(|_| format!("Failed to parse u64 value: {}", value.value))
+    }
+}
+
+impl TryFrom<Value> for f64 {
+    type Error = String;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        value.value.parse().map_err(|_| format!("Failed to parse f64 value: {}", value.value))
+    }
+}
+
+impl TryFrom<Value> for bool {
+    type Error = String;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        value.value.parse().map_err(|_| format!("Failed to parse bool value: {}", value.value))
+    }
+}
+
+impl TryFrom<Value> for DateTime<Utc> {
+    type Error = String;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        Ok(DateTime::parse_from_rfc3339(&value.value)
+            .map_err(|e| format!("Failed to parse DateTime value: {}", e))?
+            .with_timezone(&Utc))
     }
 }
 

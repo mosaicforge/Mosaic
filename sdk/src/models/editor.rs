@@ -1,12 +1,10 @@
-use serde::{Deserialize, Serialize};
+use crate::{error::DatabaseError, ids, indexer_ids, mapping::{self, query_utils::Query, relation, Relation}};
 
-use crate::{error::DatabaseError, ids, indexer_ids, mapping::{query_utils::Query, relation, Relation}};
-
-use super::{block, Account, BlockMetadata};
+use super::BlockMetadata;
 
 /// Space editor relation.
 /// Account > EDITOR > Space
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone)]
 pub struct SpaceEditor;
 
 impl SpaceEditor {
@@ -44,5 +42,17 @@ impl SpaceEditor {
         )
         .send()
         .await
+    }
+}
+
+impl mapping::IntoAttributes for SpaceEditor {
+    fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
+        Ok(mapping::Attributes::default())
+    }
+}
+
+impl mapping::FromAttributes for SpaceEditor {
+    fn from_attributes(_attributes: mapping::Attributes) -> Result<Self, mapping::TriplesConversionError> {
+        Ok(Self)
     }
 }

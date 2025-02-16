@@ -12,7 +12,7 @@ pub mod triple;
 pub mod value;
 
 pub use attribute_node::AttributeNode;
-pub use attributes::Attributes;
+pub use attributes::{Attributes, FromAttributes, IntoAttributes};
 pub use entity::Entity;
 pub use entity_node::EntityNode;
 pub use error::TriplesConversionError;

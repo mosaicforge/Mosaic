@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use chrono::{DateTime, Utc};
 use neo4rs::BoltType;
 use serde::Deserialize;
 
@@ -87,5 +88,53 @@ where
             id: value.0.into(),
             value: value.1.into(),
         }
+    }
+}
+
+impl TryFrom<AttributeNode> for String {
+    type Error = String;
+
+    fn try_from(attr: AttributeNode) -> Result<Self, Self::Error> {
+        attr.value.try_into()
+    }
+}
+
+impl TryFrom<AttributeNode> for i64 {
+    type Error = String;
+
+    fn try_from(attr: AttributeNode) -> Result<Self, Self::Error> {
+        attr.value.try_into()
+    }
+}
+
+impl TryFrom<AttributeNode> for u64 {
+    type Error = String;
+
+    fn try_from(attr: AttributeNode) -> Result<Self, Self::Error> {
+        attr.value.try_into()
+    }
+}
+
+impl TryFrom<AttributeNode> for f64 {
+    type Error = String;
+
+    fn try_from(attr: AttributeNode) -> Result<Self, Self::Error> {
+        attr.value.try_into()
+    }
+}
+
+impl TryFrom<AttributeNode> for bool {
+    type Error = String;
+
+    fn try_from(attr: AttributeNode) -> Result<Self, Self::Error> {
+        attr.value.try_into()
+    }
+}
+
+impl TryFrom<AttributeNode> for DateTime<Utc> {
+    type Error = String;
+
+    fn try_from(attr: AttributeNode) -> Result<Self, Self::Error> {
+        attr.value.try_into()
     }
 }

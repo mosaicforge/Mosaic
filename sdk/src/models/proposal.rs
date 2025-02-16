@@ -7,9 +7,7 @@ use crate::{
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
-        entity,
-        query_utils::{AttributeFilter, PropFilter, Query},
-        Entity, Relation,
+        attributes::{FromAttributes, IntoAttributes}, entity, query_utils::{AttributeFilter, PropFilter, Query}, Entity, Relation, Value
     },
     pb::ipfs,
 };
@@ -17,7 +15,7 @@ use crate::{
 use super::BlockMetadata;
 
 /// Common fields for all proposals
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone)]
 pub struct Proposal {
     pub onchain_proposal_id: String,
     pub status: ProposalStatus,
@@ -85,6 +83,29 @@ impl Proposal {
     }
 }
 
+impl IntoAttributes for Proposal {
+    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+        Ok(crate::mapping::Attributes::default()
+            .attribute(("onchain_proposal_id", self.onchain_proposal_id))
+            .attribute(("status", self.status.to_string()))
+            .attribute(("plugin_address", self.plugin_address))
+            .attribute(("start_time", self.start_time))
+            .attribute(("end_time", self.end_time)))
+    }
+}
+
+impl FromAttributes for Proposal {
+    fn from_attributes(mut attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+        Ok(Self {
+            onchain_proposal_id: attributes.pop("onchain_proposal_id")?,
+            status: attributes.pop("status")?,
+            plugin_address: attributes.pop("plugin_address")?,
+            start_time: attributes.pop("start_time")?,
+            end_time: attributes.pop("end_time")?,
+        })
+    }
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ProposalType {
@@ -118,6 +139,33 @@ pub enum ProposalStatus {
     Rejected,
     Canceled,
     Executed,
+}
+
+impl Into<Value> for ProposalStatus {
+    fn into(self) -> Value {
+        match self {
+            ProposalStatus::Proposed => Value::text("Proposed".to_string()),
+            ProposalStatus::Accepted => Value::text("Accepted".to_string()),
+            ProposalStatus::Rejected => Value::text("Rejected".to_string()),
+            ProposalStatus::Canceled => Value::text("Canceled".to_string()),
+            ProposalStatus::Executed => Value::text("Executed".to_string()),
+        }
+    }
+}
+
+impl TryFrom<Value> for ProposalStatus {
+    type Error = String;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value.value.as_str() {
+            "Proposed" => Ok(Self::Proposed),
+            "Accepted" => Ok(Self::Accepted),
+            "Rejected" => Ok(Self::Rejected),
+            "Canceled" => Ok(Self::Canceled),
+            "Executed" => Ok(Self::Executed),
+            _ => Err(format!("Invalid proposal status: {}", value.value)),
+        }
+    }
 }
 
 impl Display for ProposalStatus {
@@ -175,9 +223,8 @@ pub struct EditProposal {
     pub ops: Vec<ipfs::Op>,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone)]
 pub struct AddMemberProposal {
-    #[serde(flatten)]
     pub proposal: Proposal,
 }
 
@@ -192,9 +239,22 @@ impl AddMemberProposal {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+impl IntoAttributes for AddMemberProposal {
+    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+        self.proposal.into_attributes()
+    }
+}
+
+impl FromAttributes for AddMemberProposal {
+    fn from_attributes(attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+        Ok(Self {
+            proposal: Proposal::from_attributes(attributes)?,
+        })
+    }
+}
+
+#[derive(Clone)]
 pub struct RemoveMemberProposal {
-    #[serde(flatten)]
     pub proposal: Proposal,
 }
 
@@ -209,9 +269,22 @@ impl RemoveMemberProposal {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+impl IntoAttributes for RemoveMemberProposal {
+    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+        self.proposal.into_attributes()
+    }
+}
+
+impl FromAttributes for RemoveMemberProposal {
+    fn from_attributes(attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+        Ok(Self {
+            proposal: Proposal::from_attributes(attributes)?,
+        })
+    }
+}
+
+#[derive(Clone)]
 pub struct AddEditorProposal {
-    #[serde(flatten)]
     pub proposal: Proposal,
 }
 
@@ -226,9 +299,22 @@ impl AddEditorProposal {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+impl IntoAttributes for AddEditorProposal {
+    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+        self.proposal.into_attributes()
+    }
+}
+
+impl FromAttributes for AddEditorProposal {
+    fn from_attributes(attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+        Ok(Self {
+            proposal: Proposal::from_attributes(attributes)?,
+        })
+    }
+}
+
+#[derive(Clone)]
 pub struct RemoveEditorProposal {
-    #[serde(flatten)]
     pub proposal: Proposal,
 }
 
@@ -243,11 +329,25 @@ impl RemoveEditorProposal {
     }
 }
 
+impl IntoAttributes for RemoveEditorProposal {
+    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+        self.proposal.into_attributes()
+    }
+}
+
+impl FromAttributes for RemoveEditorProposal {
+    fn from_attributes(attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+        Ok(Self {
+            proposal: Proposal::from_attributes(attributes)?,
+        })
+    }
+}
+
 /// - AddEditorProposal > PROPOSED_ACCOUNT > ProposedAccount
 /// - RemoveEditorProposal > PROPOSED_ACCOUNT > ProposedAccount
 /// - AddMemberProposal > PROPOSED_ACCOUNT > ProposedAccount
 /// - RemoveMemberProposal > PROPOSED_ACCOUNT > ProposedAccount
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone)]
 pub struct ProposedAccount;
 
 impl ProposedAccount {
@@ -266,9 +366,20 @@ impl ProposedAccount {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+impl IntoAttributes for ProposedAccount {
+    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+        Ok(crate::mapping::Attributes::default())
+    }
+}
+
+impl FromAttributes for ProposedAccount {
+    fn from_attributes(_attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+        Ok(Self {})
+    }
+}
+
+#[derive(Clone)]
 pub struct AddSubspaceProposal {
-    #[serde(flatten)]
     pub proposal: Proposal,
 }
 
@@ -283,9 +394,23 @@ impl AddSubspaceProposal {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+impl IntoAttributes for AddSubspaceProposal {
+    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+        self.proposal.into_attributes()
+    }
+}
+
+impl FromAttributes for AddSubspaceProposal {
+    fn from_attributes(attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+        Ok(Self {
+            proposal: Proposal::from_attributes(attributes)?,
+        })
+    }
+}
+
+
+#[derive(Clone)]
 pub struct RemoveSubspaceProposal {
-    #[serde(flatten)]
     pub proposal: Proposal,
 }
 
@@ -300,9 +425,23 @@ impl RemoveSubspaceProposal {
     }
 }
 
+impl IntoAttributes for RemoveSubspaceProposal {
+    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+        self.proposal.into_attributes()
+    }
+}
+
+impl FromAttributes for RemoveSubspaceProposal {
+    fn from_attributes(attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+        Ok(Self {
+            proposal: Proposal::from_attributes(attributes)?,
+        })
+    }
+}
+
 /// AddSubspaceProposal > PROPOSED_SUBSPACE > ProposedSubspace
 /// RemoveSubspaceProposal > PROPOSED_SUBSPACE > ProposedSubspace
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone)]
 pub struct ProposedSubspace;
 
 impl ProposedSubspace {
@@ -317,5 +456,17 @@ impl ProposedSubspace {
             "0",
             Self {},
         )
+    }
+}
+
+impl IntoAttributes for ProposedSubspace {
+    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+        Ok(crate::mapping::Attributes::default())
+    }
+}
+
+impl FromAttributes for ProposedSubspace {
+    fn from_attributes(_attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+        Ok(Self {})
     }
 }

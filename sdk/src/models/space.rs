@@ -5,30 +5,29 @@ use crate::{
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
-        entity, query_utils::{AttributeFilter, PropFilter, Query}, relation, Entity, Relation, Value
+        attributes::{FromAttributes, IntoAttributes},
+        entity,
+        query_utils::{AttributeFilter, PropFilter, Query},
+        relation, Attributes, Entity, Relation, TriplesConversionError, Value,
     },
     network_ids, system_ids,
 };
 
 use super::BlockMetadata;
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone)]
 pub struct Space {
     pub network: String,
     pub governance_type: SpaceGovernanceType,
     /// The address of the space's DAO contract.
     pub dao_contract_address: String,
     /// The address of the space plugin contract.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub space_plugin_address: Option<String>,
     /// The address of the voting plugin contract.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub voting_plugin_address: Option<String>,
     /// The address of the member access plugin contract.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub member_access_plugin: Option<String>,
     /// The address of the personal space admin plugin contract.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub personal_space_admin_plugin: Option<String>,
 }
 
@@ -158,6 +157,56 @@ impl Space {
     }
 }
 
+impl IntoAttributes for Space {
+    fn into_attributes(self) -> Result<Attributes, TriplesConversionError> {
+        let mut attributes = Attributes::default()
+            .attribute((system_ids::NETWORK_ATTRIBUTE, self.network))
+            .attribute((indexer_ids::SPACE_KIND, self.governance_type))
+            .attribute((indexer_ids::SPACE_DAO_ADDRESS, self.dao_contract_address));
+
+        if let Some(space_plugin_address) = self.space_plugin_address {
+            attributes.attribute_mut((indexer_ids::SPACE_PLUGIN_ADDRESS, space_plugin_address))
+        }
+
+        if let Some(voting_plugin_address) = self.voting_plugin_address {
+            attributes.attribute_mut((
+                indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS,
+                voting_plugin_address,
+            ))
+        }
+
+        if let Some(member_access_plugin) = self.member_access_plugin {
+            attributes.attribute_mut((
+                indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS,
+                member_access_plugin,
+            ))
+        }
+
+        if let Some(personal_space_admin_plugin) = self.personal_space_admin_plugin {
+            attributes.attribute_mut((
+                indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS,
+                personal_space_admin_plugin,
+            ))
+        }
+
+        Ok(attributes)
+    }
+}
+
+impl FromAttributes for Space {
+    fn from_attributes(mut attributes: Attributes) -> Result<Self, TriplesConversionError> {
+        Ok(Self {
+            network: attributes.pop(system_ids::NETWORK_ATTRIBUTE)?,
+            governance_type: attributes.pop(indexer_ids::SPACE_KIND)?,
+            dao_contract_address: attributes.pop(indexer_ids::SPACE_DAO_ADDRESS)?,
+            space_plugin_address: attributes.pop_opt(indexer_ids::SPACE_PLUGIN_ADDRESS)?,
+            voting_plugin_address: attributes.pop_opt(indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS)?,
+            member_access_plugin: attributes.pop_opt(indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS)?,
+            personal_space_admin_plugin: attributes.pop_opt(indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS)?,
+        })
+    }
+}
+
 #[derive(Clone, Default, Deserialize, Serialize)]
 pub enum SpaceGovernanceType {
     #[default]
@@ -170,6 +219,21 @@ impl Into<Value> for SpaceGovernanceType {
         match self {
             SpaceGovernanceType::Public => Value::text("Public".to_string()),
             SpaceGovernanceType::Personal => Value::text("Personal".to_string()),
+        }
+    }
+}
+
+impl TryFrom<Value> for SpaceGovernanceType {
+    type Error = String;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value.value.as_str() {
+            "Public" => Ok(SpaceGovernanceType::Public),
+            "Personal" => Ok(SpaceGovernanceType::Personal),
+            _ => Err(format!(
+                "Invalid SpaceGovernanceType value: {}",
+                value.value
+            )),
         }
     }
 }
@@ -258,11 +322,9 @@ pub struct ParentSpace;
 
 impl ParentSpace {
     pub fn generate_id(space_id: &str, parent_space_id: &str) -> String {
-        ids::create_id_from_unique_string(&format!(
-            "PARENT_SPACE:{space_id}:{parent_space_id}"
-        ))
+        ids::create_id_from_unique_string(&format!("PARENT_SPACE:{space_id}:{parent_space_id}"))
     }
-    
+
     pub fn new(space_id: &str, parent_space_id: &str) -> Relation<Self> {
         Relation::new(
             &Self::generate_id(space_id, parent_space_id),
@@ -283,12 +345,9 @@ impl ParentSpace {
     ) -> Result<(), DatabaseError> {
         relation::delete_one(
             neo4j,
-            block, 
-            ParentSpace::generate_id(
-                space_id,
-                parent_space_id,
-            ), 
-            indexer_ids::INDEXER_SPACE_ID, 
+            block,
+            ParentSpace::generate_id(space_id, parent_space_id),
+            indexer_ids::INDEXER_SPACE_ID,
             0,
         )
         .send()

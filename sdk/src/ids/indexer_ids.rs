@@ -5,9 +5,12 @@ pub const UPDATED_AT_TIMESTAMP: &str = "5Ms1pYq8v8G1RXC3wWb9ix";
 pub const UPDATED_AT_BLOCK: &str = "7pXCVQDV9C7ozrXkpVg8RJ";
 
 // Space attributes
+pub const SPACE_DAO_ADDRESS: &str = "Eye1MG1mjzRba4poijsttb";
 pub const SPACE_PLUGIN_ADDRESS: &str = "8WQFgjEoqNYHPS9niQGcfC";
 pub const SPACE_VOTING_PLUGIN_ADDRESS: &str = "GMuFbsoSsVmiMcCxc34zZA";
 pub const SPACE_MEMBER_PLUGIN_ADDRESS: &str = "AGaTTZWAbEaSrmZYTinQuc";
+pub const SPACE_PERSONAL_PLUGIN_ADDRESS: &str = "";
+
 /// Type of space, e.g., Public or Personal
 pub const SPACE_KIND: &str = "DEnbDZp79wgfvUXMGJPXDW";
 
@@ -25,7 +28,8 @@ pub const INDEXER_SPACE_ID: &str = "Y7z7eeWdupgZayxG9Lvi2Z";
 
 // Voting
 /// GEO_ACCOUNT > VOTE_CAST > PROPOSAL
-pub const VOTE_CAST: &str = "PfgzdxPYwDUTBCzkXCT9ga";
+pub const VOTE_CAST_TYPE: &str = "PfgzdxPYwDUTBCzkXCT9ga";
+pub const VOTE_TYPE_ATTRIBUTE: &str = "UrTNUMukLGV2y4yWEnBKQv";
 
 // Proposal
 pub const PROPOSAL_TYPE: &str = "9No6qfEutiKg1WLeXDv73x";

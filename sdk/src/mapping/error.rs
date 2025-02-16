@@ -4,6 +4,6 @@ pub enum TriplesConversionError {
     InvalidValue(String),
     #[error("JSON error: {0}")]
     JsonError(#[from] serde_json::Error),
-    #[error("Missing id")]
-    MissingId,
+    #[error("Missing attribute: {0}")]
+    MissingAttribute(String),
 }

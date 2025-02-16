@@ -13,16 +13,59 @@ use super::{
 /// Group of attributes belonging to the same entity.
 /// Read and written in bulk
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct Attributes(pub Vec<AttributeNode>);
+pub struct Attributes(pub HashMap<String, AttributeNode>);
 
 impl Attributes {
     pub fn attribute(mut self, attribute: impl Into<AttributeNode>) -> Self {
-        self.0.push(attribute.into());
+        let attr = attribute.into();
+        self.0.insert(attr.id.clone(), attr);
         self
     }
 
     pub fn attribute_mut(&mut self, attribute: impl Into<AttributeNode>) {
-        self.0.push(attribute.into());
+        let attr = attribute.into();
+        self.0.insert(attr.id.clone(), attr);
+    }
+
+    pub fn pop<T>(&mut self, attribute_id: &str) -> Result<T, TriplesConversionError> 
+    where
+        T: TryFrom<Value, Error = String>,
+    {
+        self.0.remove(attribute_id)
+            .ok_or_else(|| {
+                TriplesConversionError::MissingAttribute(
+                    attribute_id.to_string()
+                )
+            })?
+            .value
+            .try_into()
+            .map_err(|err| TriplesConversionError::InvalidValue(err))
+    }
+
+    pub fn pop_opt<T>(&mut self, attribute_id: &str) -> Result<Option<T>, TriplesConversionError> 
+    where
+        T: TryFrom<Value, Error = String>,
+    {
+        self.0.remove(attribute_id)
+            .map(|attr| attr.value.try_into()
+                .map_err(|err| TriplesConversionError::InvalidValue(err)))
+            .transpose()
+    }
+
+    pub fn get<T>(&self, attribute_id: &str) -> Result<T, TriplesConversionError> 
+    where
+        T: TryFrom<Value, Error = String>,
+    {
+        self.0.get(attribute_id)
+            .ok_or_else(|| {
+                TriplesConversionError::MissingAttribute(
+                    attribute_id.to_string()
+                )
+            })?
+            .value
+            .clone()
+            .try_into()
+            .map_err(|err| TriplesConversionError::InvalidValue(err))
     }
 
     // pub fn iter(&self) -> Iter {
@@ -46,7 +89,7 @@ impl Attributes {
 impl Into<BoltType> for Attributes {
     fn into(self) -> BoltType {
         BoltType::List(BoltList {
-            value: self.0.into_iter().map(|attr| attr.into()).collect(),
+            value: self.0.into_iter().map(|(_, attr)| attr.into()).collect(),
         })
     }
 }
@@ -56,10 +99,10 @@ impl From<Vec<Triple>> for Attributes {
         Attributes(
             value
                 .into_iter()
-                .map(|triple| AttributeNode {
+                .map(|triple| (triple.attribute.clone(), AttributeNode {
                     id: triple.attribute,
                     value: triple.value,
-                })
+                }))
                 .collect(),
         )
     }
@@ -67,7 +110,7 @@ impl From<Vec<Triple>> for Attributes {
 
 impl From<Vec<AttributeNode>> for Attributes {
     fn from(value: Vec<AttributeNode>) -> Self {
-        Attributes(value)
+        Attributes(value.into_iter().map(|attr| (attr.id.clone(), attr)).collect())
     }
 }
 
@@ -423,7 +466,7 @@ where
         let obj = attributes
             .0
             .into_iter()
-            .map(|attr| -> (_, serde_json::Value) {
+            .map(|(_, attr)| -> (_, serde_json::Value) {
                 match attr.value {
                     Value {
                         value,
@@ -517,7 +560,7 @@ mod tests {
             .await
             .unwrap();
 
-        let attributes = Attributes(vec![
+        let attributes = Attributes::from(vec![
             AttributeNode {
                 id: "bar".to_string(),
                 value: 123u64.into(),
@@ -541,14 +584,12 @@ mod tests {
             .await
             .expect("Failed to insert triple set");
 
-        let mut result: Attributes =
+        let result: Attributes =
             find_one(&neo4j, "abc".to_string(), "space_id".to_string(), None)
                 .send()
                 .await
                 .expect("Failed to find triple set")
                 .expect("Triple set not found");
-
-        result.0.sort_by_key(|attr| attr.id.clone());
 
         assert_eq!(attributes, result);
     }
