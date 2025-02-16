@@ -1,6 +1,5 @@
 use sdk::{
-    models::{self, GeoAccount, Space, SpaceEditor},
-    pb::geo,
+    models::{self, Account, Space, SpaceEditor}, pb::geo
 };
 
 use super::{handler::HandlerError, EventHandler};
@@ -16,8 +15,9 @@ impl EventHandler {
         if let Some(space) = space {
             SpaceEditor::remove(
                 &self.neo4j,
-                &GeoAccount::new_id(&editor_removed.editor_address),
-                space.id(),
+                block,
+                &Account::generate_id(&editor_removed.editor_address),
+                &space.id,
             )
             .await?;
         } else {

@@ -1,5 +1,5 @@
 use sdk::{
-    models::{self, SpaceMember},
+    models::{self, Account, Space, SpaceMember},
     pb::geo,
 };
 
@@ -12,13 +12,14 @@ impl EventHandler {
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space =
-            models::Space::find_by_dao_address(&self.neo4j, &member_removed.dao_address).await?;
+            Space::find_by_dao_address(&self.neo4j, &member_removed.dao_address).await?;
 
         if let Some(space) = space {
             SpaceMember::remove(
                 &self.neo4j,
-                &models::GeoAccount::new_id(&member_removed.member_address),
-                space.id(),
+                block,
+                &Account::generate_id(&member_removed.member_address),
+                &space.id,
             )
             .await?;
         } else {

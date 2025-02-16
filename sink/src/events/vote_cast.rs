@@ -1,8 +1,8 @@
 use futures::join;
 use sdk::{
     indexer_ids,
-    mapping::Entity,
-    models::{self, Space, VoteCast},
+    mapping::{entity_node, query_utils::Query},
+    models::{self, Account, Space, VoteCast},
     pb::geo,
 };
 use web3_utils::checksum_address;
@@ -28,24 +28,24 @@ impl EventHandler {
                 )
                 .await?;
 
-                let account = Entity::<models::GeoAccount>::find_by_id(
+                let maybe_account = entity_node::find_one(
                     &self.neo4j,
-                    &models::GeoAccount::new_id(&vote.voter),
-                    indexer_ids::INDEXER_SPACE_ID,
+                    &Account::generate_id(&vote.voter),
                 )
+                .send()
                 .await?;
 
-                match (maybe_proposal, account) {
+                match (maybe_proposal, maybe_account) {
                     (Some(proposal), Some(account)) => {
                         VoteCast::new(
-                            account.id(),
-                            proposal.id(),
+                            &account.id,
+                            &proposal.id,
                             vote.vote_option
                                 .try_into()
                                 .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?,
-                            block,
                         )
-                        .upsert(&self.neo4j)
+                        .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+                        .send()
                         .await?;
                     }
                     // Proposal or account not found
@@ -76,7 +76,7 @@ impl EventHandler {
             }
             // Errors
             (Err(e), _) | (_, Err(e)) => {
-                return Err(HandlerError::Other(format!("{e:?}").into()));
+                return Err(HandlerError::from(e));
             }
         };
 

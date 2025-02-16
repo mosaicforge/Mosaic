@@ -1,7 +1,5 @@
 use sdk::{
-    models::{self, GeoAccount, Space, SpaceType},
-    network_ids,
-    pb::{self, geo},
+    indexer_ids, mapping::query_utils::Query, models::{self, Account, Space, SpaceGovernanceType}, network_ids, pb::{self, geo}
 };
 use web3_utils::checksum_address;
 
@@ -37,13 +35,13 @@ impl EventHandler {
                                 block.block_number,
                                 block.timestamp,
                                 checksum_address(&space_created.space_address),
-                                Space::new_id(
+                                Space::generate_id(
                                     &import.previous_network,
                                     &import.previous_contract_address,
                                 )
                             );
 
-                            Some(Space::new_id(
+                            Some(Space::generate_id(
                                 &import.previous_network,
                                 &import.previous_contract_address,
                             ))
@@ -58,7 +56,7 @@ impl EventHandler {
         };
 
         let space_id = maybe_existing_space_id
-            .unwrap_or_else(|| Space::new_id(network_ids::GEO, &space_created.dao_address));
+            .unwrap_or_else(|| Space::generate_id(network_ids::GEO, &space_created.dao_address));
 
         tracing::info!(
             "Block #{} ({}): Creating space {}",
@@ -67,11 +65,12 @@ impl EventHandler {
             space_id
         );
 
-        Space::builder(&space_id, &space_created.dao_address, block)
+        Space::builder(&space_id, &space_created.dao_address)
             .network(network_ids::GEO.to_string())
             .space_plugin_address(&space_created.space_address)
             .build()
-            .upsert(&self.neo4j)
+            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+            .send()
             .await?;
 
         // Create the spaces
@@ -97,28 +96,30 @@ impl EventHandler {
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space = Space::find_by_dao_address(&self.neo4j, &personal_space_created.dao_address)
-            .await
-            .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+            .await?;
 
         if let Some(space) = &space {
-            Space::builder(space.id(), &space.attributes().dao_contract_address, block)
-                .r#type(SpaceType::Personal)
+            Space::builder(&space.id, &space.attributes.dao_contract_address)
+                .governance_type(SpaceGovernanceType::Personal)
                 .personal_space_admin_plugin(&personal_space_created.personal_admin_address)
                 .build()
-                .upsert(&self.neo4j)
+                .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+                .send()
                 .await?;
 
             // Add initial editors to the personal space
-            let editor = GeoAccount::new(personal_space_created.initial_editor.clone(), block);
+            let editor = Account::new(personal_space_created.initial_editor.clone());
 
-            editor.upsert(&self.neo4j).await?;
+            editor.insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+                .send()
+                .await?;
 
             tracing::info!(
-                "Block #{} ({}): Creating personal admin space plugin for space {} with initial editor {}",
+                "Block #{} ({}): Created personal admin space plugin for space {} with initial editor {}",
                 block.block_number,
                 block.timestamp,
-                space.id(),
-                editor.id(),
+                space.id,
+                Account::generate_id(&personal_space_created.initial_editor),
             );
         } else {
             tracing::warn!(
@@ -145,14 +146,15 @@ impl EventHandler {
                 "Block #{} ({}): Creating governance plugin for space {}",
                 block.block_number,
                 block.timestamp,
-                space.id()
+                space.id
             );
 
-            Space::builder(space.id(), &space.attributes().dao_contract_address, block)
+            Space::builder(&space.id, &space.attributes.dao_contract_address)
                 .voting_plugin_address(&governance_plugin_created.main_voting_address)
                 .member_access_plugin(&governance_plugin_created.member_access_address)
                 .build()
-                .upsert(&self.neo4j)
+                .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+                .send()
                 .await?;
         } else {
             tracing::warn!(

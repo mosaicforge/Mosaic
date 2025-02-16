@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::deserialize;
 use sdk::{
     error::DatabaseError,
-    mapping::{Entity, Relation},
+    mapping::{query_utils::Query, relation_node, triple},
     models::{self, EditProposal, Space},
     pb::{self, geo},
 };
@@ -57,7 +59,7 @@ impl EventHandler {
         edit: &geo::EditPublished,
     ) -> Result<Vec<EditProposal>, HandlerError> {
         let space = if let Some(space) =
-            Space::find_by_space_plugin_address(&self.neo4j, &edit.plugin_address)
+            Space::find_by_dao_address(&self.neo4j, &edit.dao_address)
                 .await
                 .map_err(|e| {
                     HandlerError::Other(
@@ -95,9 +97,9 @@ impl EventHandler {
                 Ok(vec![EditProposal {
                     name: edit.name,
                     proposal_id: edit.id,
-                    space: space.id().to_string(),
+                    space: space.id.to_string(),
                     space_address: space
-                        .attributes()
+                        .attributes
                         .space_plugin_address
                         .clone()
                         .expect("Space plugin address not found"),
@@ -121,9 +123,9 @@ impl EventHandler {
                     .map(|edit| EditProposal {
                         name: edit.name,
                         proposal_id: edit.id,
-                        space: space.id().to_string(),
+                        space: space.id.to_string(),
                         space_address: space
-                            .attributes()
+                            .attributes
                             .space_plugin_address
                             .clone()
                             .expect("Space plugin address not found"),
@@ -142,31 +144,88 @@ impl EventHandler {
         space_id: &str,
         ops: impl IntoIterator<Item = pb::ipfs::Op>,
     ) -> Result<(), DatabaseError> {
+        // Group ops by entity and type
+        let entity_ops = EntityOps::from_ops(ops);
+
+        for (_, op_groups) in entity_ops.0 {
+            // Handle SET_TRIPLE ops
+            triple::insert_many(&self.neo4j, block, space_id, 0)
+                .triples(
+                    op_groups
+                        .set_triples
+                        .into_iter()
+                        .map(|triple| triple.try_into().expect("Failed to convert triple")),
+                )
+                .send()
+                .await?;
+
+            // Handle DELETE_TRIPLE ops
+            triple::delete_many(&self.neo4j, block, space_id, 0)
+                .triples(
+                    op_groups
+                        .delete_triples
+                        .into_iter()
+                        .map(|triple| (triple.entity, triple.attribute)),
+                )
+                .send()
+                .await?;
+
+            // Handle CREATE_RELATION ops
+            relation_node::insert_many(&self.neo4j, block, space_id, 0)
+                .relations(
+                    op_groups
+                        .create_relations
+                        .into_iter()
+                        .map(|relation| relation.into()),
+                )
+                .send()
+                .await?;
+
+            // Handle DELETE_RELATION ops
+            relation_node::delete_many(&self.neo4j, block, space_id, 0)
+                .relations(
+                    op_groups
+                        .delete_relations
+                        .into_iter()
+                        .map(|relation| relation.id),
+                )
+                .send()
+                .await?;
+        }
+
+        Ok(())
+    }
+}
+
+// Ops are grouped by type
+#[derive(Debug, Default)]
+pub struct OpGroups {
+    set_triples: Vec<pb::ipfs::Triple>,
+    delete_triples: Vec<pb::ipfs::Triple>,
+    create_relations: Vec<pb::ipfs::Relation>,
+    delete_relations: Vec<pb::ipfs::Relation>,
+}
+
+pub struct EntityOps(HashMap<String, OpGroups>);
+
+impl EntityOps {
+    pub fn from_ops(ops: impl IntoIterator<Item = pb::ipfs::Op>) -> Self {
+        let mut entity_ops = HashMap::new();
+
         for op in ops {
             match (op.r#type(), op) {
                 (
                     pb::ipfs::OpType::SetTriple,
                     pb::ipfs::Op {
-                        triple:
-                            Some(pb::ipfs::Triple {
-                                entity,
-                                attribute,
-                                value: Some(value),
-                            }),
+                        triple: Some(triple),
                         ..
                     },
                 ) => {
-                    tracing::info!("SetTriple: {}, {}, {:?}", entity, attribute, value,);
-
-                    Entity::<()>::set_triple(
-                        &self.neo4j,
-                        block,
-                        space_id,
-                        &entity,
-                        &attribute,
-                        &value,
-                    )
-                    .await?
+                    entity_ops
+                        .entry(triple.entity.clone())
+                        .or_insert_with(|| OpGroups::default())
+                        .set_triples
+                        .push(triple);
                 }
                 (
                     pb::ipfs::OpType::DeleteTriple,
@@ -175,20 +234,13 @@ impl EventHandler {
                         ..
                     },
                 ) => {
-                    tracing::info!(
-                        "DeleteTriple: {}, {}, {:?}",
-                        triple.entity,
-                        triple.attribute,
-                        triple.value,
-                    );
-
-                    Entity::<()>::delete_triple(&self.neo4j, block, space_id, triple).await?
+                    entity_ops
+                        .entry(triple.entity.clone())
+                        .or_insert_with(|| OpGroups::default())
+                        .delete_triples
+                        .push(triple);
                 }
-                // TODO: Handle these cases
-                // (pb::ipfs::OpType::SetTripleBatch, op) => {
-                // }
-                // (pb::ipfs::OpType::DeleteEntity, op) => {
-                // }
+
                 (
                     pb::ipfs::OpType::CreateRelation,
                     pb::ipfs::Op {
@@ -196,25 +248,11 @@ impl EventHandler {
                         ..
                     },
                 ) => {
-                    tracing::info!(
-                        "CreateRelation: {}, {}, {}, {}",
-                        relation.id,
-                        relation.r#type,
-                        relation.from_entity,
-                        relation.to_entity,
-                    );
-
-                    Relation::<()>::new(
-                        &relation.id,
-                        space_id,
-                        &relation.r#type,
-                        &relation.from_entity,
-                        &relation.to_entity,
-                        block,
-                        (),
-                    )
-                    .upsert(&self.neo4j)
-                    .await?
+                    entity_ops
+                        .entry(relation.id.clone())
+                        .or_insert_with(|| OpGroups::default())
+                        .create_relations
+                        .push(relation);
                 }
                 (
                     pb::ipfs::OpType::DeleteRelation,
@@ -223,15 +261,19 @@ impl EventHandler {
                         ..
                     },
                 ) => {
-                    tracing::info!("DeleteRelation: {}", relation.id);
-                    Entity::<()>::delete(&self.neo4j, block, &relation.id, space_id).await?
+                    entity_ops
+                        .entry(relation.id.clone())
+                        .or_insert_with(|| OpGroups::default())
+                        .delete_relations
+                        .push(relation);
                 }
+
                 (typ, maybe_triple) => {
                     tracing::warn!("Unhandled case: {:?} {:?}", typ, maybe_triple);
                 }
             }
         }
 
-        Ok(())
+        Self(entity_ops)
     }
 }

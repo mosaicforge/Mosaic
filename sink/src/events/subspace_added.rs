@@ -1,7 +1,6 @@
 use futures::join;
 use sdk::{
-    models::{self, space::ParentSpace},
-    pb::geo,
+    indexer_ids, mapping::query_utils::Query, models::{self, space::ParentSpace}, pb::geo
 };
 use web3_utils::checksum_address;
 
@@ -21,8 +20,9 @@ impl EventHandler {
             models::Space::find_by_dao_address(&self.neo4j, &subspace_added.subspace)
         ) {
             (Ok(Some(parent_space)), Ok(Some(subspace))) => {
-                ParentSpace::new(subspace.id(), parent_space.id(), block)
-                    .upsert(&self.neo4j)
+                ParentSpace::new(&subspace.id, &parent_space.id)
+                    .insert(&self.neo4j, &block, indexer_ids::INDEXER_SPACE_ID, 0)
+                    .send()
                     .await?;
             }
             (Ok(None), Ok(_)) => {
