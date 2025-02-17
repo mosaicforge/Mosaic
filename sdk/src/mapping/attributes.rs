@@ -1,13 +1,13 @@
 use std::collections::{hash_map, HashMap};
 
 use neo4rs::{BoltList, BoltMap, BoltType};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::{error::DatabaseError, indexer_ids, models::BlockMetadata};
 
 use super::{
     query_utils::{Query, QueryPart, VersionFilter},
-    AttributeNode, Triple, TriplesConversionError, Value, ValueType,
+    AttributeNode, Triple, TriplesConversionError, Value,
 };
 
 /// Group of attributes belonging to the same entity.
@@ -68,6 +68,16 @@ impl Attributes {
             .map_err(|err| TriplesConversionError::InvalidValue(err))
     }
 
+    pub fn get_opt<T>(&self, attribute_id: &str) -> Result<Option<T>, TriplesConversionError> 
+    where
+        T: TryFrom<Value, Error = String>,
+    {
+        self.0.get(attribute_id)
+            .map(|attr| attr.value.clone().try_into()
+                .map_err(|err| TriplesConversionError::InvalidValue(err)))
+            .transpose()
+    }
+
     // pub fn iter(&self) -> Iter {
     //     Iter {
     //         items: self.triples.iter(),
@@ -114,6 +124,15 @@ impl From<Vec<AttributeNode>> for Attributes {
     }
 }
 
+pub fn find_one(
+    neo4j: &neo4rs::Graph,
+    entity_id: impl Into<String>,
+    space_id: impl Into<String>,
+    space_version: Option<i64>,
+) -> FindOneQuery {
+    FindOneQuery::new(neo4j, entity_id.into(), space_id.into(), space_version)
+}
+
 pub fn insert_many(
     neo4j: &neo4rs::Graph,
     block: &BlockMetadata,
@@ -139,15 +158,6 @@ pub fn insert_one<T>(
         space_version,
         attributes,
     )
-}
-
-pub fn find_one(
-    neo4j: &neo4rs::Graph,
-    entity_id: impl Into<String>,
-    space_id: impl Into<String>,
-    space_version: Option<i64>,
-) -> FindOneQuery {
-    FindOneQuery::new(neo4j, entity_id.into(), space_id.into(), space_version)
 }
 
 /// Aggregate triples by entity as triple sets

@@ -27,6 +27,7 @@ impl Query {
             .await
     }
 
+    // TODO: Add order_by and order_direction
     /// Returns multiple entities according to the provided space ID and filter
     async fn entities<'a, S: ScalarValue>(
         &'a self,
@@ -39,7 +40,7 @@ impl Query {
         let mut query = entity_node::find_many(&executor.context().0);
 
         if let Some(r#where) = r#where {
-            query = r#where.apply_filter(query);
+            query = query.with_filter(r#where.into());
         }
 
         // if let Some(order_by) = order_by {
@@ -71,6 +72,7 @@ impl Query {
             .await
     }
 
+    // TODO: Add order_by and order_direction
     /// Returns multiple relations according to the provided space ID and filter
     async fn relations<'a, S: ScalarValue>(
         &'a self,

@@ -113,7 +113,24 @@ impl Entity {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Vec<Entity> {
-        todo!()
+        let types_rel = self.node.get_outbound_relations(
+            &executor.context().0, 
+            &self.space_id, 
+            self.space_version,
+        )
+        .relation_type(prop_filter::value(system_ids::BLOCKS))
+        .send()
+        .await
+        .expect("Failed to get types");
+
+        entity_node::find_many(&executor.context().0)
+            .id(prop_filter::value_in(types_rel.into_iter().map(|rel| rel.to).collect()))
+            .send()
+            .await
+            .expect("Failed to get types entities")
+            .into_iter()
+            .map(|node| Entity::new(node, self.space_id.clone(), self.space_version))
+            .collect()
     }
 
     /// Types of the entity (which are entities themselves)
@@ -121,7 +138,24 @@ impl Entity {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Vec<Entity> {
-        todo!()
+        let types_rel = self.node.get_outbound_relations(
+            &executor.context().0, 
+            &self.space_id, 
+            self.space_version,
+        )
+        .relation_type(prop_filter::value(system_ids::TYPES_ATTRIBUTE))
+        .send()
+        .await
+        .expect("Failed to get types");
+
+        entity_node::find_many(&executor.context().0)
+            .id(prop_filter::value_in(types_rel.into_iter().map(|rel| rel.to).collect()))
+            .send()
+            .await
+            .expect("Failed to get types entities")
+            .into_iter()
+            .map(|node| Entity::new(node, self.space_id.clone(), self.space_version))
+            .collect()
     }
 
     /// The space ID of the entity (note: the same entity can exist in multiple spaces)
@@ -145,6 +179,7 @@ impl Entity {
         &self.node.system_properties.updated_at_block
     }
 
+    // TODO: Add entity attributes filtering
     /// Attributes of the entity
     async fn attributes<'a, S: ScalarValue>(
         &self,

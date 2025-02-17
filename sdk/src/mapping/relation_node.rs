@@ -187,6 +187,19 @@ pub fn delete_many(
     DeleteManyQuery::new(neo4j, block, space_id.into(), space_version)
 }
 
+pub fn find_one(
+    neo4j: &neo4rs::Graph,
+    relation_id: impl Into<String>,
+    space_id: impl Into<String>,
+    space_version: Option<i64>,
+) -> FindOneQuery {
+    FindOneQuery::new(neo4j, relation_id.into(), space_id.into(), space_version)
+}
+
+pub fn find_many(neo4j: &neo4rs::Graph) -> FindManyQuery {
+    FindManyQuery::new(neo4j)
+}
+
 pub fn insert_one(
     neo4j: &neo4rs::Graph,
     block: &BlockMetadata,
@@ -210,19 +223,6 @@ pub fn insert_many(
     space_version: i64,
 ) -> InsertManyQuery {
     InsertManyQuery::new(neo4j, block, space_id.into(), space_version)
-}
-
-pub fn find_one(
-    neo4j: &neo4rs::Graph,
-    relation_id: impl Into<String>,
-    space_id: impl Into<String>,
-    space_version: Option<i64>,
-) -> FindOneQuery {
-    FindOneQuery::new(neo4j, relation_id.into(), space_id.into(), space_version)
-}
-
-pub fn find_many(neo4j: &neo4rs::Graph) -> FindManyQuery {
-    FindManyQuery::new(neo4j)
 }
 
 pub struct DeleteOneQuery {
@@ -650,6 +650,9 @@ pub struct FindManyQuery {
     from_id: Option<PropFilter<String>>,
     to_id: Option<PropFilter<String>>,
     relation_type: Option<PropFilter<String>>,
+
+    from_: Option<entity_node::EntityFilter>,
+    to_: Option<entity_node::EntityFilter>,
     
     space_id: Option<PropFilter<String>>,
     space_version: VersionFilter,
@@ -660,10 +663,12 @@ impl FindManyQuery {
         Self {
             neo4j: neo4j.clone(),
             id: None,
-            space_id: None,
             relation_type: None,
             from_id: None,
             to_id: None,
+            from_: None,
+            to_: None,
+            space_id: None,
             space_version: VersionFilter::default(),
         }
     }
@@ -685,6 +690,16 @@ impl FindManyQuery {
 
     pub fn relation_type(mut self, relation_type: PropFilter<String>) -> Self {
         self.relation_type = Some(relation_type);
+        self
+    }
+
+    pub fn from_(mut self, from_: entity_node::EntityFilter) -> Self {
+        self.from_ = Some(from_);
+        self
+    }
+
+    pub fn to_(mut self, to_: entity_node::EntityFilter) -> Self {
+        self.to_ = Some(to_);
         self
     }
 
@@ -743,6 +758,14 @@ impl FindManyQuery {
             query_part = query_part
                 .merge(relation_type.into_query_part("rt", "id"))
                 .merge(self.space_version.clone().into_query_part("r_rt"));
+        }
+
+        if let Some(from_filter) = self.from_ {
+            query_part = query_part.merge(from_filter.into_query_part("from"));
+        }
+
+        if let Some(to_filter) = self.to_ {
+            query_part = query_part.merge(to_filter.into_query_part("to"));
         }
 
         if let Some(space_id) = self.space_id {

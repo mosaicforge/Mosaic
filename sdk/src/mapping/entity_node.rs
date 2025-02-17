@@ -3,10 +3,18 @@ use futures::stream::TryStreamExt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{error::DatabaseError, indexer_ids, models::{space, BlockMetadata}};
+use crate::{
+    error::DatabaseError, indexer_ids, mapping::query_utils::query_part, models::BlockMetadata,
+    system_ids,
+};
 
 use super::{
-    attributes, query_utils::{prop_filter, AttributeFilter, PropFilter, Query, QueryPart}, relation_node, triple, AttributeNode, Triple
+    attributes,
+    query_utils::{
+        edge_filter::EdgeFilter, prop_filter, AttributeFilter, PropFilter, Query, QueryPart,
+        VersionFilter,
+    },
+    relation_node, triple, AttributeNode, Triple,
 };
 
 /// Neo4j model of an Entity
@@ -194,52 +202,52 @@ impl Query<Option<EntityNode>> for FindOneQuery {
 
 pub struct FindManyQuery {
     neo4j: neo4rs::Graph,
-    id: Option<PropFilter<String>>,
-    attributes: Vec<AttributeFilter>,
+    filter: EntityFilter,
 }
 
 impl FindManyQuery {
     pub fn new(neo4j: &neo4rs::Graph) -> Self {
         Self {
             neo4j: neo4j.clone(),
-            id: None,
-            attributes: Vec::new(),
+            filter: EntityFilter::default(),
         }
     }
 
     pub fn id(mut self, id: PropFilter<String>) -> Self {
-        self.id = Some(id);
+        self.filter.id = Some(id);
         self
     }
 
     pub fn attribute(mut self, attribute: AttributeFilter) -> Self {
-        self.attributes.push(attribute);
+        self.filter.attributes.push(attribute);
         self
     }
 
     pub fn attribute_mut(&mut self, attribute: AttributeFilter) {
-        self.attributes.push(attribute);
+        self.filter.attributes.push(attribute);
     }
 
     pub fn attributes(mut self, attributes: impl IntoIterator<Item = AttributeFilter>) -> Self {
-        self.attributes.extend(attributes);
+        self.filter.attributes.extend(attributes);
         self
     }
 
     pub fn attributes_mut(&mut self, attributes: impl IntoIterator<Item = AttributeFilter>) {
-        self.attributes.extend(attributes);
+        self.filter.attributes.extend(attributes);
+    }
+
+    /// Overwrite the current filter with a new one
+    pub fn with_filter(mut self, filter: EntityFilter) -> Self {
+        self.filter = filter;
+        self
     }
 
     fn into_query_part(self) -> QueryPart {
-        let mut query_part = QueryPart::default().match_clause("(e:Entity)").return_clause("e");
+        let mut query_part = QueryPart::default()
+            .match_clause("(e:Entity)")
+            .return_clause("e");
 
-        if let Some(id) = self.id {
-            query_part.merge_mut(id.into_query_part("e", "id"));
-        }
-
-        for attribute in self.attributes {
-            query_part.merge_mut(attribute.into_query_part("e"));
-        }
+        query_part.merge_mut(self.filter.into_query_part("e"));
 
         query_part
     }
@@ -263,6 +271,122 @@ impl Query<Vec<EntityNode>> for FindManyQuery {
             .and_then(|row| async move { Ok(row.e) })
             .try_collect::<Vec<_>>()
             .await?)
+    }
+}
+
+// TODO: Add types filter
+#[derive(Clone, Debug, Default)]
+pub struct EntityFilter {
+    id: Option<PropFilter<String>>,
+    attributes: Vec<AttributeFilter>,
+    relations: Option<EntityRelationFilter>,
+}
+
+impl EntityFilter {
+    pub fn id(mut self, id: PropFilter<String>) -> Self {
+        self.id = Some(id);
+        self
+    }
+
+    pub fn attribute(mut self, attribute: AttributeFilter) -> Self {
+        self.attributes.push(attribute);
+        self
+    }
+
+    pub fn attribute_mut(&mut self, attribute: AttributeFilter) {
+        self.attributes.push(attribute);
+    }
+
+    pub fn attributes(mut self, attributes: impl IntoIterator<Item = AttributeFilter>) -> Self {
+        self.attributes.extend(attributes);
+        self
+    }
+
+    pub fn attributes_mut(&mut self, attributes: impl IntoIterator<Item = AttributeFilter>) {
+        self.attributes.extend(attributes);
+    }
+
+    pub fn relations(mut self, relations: EntityRelationFilter) -> Self {
+        self.relations = Some(relations);
+        self
+    }
+
+    pub(crate) fn into_query_part(self, node_var: impl Into<String>) -> QueryPart {
+        let node_var = node_var.into();
+        let mut query_part = QueryPart::default();
+
+        if let Some(id) = self.id {
+            query_part.merge_mut(id.into_query_part(&node_var, "id"));
+        }
+
+        for attribute in self.attributes {
+            query_part.merge_mut(attribute.into_query_part(&node_var));
+        }
+
+        if let Some(relations) = self.relations {
+            query_part = query_part
+                .match_clause(format!(
+                    "({node_var}) <-[:`{FROM_ENTITY}`]- (r_{node_var})",
+                    FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE
+                ))
+                .merge(relations.into_query_part(format!("r_{node_var}")));
+        }
+
+        query_part
+    }
+}
+
+/// Filter used to:
+/// - Filter the relations outgoing from the entity
+/// - Filter an entity by its outgoing relations
+#[derive(Clone, Debug, Default)]
+pub struct EntityRelationFilter {
+    relation_type: Option<EdgeFilter>,
+    to_id: Option<EdgeFilter>,
+    space_version: Option<i64>,
+}
+
+impl EntityRelationFilter {
+    pub fn relation_type(mut self, relation_type: EdgeFilter) -> Self {
+        self.relation_type = Some(relation_type);
+        self
+    }
+
+    pub fn to_id(mut self, to_id: EdgeFilter) -> Self {
+        self.to_id = Some(to_id);
+        self
+    }
+
+    pub fn version(mut self, version: i64) -> Self {
+        self.space_version = Some(version);
+        self
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.relation_type.is_none() && self.to_id.is_none()
+    }
+
+    pub(crate) fn into_query_part(self, node_var: impl Into<String>) -> QueryPart {
+        let node_var = node_var.into();
+        let mut query_part = QueryPart::default();
+
+        if let Some(relation_type) = self.relation_type {
+            query_part.merge_mut(relation_type.into_query_part(
+                &node_var,
+                system_ids::RELATION_TYPE_ATTRIBUTE,
+                self.space_version,
+            ));
+        }
+
+        if let Some(to_id) = self.to_id {
+            query_part.merge_mut(to_id.into_query_part(
+                &node_var,
+                system_ids::RELATION_TO_ATTRIBUTE,
+                self.space_version,
+            ));
+        }
+
+        query_part
     }
 }
 

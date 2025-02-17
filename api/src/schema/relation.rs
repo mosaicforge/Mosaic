@@ -1,6 +1,6 @@
 use juniper::{graphql_object, Executor, ScalarValue};
 
-use sdk::{mapping::{entity_node, query_utils::Query, relation_node, RelationNode}, neo4rs};
+use sdk::{mapping::{query_utils::Query, relation_node, RelationNode}, neo4rs};
 
 use crate::context::KnowledgeGraph;
 

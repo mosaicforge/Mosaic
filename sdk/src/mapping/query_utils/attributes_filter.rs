@@ -1,5 +1,6 @@
 use super::{prop_filter::PropFilter, query_part::QueryPart, version_filter::VersionFilter};
 
+#[derive(Clone, Debug)]
 pub struct AttributeFilter {
     attribute: String,
     space_id: Option<PropFilter<String>>,

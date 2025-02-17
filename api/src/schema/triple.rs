@@ -54,6 +54,11 @@ impl Triple {
         &self.options
     }
 
+    /// Space ID of the triple
+    fn space_id(&self) -> &str {
+        &self.space_id
+    }
+
     /// Name of the attribute (if available)
     async fn name<'a, S: ScalarValue>(
         &'a self,

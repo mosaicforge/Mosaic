@@ -1,6 +1,7 @@
 use crate::error::DatabaseError;
 
 pub mod attributes_filter;
+pub mod edge_filter;
 pub mod list_filter;
 pub mod order_by;
 pub mod prop_filter;

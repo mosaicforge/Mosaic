@@ -1,6 +1,6 @@
 use juniper::GraphQLInputObject;
 
-use sdk::mapping::{self, entity_node, query_utils::PropFilter, relation_node};
+use sdk::{mapping::{entity_node::{self}, query_utils::{edge_filter::EdgeFilter, prop_filter, PropFilter}, relation_node}, system_ids};
 
 use crate::schema::EntityAttributeFilter;
 
@@ -26,10 +26,9 @@ pub struct EntityFilter {
     pub id_in: Option<Vec<String>>,
     pub id_not_in: Option<Vec<String>>,
 
-    // pub space_id: Option<String>,
     /// Exact match for the entity types
-    pub types: Option<Vec<String>>,
-    pub types_not: Option<Vec<String>>,
+    // pub types: Option<Vec<String>>,
+    // pub types_not: Option<Vec<String>>,
     pub types_contains: Option<Vec<String>>,
     pub types_not_contains: Option<Vec<String>>,
 
@@ -59,13 +58,41 @@ impl EntityFilter {
         filter
     }
 
-    pub fn apply_filter(self, query: entity_node::FindManyQuery) -> entity_node::FindManyQuery {
-        query.id(self.id_filter()).attributes(
-            self.attributes
-                .unwrap_or_default()
-                .into_iter()
-                .map(|attribute| attribute.into()),
-        )
+    fn types_filter(&self) -> entity_node::EntityRelationFilter {
+        let mut filter = entity_node::EntityRelationFilter::default()
+            .relation_type(EdgeFilter::default().to_id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)));
+
+        // if let Some(types) = &self.types {
+        //     filter = filter.to_id(EdgeFilter::default().to_id(prop_filter::value_in(types.clone())));
+        // }
+
+        // if let Some(types_not) = &self.types_not {
+        //     filter = filter.to_id(EdgeFilter::default().to_id_not_in(types_not.clone()));
+        // }
+
+        if let Some(types_contains) = &self.types_contains {
+            filter = filter.to_id(EdgeFilter::default().to_id(prop_filter::value_in(types_contains.clone())));
+        }
+
+        if let Some(types_not_contains) = &self.types_not_contains {
+            filter = filter.to_id(EdgeFilter::default().to_id(prop_filter::value_not_in(types_not_contains.clone())));
+        }
+
+        filter
+    }
+}
+
+impl From<EntityFilter> for entity_node::EntityFilter {
+    fn from(filter: EntityFilter) -> Self {
+        // TODO: Add types filter
+        entity_node::EntityFilter::default()
+            .id(filter.id_filter())
+            .relations(filter.types_filter())
+            .attributes(
+                filter.attributes
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|attribute| attribute.into()))
     }
 }
 
