@@ -40,9 +40,9 @@ impl Triple {
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
         space_id: impl Into<String>,
-        space_version: i64,
+        space_version: impl Into<String>,
     ) -> InsertOneQuery {
-        InsertOneQuery::new(neo4j, block, space_id.into(), space_version, self)
+        InsertOneQuery::new(neo4j, block, space_id.into(), space_version.into(), self)
     }
 }
 
@@ -52,7 +52,7 @@ pub fn delete_one(
     attribute_id: impl Into<String>,
     entity_id: impl Into<String>,
     space_id: impl Into<String>,
-    space_version: i64,
+    space_version: impl Into<String>,
 ) -> DeleteOneQuery {
     DeleteOneQuery::new(
         neo4j,
@@ -60,7 +60,7 @@ pub fn delete_one(
         attribute_id.into(),
         entity_id.into(),
         space_id.into(),
-        space_version,
+        space_version.into(),
     )
 }
 
@@ -68,18 +68,18 @@ pub fn delete_many(
     neo4j: &neo4rs::Graph,
     block: &BlockMetadata,
     space_id: impl Into<String>,
-    space_version: i64,
+    space_version: impl Into<String>,
 ) -> DeleteManyQuery {
-    DeleteManyQuery::new(neo4j, block, space_id.into(), space_version)
+    DeleteManyQuery::new(neo4j, block, space_id.into(), space_version.into())
 }
 
 pub fn insert_many(
     neo4j: &neo4rs::Graph,
     block: &BlockMetadata,
     space_id: impl Into<String>,
-    space_version: i64,
+    space_version: impl Into<String>,
 ) -> InsertManyQuery {
-    InsertManyQuery::new(neo4j, block, space_id.into(), space_version)
+    InsertManyQuery::new(neo4j, block, space_id.into(), space_version.into())
 }
 
 pub fn find_one(
@@ -87,7 +87,7 @@ pub fn find_one(
     attribute_id: impl Into<String>,
     entity_id: impl Into<String>,
     space_id: impl Into<String>,
-    space_version: Option<i64>,
+    space_version: Option<String>,
 ) -> FindOneQuery {
     FindOneQuery::new(
         neo4j,
@@ -150,7 +150,7 @@ pub struct InsertOneQuery {
     neo4j: neo4rs::Graph,
     block: BlockMetadata,
     space_id: String,
-    space_version: i64,
+    space_version: String,
     triple: Triple,
 }
 
@@ -159,7 +159,7 @@ impl InsertOneQuery {
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
         space_id: String,
-        space_version: i64,
+        space_version: String,
         triple: Triple,
     ) -> Self {
         Self {
@@ -219,7 +219,7 @@ pub struct InsertManyQuery {
     neo4j: neo4rs::Graph,
     block: BlockMetadata,
     space_id: String,
-    space_version: i64,
+    space_version: String,
     triples: Vec<Triple>,
 }
 
@@ -228,7 +228,7 @@ impl InsertManyQuery {
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
         space_id: String,
-        space_version: i64,
+        space_version: String,
     ) -> Self {
         Self {
             neo4j: neo4j.clone(),
@@ -316,7 +316,7 @@ impl FindOneQuery {
         attribute_id: String,
         entity_id: String,
         space_id: String,
-        space_version: Option<i64>,
+        space_version: Option<String>,
     ) -> Self {
         Self {
             neo4j: neo4j.clone(),
@@ -407,13 +407,14 @@ impl<T> FindManyQuery<T> {
         self
     }
 
-    pub fn space_version(mut self, space_version: i64) -> Self {
-        self.space_version.version_mut(space_version);
+    pub fn space_version(mut self, space_version: impl Into<String>) -> Self {
+        self.space_version.version_mut(space_version.into());
         self
     }
 
     fn to_query_part(self) -> QueryPart {
-        let mut query_part = QueryPart::default().match_clause("(e:Entity) -[r:ATTRIBUTE]-> (n:Attribute)");
+        let mut query_part =
+            QueryPart::default().match_clause("(e:Entity) -[r:ATTRIBUTE]-> (n:Attribute)");
 
         if let Some(attribute_id) = self.attribute_id {
             query_part = query_part.merge(attribute_id.into_query_part("n", "id"));
@@ -463,7 +464,7 @@ pub struct DeleteOneQuery {
     attribute_id: String,
     entity_id: String,
     space_id: String,
-    space_version: i64,
+    space_version: String,
 }
 
 impl DeleteOneQuery {
@@ -473,7 +474,7 @@ impl DeleteOneQuery {
         attribute_id: String,
         entity_id: String,
         space_id: String,
-        space_version: i64,
+        space_version: String,
     ) -> Self {
         Self {
             neo4j: neo4j.clone(),
@@ -520,7 +521,7 @@ pub struct DeleteManyQuery {
     neo4j: neo4rs::Graph,
     block: BlockMetadata,
     space_id: String,
-    space_version: i64,
+    space_version: String,
     triples: Vec<(String, String)>,
 }
 
@@ -529,7 +530,7 @@ impl DeleteManyQuery {
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
         space_id: String,
-        space_version: i64,
+        space_version: String,
     ) -> Self {
         Self {
             neo4j: neo4j.clone(),
@@ -579,27 +580,29 @@ impl Query<()> for DeleteManyQuery {
         let query = neo4rs::query(QUERY)
             .param("space_id", self.space_id)
             .param("space_version", self.space_version)
-            .param("triples", self.triples
-                .into_iter()
-                .map(|(entity_id, attribute_id)| {
-                    BoltType::Map(BoltMap {
-                        value: HashMap::from([
-                            (
-                                neo4rs::BoltString {
-                                    value: "entity_id".into(),
-                                },
-                                entity_id.into(),
-                            ),
-                            (
-                                neo4rs::BoltString {
-                                    value: "attribute_id".into(),
-                                },
-                                attribute_id.into(),
-                            ),
-                        ]),
+            .param(
+                "triples",
+                self.triples
+                    .into_iter()
+                    .map(|(entity_id, attribute_id)| {
+                        BoltType::Map(BoltMap {
+                            value: HashMap::from([
+                                (
+                                    neo4rs::BoltString {
+                                        value: "entity_id".into(),
+                                    },
+                                    entity_id.into(),
+                                ),
+                                (
+                                    neo4rs::BoltString {
+                                        value: "attribute_id".into(),
+                                    },
+                                    attribute_id.into(),
+                                ),
+                            ]),
+                        })
                     })
-                })
-                .collect::<Vec<_>>(),
+                    .collect::<Vec<_>>(),
             )
             .param("block_number", self.block.block_number.to_string())
             .param("block_timestamp", self.block.timestamp.to_rfc3339());
@@ -694,22 +697,16 @@ mod tests {
 
         triple
             .clone()
-            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", "0")
             .send()
             .await
             .expect("Failed to insert triple");
 
-        let found_triple = find_one(
-            &neo4j,
-            "name",
-            "abc",
-            "ROOT",
-            Some(0),
-        )
-        .send()
-        .await
-        .expect("Failed to find triple")
-        .expect("Triple not found");
+        let found_triple = find_one(&neo4j, "name", "abc", "ROOT", Some("0".into()))
+            .send()
+            .await
+            .expect("Failed to find triple")
+            .expect("Triple not found");
 
         assert_eq!(triple, found_triple);
     }
@@ -747,7 +744,7 @@ mod tests {
             value: "Bob".into(),
         };
 
-        insert_many(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+        insert_many(&neo4j, &BlockMetadata::default(), "ROOT", "0")
             .triples(vec![triple.clone(), other_triple])
             .send()
             .await
@@ -759,7 +756,7 @@ mod tests {
             .value_type(PropFilter::new().value("TEXT"))
             .entity_id(PropFilter::new().value("abc"))
             .space_id(PropFilter::new().value("ROOT"))
-            .space_version(0)
+            .space_version("0")
             .send()
             .await
             .expect("Failed to find triples");
@@ -796,7 +793,7 @@ mod tests {
 
         triple
             .clone()
-            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", "0")
             .send()
             .await
             .expect("Failed to insert triple");
@@ -809,7 +806,7 @@ mod tests {
 
         other_triple
             .clone()
-            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", "0")
             .send()
             .await
             .expect("Failed to insert triple");
@@ -820,7 +817,7 @@ mod tests {
             .value_type(PropFilter::new().value("TEXT"))
             .entity_id(PropFilter::new().value("abc"))
             .space_id(PropFilter::new().value("ROOT"))
-            .space_version(0)
+            .space_version("0")
             .send()
             .await
             .expect("Failed to find triples");
@@ -857,7 +854,7 @@ mod tests {
 
         triple_v1
             .clone()
-            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", "0")
             .send()
             .await
             .expect("Failed to insert triple");
@@ -870,7 +867,7 @@ mod tests {
 
         triple_v2
             .clone()
-            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 1)
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", "1")
             .send()
             .await
             .expect("Failed to insert triple");
@@ -895,7 +892,7 @@ mod tests {
             "name".to_string(),
             "abc".to_string(),
             "ROOT".to_string(),
-            Some(0),
+            Some("0".into()),
         )
         .send()
         .await
@@ -934,7 +931,7 @@ mod tests {
         };
 
         triple_v1
-            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", "0")
             .send()
             .await
             .expect("Failed to insert triple");
@@ -947,7 +944,7 @@ mod tests {
 
         triple_v2
             .clone()
-            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", "0")
             .send()
             .await
             .expect("Failed to insert triple");
@@ -972,7 +969,7 @@ mod tests {
             "name".to_string(),
             "abc".to_string(),
             "ROOT".to_string(),
-            Some(0),
+            Some("0".into()),
         )
         .send()
         .await
@@ -1012,15 +1009,22 @@ mod tests {
 
         triple
             .clone()
-            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", "0")
             .send()
             .await
             .expect("Failed to insert triple");
 
-        delete_one(&neo4j, &BlockMetadata::default(), "name", "abc", "ROOT", 1)
-            .send()
-            .await
-            .expect("Failed to delete triple");
+        delete_one(
+            &neo4j,
+            &BlockMetadata::default(),
+            "name",
+            "abc",
+            "ROOT",
+            "1",
+        )
+        .send()
+        .await
+        .expect("Failed to delete triple");
 
         let found_triple = find_one(
             &neo4j,
@@ -1040,7 +1044,7 @@ mod tests {
             "name".to_string(),
             "abc".to_string(),
             "ROOT".to_string(),
-            Some(0),
+            Some("0".into()),
         )
         .send()
         .await

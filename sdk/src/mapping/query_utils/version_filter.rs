@@ -2,20 +2,20 @@ use super::query_part::QueryPart;
 
 #[derive(Debug, Default, Clone)]
 pub struct VersionFilter {
-    version: Option<i64>,
+    version: Option<String>,
 }
 
 impl VersionFilter {
-    pub fn new(version: Option<i64>) -> Self {
+    pub fn new(version: Option<String>) -> Self {
         Self { version }
     }
 
-    pub fn version(mut self, version: i64) -> Self {
+    pub fn version(mut self, version: String) -> Self {
         self.version = Some(version);
         self
     }
 
-    pub fn version_mut(&mut self, version: i64) {
+    pub fn version_mut(&mut self, version: String) {
         self.version = Some(version);
     }
 

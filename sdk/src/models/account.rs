@@ -1,6 +1,10 @@
 use web3_utils::checksum_address;
 
-use crate::{ids, mapping::{self, Entity}, system_ids};
+use crate::{
+    ids,
+    mapping::{self, Entity},
+    system_ids,
+};
 
 #[derive(Clone, PartialEq)]
 pub struct Account {
@@ -27,13 +31,16 @@ impl Account {
 
 impl mapping::IntoAttributes for Account {
     fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
-        Ok(mapping::Attributes::default()
-            .attribute((system_ids::ADDRESS_ATTRIBUTE, self.address)))
+        Ok(mapping::Attributes::default().attribute((system_ids::ADDRESS_ATTRIBUTE, self.address)))
     }
 }
 
 impl mapping::FromAttributes for Account {
-    fn from_attributes(mut attributes: mapping::Attributes) -> Result<Self, mapping::TriplesConversionError> {
-        Ok(Self { address: attributes.pop(system_ids::ADDRESS_ATTRIBUTE)? })
+    fn from_attributes(
+        mut attributes: mapping::Attributes,
+    ) -> Result<Self, mapping::TriplesConversionError> {
+        Ok(Self {
+            address: attributes.pop(system_ids::ADDRESS_ATTRIBUTE)?,
+        })
     }
 }

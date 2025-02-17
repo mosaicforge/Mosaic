@@ -35,8 +35,8 @@ impl AttributeFilter {
         self
     }
 
-    pub fn space_version(mut self, space_version: i64) -> Self {
-        self.space_version.version_mut(space_version);
+    pub fn space_version(mut self, space_version: impl Into<String>) -> Self {
+        self.space_version.version_mut(space_version.into());
         self
     }
 

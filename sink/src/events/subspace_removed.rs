@@ -1,4 +1,8 @@
-use sdk::{models::{self, space::ParentSpace}, network_ids, pb::geo};
+use sdk::{
+    models::{self, space::ParentSpace},
+    network_ids,
+    pb::geo,
+};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -17,8 +21,7 @@ impl EventHandler {
         let subspace_id = models::Space::generate_id(network_ids::GEO, &subspace_removed.subspace);
 
         if let Some(space) = space {
-            ParentSpace::remove(&self.neo4j, block, &subspace_id, &space.id)
-                .await?;
+            ParentSpace::remove(&self.neo4j, block, &subspace_id, &space.id).await?;
 
             tracing::info!(
                 "Block #{} ({}): Removed subspace {} from space {}",

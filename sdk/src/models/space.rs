@@ -5,7 +5,11 @@ use crate::{
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
-        self, attributes::{FromAttributes, IntoAttributes}, entity, query_utils::{AttributeFilter, PropFilter, Query}, relation, Attributes, Entity, Relation, TriplesConversionError, Value
+        self,
+        attributes::{FromAttributes, IntoAttributes},
+        entity,
+        query_utils::{AttributeFilter, PropFilter, Query},
+        relation, Attributes, Entity, Relation, TriplesConversionError, Value,
     },
     network_ids, system_ids,
 };
@@ -343,7 +347,7 @@ impl ParentSpace {
             block,
             ParentSpace::generate_id(space_id, parent_space_id),
             indexer_ids::INDEXER_SPACE_ID,
-            0,
+            "0",
         )
         .send()
         .await
@@ -357,7 +361,9 @@ impl mapping::IntoAttributes for ParentSpace {
 }
 
 impl FromAttributes for ParentSpace {
-    fn from_attributes(_attributes: mapping::Attributes) -> Result<Self, mapping::TriplesConversionError> {
+    fn from_attributes(
+        _attributes: mapping::Attributes,
+    ) -> Result<Self, mapping::TriplesConversionError> {
         Ok(Self {})
     }
 }

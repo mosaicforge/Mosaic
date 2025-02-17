@@ -1,4 +1,8 @@
-use crate::{error::DatabaseError, mapping::{self, EntityNode}, system_ids};
+use crate::{
+    error::DatabaseError,
+    mapping::{self, EntityNode},
+    system_ids,
+};
 
 #[derive(Clone, Debug)]
 pub struct BaseEntity {
@@ -8,17 +12,29 @@ pub struct BaseEntity {
 }
 
 impl BaseEntity {
-    pub async fn types(&self, neo4j: &neo4rs::Graph, space_id: impl Into<String>, space_version: Option<i64>) -> Result<Vec<EntityNode>, DatabaseError> {
+    pub async fn types(
+        &self,
+        neo4j: &neo4rs::Graph,
+        space_id: impl Into<String>,
+        space_version: Option<i64>,
+    ) -> Result<Vec<EntityNode>, DatabaseError> {
         todo!()
     }
 
-    pub async fn blocks(&self, neo4j: &neo4rs::Graph, space_id: impl Into<String>, space_version: Option<i64>) -> Result<Vec<EntityNode>, DatabaseError> {
+    pub async fn blocks(
+        &self,
+        neo4j: &neo4rs::Graph,
+        space_id: impl Into<String>,
+        space_version: Option<i64>,
+    ) -> Result<Vec<EntityNode>, DatabaseError> {
         todo!()
     }
 }
 
 impl mapping::FromAttributes for BaseEntity {
-    fn from_attributes(mut attributes: mapping::Attributes) -> Result<Self, mapping::TriplesConversionError> {
+    fn from_attributes(
+        mut attributes: mapping::Attributes,
+    ) -> Result<Self, mapping::TriplesConversionError> {
         Ok(Self {
             name: attributes.pop_opt(system_ids::NAME_ATTRIBUTE)?,
             description: attributes.pop_opt(system_ids::DESCRIPTION_ATTRIBUTE)?,

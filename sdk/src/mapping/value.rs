@@ -197,7 +197,10 @@ impl TryFrom<Value> for i64 {
     type Error = String;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
-        value.value.parse().map_err(|_| format!("Failed to parse i64 value: {}", value.value))
+        value
+            .value
+            .parse()
+            .map_err(|_| format!("Failed to parse i64 value: {}", value.value))
     }
 }
 
@@ -205,7 +208,10 @@ impl TryFrom<Value> for u64 {
     type Error = String;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
-        value.value.parse().map_err(|_| format!("Failed to parse u64 value: {}", value.value))
+        value
+            .value
+            .parse()
+            .map_err(|_| format!("Failed to parse u64 value: {}", value.value))
     }
 }
 
@@ -213,7 +219,10 @@ impl TryFrom<Value> for f64 {
     type Error = String;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
-        value.value.parse().map_err(|_| format!("Failed to parse f64 value: {}", value.value))
+        value
+            .value
+            .parse()
+            .map_err(|_| format!("Failed to parse f64 value: {}", value.value))
     }
 }
 
@@ -221,7 +230,10 @@ impl TryFrom<Value> for bool {
     type Error = String;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
-        value.value.parse().map_err(|_| format!("Failed to parse bool value: {}", value.value))
+        value
+            .value
+            .parse()
+            .map_err(|_| format!("Failed to parse bool value: {}", value.value))
     }
 }
 

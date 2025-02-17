@@ -41,13 +41,13 @@ impl<T> Relation<T> {
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
         space_id: impl Into<String>,
-        space_version: i64,
+        space_version: impl Into<String>,
     ) -> InsertOneQuery<T> {
         InsertOneQuery::new(
             neo4j.clone(),
             block.clone(),
             space_id.into(),
-            space_version,
+            space_version.into(),
             self,
         )
     }
@@ -58,14 +58,14 @@ pub fn delete_one(
     block: &BlockMetadata,
     relation_id: impl Into<String>,
     space_id: impl Into<String>,
-    space_version: i64,
+    space_version: impl Into<String>,
 ) -> DeleteOneQuery {
     DeleteOneQuery::new(
         neo4j.clone(),
         block.clone(),
         relation_id.into(),
         space_id.into(),
-        space_version,
+        space_version.into(),
     )
 }
 
@@ -74,7 +74,7 @@ pub struct DeleteOneQuery {
     block: BlockMetadata,
     relation_id: String,
     space_id: String,
-    space_version: i64,
+    space_version: String,
 }
 
 impl DeleteOneQuery {
@@ -83,7 +83,7 @@ impl DeleteOneQuery {
         block: BlockMetadata,
         relation_id: String,
         space_id: String,
-        space_version: i64,
+        space_version: String,
     ) -> Self {
         DeleteOneQuery {
             neo4j,
@@ -102,7 +102,7 @@ impl Query<()> for DeleteOneQuery {
             &self.block,
             &self.relation_id,
             &self.space_id,
-            self.space_version,
+            &self.space_version,
         )
         .send()
         .await?;
@@ -112,7 +112,7 @@ impl Query<()> for DeleteOneQuery {
             &self.block,
             &self.relation_id,
             &self.space_id,
-            self.space_version,
+            &self.space_version,
         )
         .send()
         .await
@@ -124,7 +124,7 @@ pub struct InsertOneQuery<T> {
     block: BlockMetadata,
     relation: Relation<T>,
     space_id: String,
-    space_version: i64,
+    space_version: String,
 }
 
 impl<T> InsertOneQuery<T> {
@@ -132,7 +132,7 @@ impl<T> InsertOneQuery<T> {
         neo4j: neo4rs::Graph,
         block: BlockMetadata,
         space_id: String,
-        space_version: i64,
+        space_version: String,
         relation: Relation<T>,
     ) -> Self {
         InsertOneQuery {
@@ -154,7 +154,7 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
             &self.neo4j,
             &self.block,
             &self.space_id,
-            self.space_version,
+            &self.space_version,
             self.relation.relation,
         )
         .send()
@@ -166,7 +166,7 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
             &self.block,
             rel_id,
             &self.space_id,
-            self.space_version,
+            &self.space_version,
             self.relation.attributes,
         )
         .send()

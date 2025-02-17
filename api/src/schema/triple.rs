@@ -2,7 +2,10 @@ use std::fmt::Display;
 
 use juniper::{graphql_object, Executor, GraphQLEnum, GraphQLObject, ScalarValue};
 
-use sdk::{mapping::{self, query_utils::Query, triple}, system_ids};
+use sdk::{
+    mapping::{self, query_utils::Query, triple},
+    system_ids,
+};
 
 use crate::context::KnowledgeGraph;
 
@@ -14,11 +17,11 @@ pub struct Triple {
     pub options: Options,
 
     pub space_id: String,
-    pub space_version: Option<i64>,
+    pub space_version: Option<String>,
 }
 
 impl Triple {
-    pub fn new(triple: mapping::Triple, space_id: String, space_version: Option<i64>) -> Self {
+    pub fn new(triple: mapping::Triple, space_id: String, space_version: Option<String>) -> Self {
         Self {
             attribute: triple.attribute,
             value: triple.value.value,
@@ -69,7 +72,7 @@ impl Triple {
             system_ids::NAME_ATTRIBUTE,
             &self.attribute,
             &self.space_id,
-            self.space_version,
+            self.space_version.clone(),
         )
         .send()
         .await

@@ -1,6 +1,13 @@
 use juniper::GraphQLInputObject;
 
-use sdk::{mapping::{entity_node::{self}, query_utils::{edge_filter::EdgeFilter, prop_filter, PropFilter}, relation_node}, system_ids};
+use sdk::{
+    mapping::{
+        entity_node::{self},
+        query_utils::{edge_filter::EdgeFilter, prop_filter, PropFilter},
+        relation_node,
+    },
+    system_ids,
+};
 
 use crate::schema::EntityAttributeFilter;
 
@@ -59,8 +66,9 @@ impl EntityFilter {
     }
 
     fn types_filter(&self) -> entity_node::EntityRelationFilter {
-        let mut filter = entity_node::EntityRelationFilter::default()
-            .relation_type(EdgeFilter::default().to_id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)));
+        let mut filter = entity_node::EntityRelationFilter::default().relation_type(
+            EdgeFilter::default().to_id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)),
+        );
 
         // if let Some(types) = &self.types {
         //     filter = filter.to_id(EdgeFilter::default().to_id(prop_filter::value_in(types.clone())));
@@ -71,11 +79,14 @@ impl EntityFilter {
         // }
 
         if let Some(types_contains) = &self.types_contains {
-            filter = filter.to_id(EdgeFilter::default().to_id(prop_filter::value_in(types_contains.clone())));
+            filter = filter
+                .to_id(EdgeFilter::default().to_id(prop_filter::value_in(types_contains.clone())));
         }
 
         if let Some(types_not_contains) = &self.types_not_contains {
-            filter = filter.to_id(EdgeFilter::default().to_id(prop_filter::value_not_in(types_not_contains.clone())));
+            filter = filter.to_id(
+                EdgeFilter::default().to_id(prop_filter::value_not_in(types_not_contains.clone())),
+            );
         }
 
         filter
@@ -89,10 +100,12 @@ impl From<EntityFilter> for entity_node::EntityFilter {
             .id(filter.id_filter())
             .relations(filter.types_filter())
             .attributes(
-                filter.attributes
+                filter
+                    .attributes
                     .unwrap_or_default()
                     .into_iter()
-                    .map(|attribute| attribute.into()))
+                    .map(|attribute| attribute.into()),
+            )
     }
 }
 

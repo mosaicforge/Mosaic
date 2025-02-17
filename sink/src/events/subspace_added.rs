@@ -1,6 +1,9 @@
 use futures::join;
 use sdk::{
-    indexer_ids, mapping::query_utils::Query, models::{self, space::ParentSpace}, pb::geo
+    indexer_ids,
+    mapping::query_utils::Query,
+    models::{self, space::ParentSpace},
+    pb::geo,
 };
 use web3_utils::checksum_address;
 
@@ -21,7 +24,7 @@ impl EventHandler {
         ) {
             (Ok(Some(parent_space)), Ok(Some(subspace))) => {
                 ParentSpace::new(&subspace.id, &parent_space.id)
-                    .insert(&self.neo4j, &block, indexer_ids::INDEXER_SPACE_ID, 0)
+                    .insert(&self.neo4j, &block, indexer_ids::INDEXER_SPACE_ID, "0")
                     .send()
                     .await?;
             }

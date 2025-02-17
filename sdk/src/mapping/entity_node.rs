@@ -3,16 +3,12 @@ use futures::stream::TryStreamExt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    error::DatabaseError, indexer_ids, mapping::query_utils::query_part, models::BlockMetadata,
-    system_ids,
-};
+use crate::{error::DatabaseError, indexer_ids, models::BlockMetadata, system_ids};
 
 use super::{
     attributes,
     query_utils::{
         edge_filter::EdgeFilter, prop_filter, AttributeFilter, PropFilter, Query, QueryPart,
-        VersionFilter,
     },
     relation_node, triple, AttributeNode, Triple,
 };
@@ -33,16 +29,16 @@ impl EntityNode {
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
         space_id: impl Into<String>,
-        space_version: i64,
+        space_version: impl Into<String>,
     ) -> DeleteOneQuery {
-        DeleteOneQuery::new(neo4j, block, self.id, space_id.into(), space_version)
+        DeleteOneQuery::new(neo4j, block, self.id, space_id.into(), space_version.into())
     }
 
     pub fn get_attributes(
         &self,
         neo4j: &neo4rs::Graph,
         space_id: impl Into<String>,
-        space_version: Option<i64>,
+        space_version: Option<String>,
     ) -> attributes::FindOneQuery {
         attributes::FindOneQuery::new(neo4j, self.id.clone(), space_id.into(), space_version)
     }
@@ -51,7 +47,7 @@ impl EntityNode {
         &self,
         neo4j: &neo4rs::Graph,
         space_id: impl Into<String>,
-        space_version: Option<i64>,
+        space_version: Option<String>,
     ) -> relation_node::FindManyQuery {
         relation_node::FindManyQuery::new(neo4j)
             .from_id(prop_filter::value(self.id.clone()))
@@ -63,7 +59,7 @@ impl EntityNode {
         &self,
         neo4j: &neo4rs::Graph,
         space_id: impl Into<String>,
-        space_version: Option<i64>,
+        space_version: Option<String>,
     ) -> relation_node::FindManyQuery {
         relation_node::FindManyQuery::new(neo4j)
             .to_id(prop_filter::value(self.id.clone()))
@@ -76,14 +72,14 @@ impl EntityNode {
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
         space_id: impl Into<String>,
-        space_version: i64,
+        space_version: impl Into<String>,
         attribute: AttributeNode,
     ) -> triple::InsertOneQuery {
         triple::InsertOneQuery::new(
             neo4j,
             block,
             space_id.into(),
-            space_version,
+            space_version.into(),
             Triple {
                 entity: self.id.clone(),
                 attribute: attribute.id,
@@ -96,16 +92,16 @@ impl EntityNode {
         &self,
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
-        space_id: &str,
-        space_version: i64,
+        space_id: impl Into<String>,
+        space_version: impl Into<String>,
         attributes: T,
     ) -> attributes::InsertOneQuery<T> {
         attributes::InsertOneQuery::new(
             neo4j,
             block,
             self.id.clone(),
-            space_id.to_owned(),
-            space_version,
+            space_id.into(),
+            space_version.into(),
             attributes,
         )
     }
@@ -116,14 +112,14 @@ pub fn delete_one(
     block: &BlockMetadata,
     entity_id: impl Into<String>,
     space_id: impl Into<String>,
-    space_version: i64,
+    space_version: impl Into<String>,
 ) -> DeleteOneQuery {
     DeleteOneQuery::new(
         neo4j,
         block,
         entity_id.into(),
         space_id.into(),
-        space_version,
+        space_version.into(),
     )
 }
 
@@ -343,7 +339,7 @@ impl EntityFilter {
 pub struct EntityRelationFilter {
     relation_type: Option<EdgeFilter>,
     to_id: Option<EdgeFilter>,
-    space_version: Option<i64>,
+    space_version: Option<String>,
 }
 
 impl EntityRelationFilter {
@@ -357,8 +353,8 @@ impl EntityRelationFilter {
         self
     }
 
-    pub fn version(mut self, version: i64) -> Self {
-        self.space_version = Some(version);
+    pub fn version(mut self, version: impl Into<String>) -> Self {
+        self.space_version = Some(version.into());
         self
     }
 
@@ -374,7 +370,7 @@ impl EntityRelationFilter {
             query_part.merge_mut(relation_type.into_query_part(
                 &node_var,
                 system_ids::RELATION_TYPE_ATTRIBUTE,
-                self.space_version,
+                self.space_version.clone(),
             ));
         }
 
@@ -395,7 +391,7 @@ pub struct DeleteOneQuery {
     block: BlockMetadata,
     id: String,
     space_id: String,
-    space_version: i64,
+    space_version: String,
 }
 
 impl DeleteOneQuery {
@@ -404,7 +400,7 @@ impl DeleteOneQuery {
         block: &BlockMetadata,
         id: String,
         space_id: String,
-        space_version: i64,
+        space_version: String,
     ) -> Self {
         Self {
             neo4j: neo4j.clone(),
@@ -485,7 +481,7 @@ mod tests {
         };
 
         triple
-            .insert(&neo4j, &BlockMetadata::default(), "space_id", 0)
+            .insert(&neo4j, &BlockMetadata::default(), "space_id", "0")
             .send()
             .await
             .expect("Failed to insert triple");

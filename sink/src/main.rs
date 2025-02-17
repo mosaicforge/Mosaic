@@ -110,13 +110,20 @@ struct Neo4jArgs {
 
 pub async fn reset_db(neo4j: &neo4rs::Graph) -> anyhow::Result<()> {
     // Delete all nodes and relations
-    neo4j.run(neo4rs::query("MATCH (n) DETACH DELETE n")).await?;
-    
-    // Bootstrap indexer entities
-    mapping::triple::insert_many(neo4j, &BlockMetadata::default(), indexer_ids::INDEXER_SPACE_ID, 0)
-        .triples(bootstrap::boostrap_indexer::triples())
-        .send()
+    neo4j
+        .run(neo4rs::query("MATCH (n) DETACH DELETE n"))
         .await?;
+
+    // Bootstrap indexer entities
+    mapping::triple::insert_many(
+        neo4j,
+        &BlockMetadata::default(),
+        indexer_ids::INDEXER_SPACE_ID,
+        "0",
+    )
+    .triples(bootstrap::boostrap_indexer::triples())
+    .send()
+    .await?;
 
     Ok(())
 }

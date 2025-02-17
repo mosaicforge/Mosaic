@@ -13,8 +13,8 @@ pub use block::{BlockMetadata, Cursor};
 pub use editor::SpaceEditor;
 pub use member::SpaceMember;
 pub use proposal::{
-    AddEditorProposal, AddMemberProposal, AddSubspaceProposal, ProposalCreator, EditProposal, Proposal,
-    Proposals, RemoveEditorProposal, RemoveMemberProposal, RemoveSubspaceProposal,
+    AddEditorProposal, AddMemberProposal, AddSubspaceProposal, EditProposal, Proposal,
+    ProposalCreator, Proposals, RemoveEditorProposal, RemoveMemberProposal, RemoveSubspaceProposal,
 };
 pub use space::{Space, SpaceBuilder, SpaceGovernanceType};
 pub use vote::{VoteCast, VoteType};

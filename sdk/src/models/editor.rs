@@ -1,4 +1,8 @@
-use crate::{error::DatabaseError, ids, indexer_ids, mapping::{self, query_utils::Query, relation, Relation}};
+use crate::{
+    error::DatabaseError,
+    ids, indexer_ids,
+    mapping::{self, query_utils::Query, relation, Relation},
+};
 
 use super::BlockMetadata;
 
@@ -32,13 +36,10 @@ impl SpaceEditor {
     ) -> Result<(), DatabaseError> {
         relation::delete_one(
             neo4j,
-            block, 
-            SpaceEditor::generate_id(
-                editor_id,
-                space_id,
-            ), 
-            indexer_ids::INDEXER_SPACE_ID, 
-            0,
+            block,
+            SpaceEditor::generate_id(editor_id, space_id),
+            indexer_ids::INDEXER_SPACE_ID,
+            "0",
         )
         .send()
         .await
@@ -52,7 +53,9 @@ impl mapping::IntoAttributes for SpaceEditor {
 }
 
 impl mapping::FromAttributes for SpaceEditor {
-    fn from_attributes(_attributes: mapping::Attributes) -> Result<Self, mapping::TriplesConversionError> {
+    fn from_attributes(
+        _attributes: mapping::Attributes,
+    ) -> Result<Self, mapping::TriplesConversionError> {
         Ok(Self)
     }
 }

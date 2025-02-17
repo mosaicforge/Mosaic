@@ -23,8 +23,7 @@ impl Query {
         space_id: String,
         // version_id: Option<String>,
     ) -> Option<Entity> {
-        Entity::load(&executor.context().0, id, space_id, None)
-            .await
+        Entity::load(&executor.context().0, id, space_id, None).await
     }
 
     // TODO: Add order_by and order_direction
@@ -68,8 +67,7 @@ impl Query {
         space_id: String,
         // version_id: Option<String>,
     ) -> Option<Relation> {
-        Relation::load(&executor.context().0, id, space_id, None)
-            .await
+        Relation::load(&executor.context().0, id, space_id, None).await
     }
 
     // TODO: Add order_by and order_direction
@@ -87,7 +85,7 @@ impl Query {
         if let Some(r#where) = r#where {
             query = r#where.apply_filter(query);
         }
-        
+
         query
             .send()
             .await

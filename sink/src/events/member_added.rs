@@ -1,6 +1,9 @@
 use futures::try_join;
 use sdk::{
-    indexer_ids, mapping::query_utils::Query, models::{Account, BlockMetadata, Space, SpaceMember}, pb::geo
+    indexer_ids,
+    mapping::query_utils::Query,
+    models::{Account, BlockMetadata, Space, SpaceMember},
+    pb::geo,
 };
 
 use super::{handler::HandlerError, EventHandler};
@@ -48,20 +51,21 @@ impl EventHandler {
         //     }
         // };
 
-        if let Some(space) = Space::find_by_dao_address(&self.neo4j, &member_added.dao_address)
-            .await?
+        if let Some(space) =
+            Space::find_by_dao_address(&self.neo4j, &member_added.dao_address).await?
         {
             let member = Account::new(member_added.member_address.clone());
             let member_rel = SpaceMember::new(&member.id, &space.id);
 
             // Add geo account
-            member.insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+            member
+                .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
                 .send()
                 .await?;
 
             // Add space member relation
             member_rel
-                .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+                .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
                 .send()
                 .await?;
         } else {

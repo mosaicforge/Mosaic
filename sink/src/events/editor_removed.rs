@@ -1,5 +1,6 @@
 use sdk::{
-    models::{self, Account, Space, SpaceEditor}, pb::geo
+    models::{self, Account, Space, SpaceEditor},
+    pb::geo,
 };
 
 use super::{handler::HandlerError, EventHandler};

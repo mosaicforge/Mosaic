@@ -1,5 +1,9 @@
 use sdk::{
-    indexer_ids, mapping::query_utils::Query, models::{self, Account, Space, SpaceGovernanceType}, network_ids, pb::{self, geo}
+    indexer_ids,
+    mapping::query_utils::Query,
+    models::{self, Account, Space, SpaceGovernanceType},
+    network_ids,
+    pb::{self, geo},
 };
 use web3_utils::checksum_address;
 
@@ -69,7 +73,7 @@ impl EventHandler {
             .network(network_ids::GEO.to_string())
             .space_plugin_address(&space_created.space_address)
             .build()
-            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
             .send()
             .await?;
 
@@ -95,22 +99,23 @@ impl EventHandler {
         personal_space_created: &geo::GeoPersonalSpaceAdminPluginCreated,
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space = Space::find_by_dao_address(&self.neo4j, &personal_space_created.dao_address)
-            .await?;
+        let space =
+            Space::find_by_dao_address(&self.neo4j, &personal_space_created.dao_address).await?;
 
         if let Some(space) = &space {
             Space::builder(&space.id, &space.attributes.dao_contract_address)
                 .governance_type(SpaceGovernanceType::Personal)
                 .personal_space_admin_plugin(&personal_space_created.personal_admin_address)
                 .build()
-                .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+                .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
                 .send()
                 .await?;
 
             // Add initial editors to the personal space
             let editor = Account::new(personal_space_created.initial_editor.clone());
 
-            editor.insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+            editor
+                .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
                 .send()
                 .await?;
 
@@ -153,7 +158,7 @@ impl EventHandler {
                 .voting_plugin_address(&governance_plugin_created.main_voting_address)
                 .member_access_plugin(&governance_plugin_created.member_access_address)
                 .build()
-                .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+                .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
                 .send()
                 .await?;
         } else {

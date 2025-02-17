@@ -40,14 +40,14 @@ impl<T> Entity<T> {
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
         space_id: impl Into<String>,
-        space_version: i64,
+        space_version: impl Into<String>,
     ) -> InsertOneQuery<T> {
         InsertOneQuery::new(
             neo4j.clone(),
             block.clone(),
             self,
             space_id.into(),
-            space_version,
+            space_version.into(),
         )
     }
 }
@@ -56,7 +56,7 @@ pub fn find_one(
     neo4j: &neo4rs::Graph,
     entity_id: impl Into<String>,
     space_id: impl Into<String>,
-    space_version: Option<i64>,
+    space_version: Option<String>,
 ) -> FindOneQuery {
     FindOneQuery::new(
         neo4j.clone(),
@@ -69,7 +69,7 @@ pub fn find_one(
 pub fn find_many(
     neo4j: &neo4rs::Graph,
     space_id: impl Into<String>,
-    space_version: Option<i64>,
+    space_version: Option<String>,
 ) -> FindManyQuery {
     FindManyQuery::new(neo4j.clone(), space_id.into(), space_version)
 }
@@ -79,7 +79,7 @@ pub struct InsertOneQuery<T> {
     block: BlockMetadata,
     entity: Entity<T>,
     space_id: String,
-    space_version: i64,
+    space_version: String,
 }
 
 impl<T> InsertOneQuery<T> {
@@ -88,7 +88,7 @@ impl<T> InsertOneQuery<T> {
         block: BlockMetadata,
         entity: Entity<T>,
         space_id: String,
-        space_version: i64,
+        space_version: String,
     ) -> Self {
         InsertOneQuery {
             neo4j,
@@ -108,7 +108,7 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
             &self.block,
             &self.entity.id,
             &self.space_id,
-            self.space_version,
+            &self.space_version,
             self.entity.attributes,
         )
         .send()
@@ -137,7 +137,7 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
             .collect::<Vec<_>>();
 
         // Insert the relations
-        relation_node::insert_many(&self.neo4j,&self.block,&self.space_id,self.space_version,)
+        relation_node::insert_many(&self.neo4j, &self.block, &self.space_id, self.space_version)
             .relations(types_relations)
             .send()
             .await?;
@@ -150,7 +150,7 @@ pub struct FindOneQuery {
     neo4j: neo4rs::Graph,
     entity_id: String,
     space_id: String,
-    space_version: Option<i64>,
+    space_version: Option<String>,
 }
 
 impl FindOneQuery {
@@ -158,7 +158,7 @@ impl FindOneQuery {
         neo4j: neo4rs::Graph,
         entity_id: String,
         space_id: String,
-        space_version: Option<i64>,
+        space_version: Option<String>,
     ) -> Self {
         FindOneQuery {
             neo4j,
@@ -187,23 +187,22 @@ impl<T: FromAttributes> Query<Option<Entity<T>>> for FindOneQuery {
             .send()
             .await?;
 
-        Ok(attributes.map(|data| 
-            Entity::new(self.entity_id, data)
-                .with_types(types.into_iter().map(|r| r.to))
-        ))
+        Ok(attributes.map(|data| {
+            Entity::new(self.entity_id, data).with_types(types.into_iter().map(|r| r.to))
+        }))
     }
 }
 
 pub struct FindManyQuery {
     neo4j: neo4rs::Graph,
     space_id: String,
-    space_version: Option<i64>,
+    space_version: Option<String>,
     id: Option<PropFilter<String>>,
     attributes: Vec<AttributeFilter>,
 }
 
 impl FindManyQuery {
-    fn new(neo4j: neo4rs::Graph, space_id: String, space_version: Option<i64>) -> Self {
+    fn new(neo4j: neo4rs::Graph, space_id: String, space_version: Option<String>) -> Self {
         FindManyQuery {
             neo4j,
             space_id,
@@ -243,7 +242,7 @@ impl<T: FromAttributes> Query<Vec<Entity<T>>> for FindManyQuery {
     async fn send(self) -> Result<Vec<Entity<T>>, DatabaseError> {
         let neo4j = &self.neo4j.clone();
         let space_id = &self.space_id.clone();
-        let space_version = self.space_version.clone();
+        let space_version = &self.space_version.clone();
 
         let query = self.into_query_part().build();
 
@@ -264,7 +263,7 @@ impl<T: FromAttributes> Query<Vec<Entity<T>>> for FindManyQuery {
         Ok(stream::iter(entity_nodes)
             .map(|entity| async move {
                 let attrs = entity
-                    .get_attributes(neo4j, space_id, space_version)
+                    .get_attributes(neo4j, space_id, space_version.clone())
                     .send()
                     .await?;
 
@@ -311,7 +310,9 @@ mod tests {
     }
 
     impl mapping::FromAttributes for Foo {
-        fn from_attributes(mut attributes: mapping::Attributes) -> Result<Self, mapping::TriplesConversionError> {
+        fn from_attributes(
+            mut attributes: mapping::Attributes,
+        ) -> Result<Self, mapping::TriplesConversionError> {
             Ok(Self {
                 name: attributes.pop("name")?,
                 bar: attributes.pop("bar")?,
@@ -345,7 +346,7 @@ mod tests {
             bar: 42,
         };
 
-        triple::insert_many(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+        triple::insert_many(&neo4j, &BlockMetadata::default(), "ROOT", "0")
             .triples(vec![
                 Triple::new("foo_type", "name", "Foo"),
                 Triple::new(system_ids::TYPES_ATTRIBUTE, "name", "Types"),
@@ -358,7 +359,7 @@ mod tests {
 
         entity
             .clone()
-            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", "0")
             .send()
             .await
             .expect("Failed to insert entity");

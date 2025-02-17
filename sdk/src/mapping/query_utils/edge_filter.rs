@@ -17,12 +17,18 @@ impl EdgeFilter {
         self
     }
 
-    pub(crate) fn into_query_part(self, node_var: impl Into<String>, r#type: impl Into<String>, version: Option<i64>) -> QueryPart {
+    pub(crate) fn into_query_part(
+        self,
+        node_var: impl Into<String>,
+        r#type: impl Into<String>,
+        version: Option<String>,
+    ) -> QueryPart {
         let node_var = node_var.into();
         let r#type = r#type.into();
 
-        let mut query = QueryPart::default()
-            .match_clause(format!("({node_var}) -[r_{type}:`{type}`]- (r_{type}_to:Entity)"));
+        let mut query = QueryPart::default().match_clause(format!(
+            "({node_var}) -[r_{type}:`{type}`]- (r_{type}_to:Entity)"
+        ));
 
         if let Some(space_id) = self.space_id {
             query = query.merge(space_id.into_query_part(&format!("r_{type}"), "space_id"));

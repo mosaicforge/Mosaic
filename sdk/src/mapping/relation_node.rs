@@ -54,33 +54,33 @@ impl RelationNode {
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
         space_id: impl Into<String>,
-        space_version: i64,
+        space_version: impl Into<String>,
     ) -> InsertOneQuery {
-        InsertOneQuery::new(neo4j, block, space_id.into(), space_version, self)
+        InsertOneQuery::new(neo4j, block, space_id.into(), space_version.into(), self)
     }
 
     pub fn get_attributes(
         &self,
         neo4j: &neo4rs::Graph,
-        space_id: &str,
-        space_version: Option<i64>,
+        space_id: impl Into<String>,
+        space_version: Option<String>,
     ) -> attributes::FindOneQuery {
-        attributes::FindOneQuery::new(neo4j, self.id.clone(), space_id.to_owned(), space_version)
+        attributes::FindOneQuery::new(neo4j, self.id.clone(), space_id.into(), space_version)
     }
 
     pub fn set_attribute(
         &self,
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
-        space_id: &str,
-        space_version: i64,
+        space_id: impl Into<String>,
+        space_version: impl Into<String>,
         attribute: AttributeNode,
     ) -> triple::InsertOneQuery {
         triple::InsertOneQuery::new(
             neo4j,
             block,
-            space_id.to_owned(),
-            space_version,
+            space_id.into(),
+            space_version.into(),
             Triple {
                 entity: self.id.clone(),
                 attribute: attribute.id,
@@ -93,16 +93,16 @@ impl RelationNode {
         &self,
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
-        space_id: &str,
-        space_version: i64,
+        space_id: impl Into<String>,
+        space_version: impl Into<String>,
         attributes: Attributes,
     ) -> attributes::InsertOneQuery<Attributes> {
         attributes::InsertOneQuery::new(
             neo4j,
             block,
             self.id.clone(),
-            space_id.to_owned(),
-            space_version,
+            space_id.into(),
+            space_version.into(),
             attributes,
         )
     }
@@ -117,6 +117,10 @@ impl RelationNode {
 
     pub fn relation_type(&self, neo4j: &neo4rs::Graph) -> entity_node::FindOneQuery {
         entity_node::find_one(neo4j, &self.relation_type)
+    }
+
+    pub fn index(&self) -> &str {
+        &self.index.value.value
     }
 }
 
@@ -167,14 +171,14 @@ pub fn delete_one(
     block: &BlockMetadata,
     relation_id: impl Into<String>,
     space_id: impl Into<String>,
-    space_version: i64,
+    space_version: impl Into<String>,
 ) -> DeleteOneQuery {
     DeleteOneQuery::new(
         neo4j.clone(),
         block.clone(),
         relation_id.into(),
         space_id.into(),
-        space_version,
+        space_version.into(),
     )
 }
 
@@ -182,16 +186,16 @@ pub fn delete_many(
     neo4j: &neo4rs::Graph,
     block: &BlockMetadata,
     space_id: impl Into<String>,
-    space_version: i64,
+    space_version: impl Into<String>,
 ) -> DeleteManyQuery {
-    DeleteManyQuery::new(neo4j, block, space_id.into(), space_version)
+    DeleteManyQuery::new(neo4j, block, space_id.into(), space_version.into())
 }
 
 pub fn find_one(
     neo4j: &neo4rs::Graph,
     relation_id: impl Into<String>,
     space_id: impl Into<String>,
-    space_version: Option<i64>,
+    space_version: Option<String>,
 ) -> FindOneQuery {
     FindOneQuery::new(neo4j, relation_id.into(), space_id.into(), space_version)
 }
@@ -204,7 +208,7 @@ pub fn insert_one(
     neo4j: &neo4rs::Graph,
     block: &BlockMetadata,
     space_id: impl Into<String>,
-    space_version: i64,
+    space_version: impl Into<String>,
     relation: RelationNode,
 ) -> InsertOneQuery {
     InsertOneQuery::new(
@@ -220,9 +224,9 @@ pub fn insert_many(
     neo4j: &neo4rs::Graph,
     block: &BlockMetadata,
     space_id: impl Into<String>,
-    space_version: i64,
+    space_version: impl Into<String>,
 ) -> InsertManyQuery {
-    InsertManyQuery::new(neo4j, block, space_id.into(), space_version)
+    InsertManyQuery::new(neo4j, block, space_id.into(), space_version.into())
 }
 
 pub struct DeleteOneQuery {
@@ -230,7 +234,7 @@ pub struct DeleteOneQuery {
     block: BlockMetadata,
     relation_id: String,
     space_id: String,
-    space_version: i64,
+    space_version: String,
 }
 
 impl DeleteOneQuery {
@@ -239,7 +243,7 @@ impl DeleteOneQuery {
         block: BlockMetadata,
         relation_id: String,
         space_id: String,
-        space_version: i64,
+        space_version: String,
     ) -> Self {
         DeleteOneQuery {
             neo4j,
@@ -296,7 +300,7 @@ pub struct DeleteManyQuery {
     neo4j: neo4rs::Graph,
     block: BlockMetadata,
     space_id: String,
-    space_version: i64,
+    space_version: String,
     relations: Vec<String>,
 }
 
@@ -305,7 +309,7 @@ impl DeleteManyQuery {
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
         space_id: String,
-        space_version: i64,
+        space_version: String,
     ) -> Self {
         Self {
             neo4j: neo4j.clone(),
@@ -383,7 +387,7 @@ pub struct InsertOneQuery {
     neo4j: neo4rs::Graph,
     block: BlockMetadata,
     space_id: String,
-    space_version: i64,
+    space_version: String,
     relation: RelationNode,
 }
 
@@ -392,7 +396,7 @@ impl InsertOneQuery {
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
         space_id: String,
-        space_version: i64,
+        space_version: String,
         relation: RelationNode,
     ) -> Self {
         Self {
@@ -469,7 +473,7 @@ pub struct InsertManyQuery {
     neo4j: neo4rs::Graph,
     block: BlockMetadata,
     space_id: String,
-    space_version: i64,
+    space_version: String,
     relations: Vec<RelationNode>,
 }
 
@@ -478,7 +482,7 @@ impl InsertManyQuery {
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
         space_id: String,
-        space_version: i64,
+        space_version: String,
     ) -> Self {
         Self {
             neo4j: neo4j.clone(),
@@ -587,7 +591,7 @@ impl FindOneQuery {
         neo4j: &neo4rs::Graph,
         id: String,
         space_id: String,
-        space_version: Option<i64>,
+        space_version: Option<String>,
     ) -> Self {
         Self {
             neo4j: neo4j.clone(),
@@ -637,9 +641,7 @@ impl Query<Option<RelationNode>> for FindOneQuery {
             .await?
             .next()
             .await?
-            .map(|row| {
-                Result::<_, DatabaseError>::Ok(row.to::<RelationNode>()?)
-            })
+            .map(|row| Result::<_, DatabaseError>::Ok(row.to::<RelationNode>()?))
             .transpose()?)
     }
 }
@@ -653,7 +655,7 @@ pub struct FindManyQuery {
 
     from_: Option<entity_node::EntityFilter>,
     to_: Option<entity_node::EntityFilter>,
-    
+
     space_id: Option<PropFilter<String>>,
     space_version: VersionFilter,
 }
@@ -708,7 +710,7 @@ impl FindManyQuery {
         self
     }
 
-    pub fn version(mut self, space_version: Option<i64>) -> Self {
+    pub fn version(mut self, space_version: Option<String>) -> Self {
         if let Some(space_version) = space_version {
             self.space_version.version_mut(space_version);
         }
@@ -836,10 +838,10 @@ mod tests {
             CREATE (bob:Entity {{id: "bob"}})
             CREATE (knows:Entity {{id: "knows"}})
             CREATE (r:Entity:Relation {{id: "abc"}})
-            CREATE (r) -[:`{FROM_ENTITY}` {{space_id: "ROOT", min_version: 0}}]-> (alice)
-            CREATE (r) -[:`{TO_ENTITY}` {{space_id: "ROOT", min_version: 0}}]-> (bob)
-            CREATE (r) -[:`{RELATION_TYPE}` {{space_id: "ROOT", min_version: 0}}]-> (knows)
-            CREATE (r) -[:ATTRIBUTE {{space_id: "ROOT", min_version: 0}}]-> (index:Attribute {{id: "{INDEX}", value: "0", value_type: "TEXT"}})
+            CREATE (r) -[:`{FROM_ENTITY}` {{space_id: "ROOT", min_version: "0"}}]-> (alice)
+            CREATE (r) -[:`{TO_ENTITY}` {{space_id: "ROOT", min_version: "0"}}]-> (bob)
+            CREATE (r) -[:`{RELATION_TYPE}` {{space_id: "ROOT", min_version: "0"}}]-> (knows)
+            CREATE (r) -[:ATTRIBUTE {{space_id: "ROOT", min_version: "0"}}]-> (index:Attribute {{id: "{INDEX}", value: "0", value_type: "TEXT"}})
             "#,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
@@ -881,7 +883,7 @@ mod tests {
             .await
             .unwrap();
 
-        triple::insert_many(&neo4j, &BlockMetadata::default(), "space_id", 0)
+        triple::insert_many(&neo4j, &BlockMetadata::default(), "space_id", "0")
             .triples(vec![
                 Triple::new("alice", "name", "Alice"),
                 Triple::new("bob", "name", "Bob"),
@@ -895,7 +897,7 @@ mod tests {
 
         relation_node
             .clone()
-            .insert(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", "0")
             .send()
             .await
             .expect("Failed to insert relation");
@@ -937,15 +939,15 @@ mod tests {
             CREATE (charlie:Entity {{id: "charlie"}})
             CREATE (knows:Entity {{id: "knows"}})
             CREATE (r1:Entity:Relation {{id: "abc"}})
-            CREATE (r1) -[:`{FROM_ENTITY}` {{space_id: "ROOT", min_version: 0}}]-> (alice)
-            CREATE (r1) -[:`{TO_ENTITY}` {{space_id: "ROOT", min_version: 0}}]-> (bob)
-            CREATE (r1) -[:`{RELATION_TYPE}` {{space_id: "ROOT", min_version: 0}}]-> (knows)
-            CREATE (r1) -[:ATTRIBUTE {{space_id: "ROOT", min_version: 0}}]-> (:Attribute {{id: "{INDEX}", value: "0", value_type: "TEXT"}})
+            CREATE (r1) -[:`{FROM_ENTITY}` {{space_id: "ROOT", min_version: "0"}}]-> (alice)
+            CREATE (r1) -[:`{TO_ENTITY}` {{space_id: "ROOT", min_version: "0"}}]-> (bob)
+            CREATE (r1) -[:`{RELATION_TYPE}` {{space_id: "ROOT", min_version: "0"}}]-> (knows)
+            CREATE (r1) -[:ATTRIBUTE {{space_id: "ROOT", min_version: "0"}}]-> (:Attribute {{id: "{INDEX}", value: "0", value_type: "TEXT"}})
             CREATE (r2:Entity:Relation {{id: "dev"}})
-            CREATE (r2) -[:`{FROM_ENTITY}` {{space_id: "ROOT", min_version: 0}}]-> (alice)
-            CREATE (r2) -[:`{TO_ENTITY}` {{space_id: "ROOT", min_version: 0}}]-> (charlie)
-            CREATE (r2) -[:`{RELATION_TYPE}` {{space_id: "ROOT", min_version: 0}}]-> (knows)
-            CREATE (r2) -[:ATTRIBUTE {{space_id: "ROOT", min_version: 0}}]-> (:Attribute {{id: "{INDEX}", value: "0", value_type: "TEXT"}})
+            CREATE (r2) -[:`{FROM_ENTITY}` {{space_id: "ROOT", min_version: "0"}}]-> (alice)
+            CREATE (r2) -[:`{TO_ENTITY}` {{space_id: "ROOT", min_version: "0"}}]-> (charlie)
+            CREATE (r2) -[:`{RELATION_TYPE}` {{space_id: "ROOT", min_version: "0"}}]-> (knows)
+            CREATE (r2) -[:ATTRIBUTE {{space_id: "ROOT", min_version: "0"}}]-> (:Attribute {{id: "{INDEX}", value: "0", value_type: "TEXT"}})
             "#,
             FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
@@ -991,7 +993,7 @@ mod tests {
             .await
             .unwrap();
 
-        triple::insert_many(&neo4j, &BlockMetadata::default(), "space_id", 0)
+        triple::insert_many(&neo4j, &BlockMetadata::default(), "space_id", "0")
             .triples(vec![
                 Triple::new("alice", "name", "Alice"),
                 Triple::new("bob", "name", "Bob"),
@@ -1007,7 +1009,7 @@ mod tests {
             RelationNode::new("dev", "alice", "charlie", "knows", "0"),
         ];
 
-        insert_many(&neo4j, &BlockMetadata::default(), "ROOT", 0)
+        insert_many(&neo4j, &BlockMetadata::default(), "ROOT", "0")
             .relations(relation_nodes.clone())
             .send()
             .await

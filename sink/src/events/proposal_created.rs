@@ -1,9 +1,12 @@
 use sdk::{
     error::DatabaseError,
     indexer_ids,
-    mapping::{attributes::IntoAttributes, query_utils::Query, Entity},
+    mapping::{attributes::IntoAttributes, query_utils::Query, triple, Entity},
     models::{
-        proposal::{ProposedAccount, ProposedSubspace}, Account, AddEditorProposal, AddMemberProposal, AddSubspaceProposal, BlockMetadata, Proposal, ProposalCreator, Proposals, RemoveEditorProposal, RemoveMemberProposal, RemoveSubspaceProposal, Space
+        proposal::{ProposedAccount, ProposedSubspace},
+        Account, AddEditorProposal, AddMemberProposal, AddSubspaceProposal, BlockMetadata,
+        Proposal, ProposalCreator, Proposals, RemoveEditorProposal, RemoveMemberProposal,
+        RemoveSubspaceProposal, Space,
     },
     network_ids,
     pb::geo,
@@ -30,8 +33,14 @@ impl EventHandler {
             end_time: add_member_proposal.end_time.clone(),
         });
 
-        self.handle_account_related_proposals(block, proposal, &space_id, &creator_id, &proposed_account_id)
-            .await?;
+        self.handle_account_related_proposals(
+            block,
+            proposal,
+            &space_id,
+            &creator_id,
+            &proposed_account_id,
+        )
+        .await?;
 
         Ok(())
     }
@@ -46,18 +55,22 @@ impl EventHandler {
         let proposed_account_id = Account::generate_id(&remove_member_proposal.member);
 
         // Create proposal
-        let proposal = RemoveMemberProposal::new(
-            Proposal {
-                onchain_proposal_id: remove_member_proposal.proposal_id.clone(),
-                status: sdk::models::proposal::ProposalStatus::Proposed,
-                plugin_address: remove_member_proposal.plugin_address.clone(),
-                start_time: remove_member_proposal.start_time.clone(),
-                end_time: remove_member_proposal.end_time.clone(),
-            },
-        );
+        let proposal = RemoveMemberProposal::new(Proposal {
+            onchain_proposal_id: remove_member_proposal.proposal_id.clone(),
+            status: sdk::models::proposal::ProposalStatus::Proposed,
+            plugin_address: remove_member_proposal.plugin_address.clone(),
+            start_time: remove_member_proposal.start_time.clone(),
+            end_time: remove_member_proposal.end_time.clone(),
+        });
 
-        self.handle_account_related_proposals(block, proposal, &space_id, &creator_id, &proposed_account_id)
-            .await?;
+        self.handle_account_related_proposals(
+            block,
+            proposal,
+            &space_id,
+            &creator_id,
+            &proposed_account_id,
+        )
+        .await?;
 
         Ok(())
     }
@@ -72,18 +85,22 @@ impl EventHandler {
         let proposed_account_id = Account::generate_id(&add_editor_proposal.editor);
 
         // Create proposal
-        let proposal = AddEditorProposal::new(
-            Proposal {
-                onchain_proposal_id: add_editor_proposal.proposal_id.clone(),
-                status: sdk::models::proposal::ProposalStatus::Proposed,
-                plugin_address: add_editor_proposal.plugin_address.clone(),
-                start_time: add_editor_proposal.start_time.clone(),
-                end_time: add_editor_proposal.end_time.clone(),
-            },
-        );
+        let proposal = AddEditorProposal::new(Proposal {
+            onchain_proposal_id: add_editor_proposal.proposal_id.clone(),
+            status: sdk::models::proposal::ProposalStatus::Proposed,
+            plugin_address: add_editor_proposal.plugin_address.clone(),
+            start_time: add_editor_proposal.start_time.clone(),
+            end_time: add_editor_proposal.end_time.clone(),
+        });
 
-        self.handle_account_related_proposals(block, proposal, &space_id, &creator_id, &proposed_account_id)
-            .await?;
+        self.handle_account_related_proposals(
+            block,
+            proposal,
+            &space_id,
+            &creator_id,
+            &proposed_account_id,
+        )
+        .await?;
 
         Ok(())
     }
@@ -98,18 +115,22 @@ impl EventHandler {
         let proposed_account_id = Account::generate_id(&remove_editor_proposal.editor);
 
         // Create proposal
-        let proposal = RemoveEditorProposal::new(
-            Proposal {
-                onchain_proposal_id: remove_editor_proposal.proposal_id.clone(),
-                status: sdk::models::proposal::ProposalStatus::Proposed,
-                plugin_address: remove_editor_proposal.plugin_address.clone(),
-                start_time: remove_editor_proposal.start_time.clone(),
-                end_time: remove_editor_proposal.end_time.clone(),
-            },
-        );
+        let proposal = RemoveEditorProposal::new(Proposal {
+            onchain_proposal_id: remove_editor_proposal.proposal_id.clone(),
+            status: sdk::models::proposal::ProposalStatus::Proposed,
+            plugin_address: remove_editor_proposal.plugin_address.clone(),
+            start_time: remove_editor_proposal.start_time.clone(),
+            end_time: remove_editor_proposal.end_time.clone(),
+        });
 
-        self.handle_account_related_proposals(block, proposal, &space_id, &creator_id, &proposed_account_id)
-            .await?;
+        self.handle_account_related_proposals(
+            block,
+            proposal,
+            &space_id,
+            &creator_id,
+            &proposed_account_id,
+        )
+        .await?;
 
         Ok(())
     }
@@ -121,21 +142,26 @@ impl EventHandler {
     ) -> Result<(), HandlerError> {
         let space_id = Space::generate_id(network_ids::GEO, &add_subspace_proposal.dao_address);
         let creator_id = Account::generate_id(&add_subspace_proposal.creator);
-        let proposed_subspace_id = Space::generate_id(network_ids::GEO, &add_subspace_proposal.subspace);
+        let proposed_subspace_id =
+            Space::generate_id(network_ids::GEO, &add_subspace_proposal.subspace);
 
         // Create proposal
-        let proposal = AddSubspaceProposal::new(
-            Proposal {
-                onchain_proposal_id: add_subspace_proposal.proposal_id.clone(),
-                status: sdk::models::proposal::ProposalStatus::Proposed,
-                plugin_address: add_subspace_proposal.plugin_address.clone(),
-                start_time: add_subspace_proposal.start_time.clone(),
-                end_time: add_subspace_proposal.end_time.clone(),
-            },
-        );
+        let proposal = AddSubspaceProposal::new(Proposal {
+            onchain_proposal_id: add_subspace_proposal.proposal_id.clone(),
+            status: sdk::models::proposal::ProposalStatus::Proposed,
+            plugin_address: add_subspace_proposal.plugin_address.clone(),
+            start_time: add_subspace_proposal.start_time.clone(),
+            end_time: add_subspace_proposal.end_time.clone(),
+        });
 
-        self.handle_subspace_related_proposals(block, proposal, &space_id, &creator_id, &proposed_subspace_id)
-            .await?;
+        self.handle_subspace_related_proposals(
+            block,
+            proposal,
+            &space_id,
+            &creator_id,
+            &proposed_subspace_id,
+        )
+        .await?;
 
         Ok(())
     }
@@ -147,21 +173,26 @@ impl EventHandler {
     ) -> Result<(), HandlerError> {
         let space_id = Space::generate_id(network_ids::GEO, &remove_subspace_proposal.dao_address);
         let creator_id = Account::generate_id(&remove_subspace_proposal.creator);
-        let proposed_subspace_id = Space::generate_id(network_ids::GEO, &remove_subspace_proposal.subspace);
+        let proposed_subspace_id =
+            Space::generate_id(network_ids::GEO, &remove_subspace_proposal.subspace);
 
         // Create proposal
-        let proposal = RemoveSubspaceProposal::new(
-            Proposal {
-                onchain_proposal_id: remove_subspace_proposal.proposal_id.clone(),
-                status: sdk::models::proposal::ProposalStatus::Proposed,
-                plugin_address: remove_subspace_proposal.plugin_address.clone(),
-                start_time: remove_subspace_proposal.start_time.clone(),
-                end_time: remove_subspace_proposal.end_time.clone(),
-            },
-        );
+        let proposal = RemoveSubspaceProposal::new(Proposal {
+            onchain_proposal_id: remove_subspace_proposal.proposal_id.clone(),
+            status: sdk::models::proposal::ProposalStatus::Proposed,
+            plugin_address: remove_subspace_proposal.plugin_address.clone(),
+            start_time: remove_subspace_proposal.start_time.clone(),
+            end_time: remove_subspace_proposal.end_time.clone(),
+        });
 
-        self.handle_subspace_related_proposals(block, proposal, &space_id, &creator_id, &proposed_subspace_id)
-            .await?;
+        self.handle_subspace_related_proposals(
+            block,
+            proposal,
+            &space_id,
+            &creator_id,
+            &proposed_subspace_id,
+        )
+        .await?;
 
         Ok(())
     }
@@ -174,14 +205,13 @@ impl EventHandler {
         todo!()
     }
 
-
     /// Handle account-related proposals (AddMemberProposal, RemoveMemberProposal, AddEditorProposal, RemoveEditorProposal)
-    /// 
+    ///
     /// Create the followind entities:
     /// - Proposal (proposal_id)
     /// - Account (creator_id)
     /// - Account (proposed_account_id)
-    /// 
+    ///
     /// Create the following relations:
     /// - (space_id) > PROPOSALS > (proposal_id)
     /// - (proposal_id) > PROPOSAL_CREATOR > (creator_id)
@@ -198,7 +228,7 @@ impl EventHandler {
 
         // Insert Proposal
         proposal
-            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
             .send()
             .await?;
 
@@ -212,11 +242,11 @@ impl EventHandler {
     }
 
     /// Handle subspace-related proposals (AddSubspaceProposal, RemoveSubspaceProposal)
-    /// 
+    ///
     /// Create the followind entities:
     /// - Proposal (proposal_id)
     /// - Account (creator_id)
-    /// 
+    ///
     /// Create the following relations:
     /// - (space_id) > PROPOSALS > (proposal_id)
     /// - (proposal_id) > PROPOSAL_CREATOR > (creator_id)
@@ -233,7 +263,7 @@ impl EventHandler {
 
         // Insert Proposal
         proposal
-            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
             .send()
             .await?;
 
@@ -258,13 +288,13 @@ impl EventHandler {
     ) -> Result<(), DatabaseError> {
         // Create Space > PROPOSALS > Proposal relation
         Proposals::new(space_id, proposal_id)
-            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
             .send()
             .await?;
 
         // Create Proposal > PROPOSAL_CREATOR > Account relation
         ProposalCreator::new(proposal_id, creator_id)
-            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
             .send()
             .await?;
 
@@ -280,7 +310,7 @@ impl EventHandler {
         proposed_account_id: &str,
     ) -> Result<(), DatabaseError> {
         ProposedAccount::new(proposal_id, proposed_account_id)
-            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
             .send()
             .await
     }
@@ -294,7 +324,7 @@ impl EventHandler {
         proposed_subspace_id: &str,
     ) -> Result<(), DatabaseError> {
         ProposedSubspace::new(proposal_id, proposed_subspace_id)
-            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
             .send()
             .await
     }

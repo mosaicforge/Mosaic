@@ -4,13 +4,23 @@ use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::deserialize;
 use sdk::{
     error::DatabaseError,
-    mapping::{query_utils::Query, relation_node, triple},
-    models::{self, EditProposal, Space},
+    indexer_ids,
+    mapping::{query_utils::Query, relation, relation_node, triple},
+    models::{self, Proposals, Space},
     pb::{self, geo},
 };
 use web3_utils::checksum_address;
 
 use super::{handler::HandlerError, EventHandler};
+
+pub struct Edit {
+    pub name: String,
+    pub proposal_id: String,
+    pub space: String,
+    pub space_address: String,
+    pub creator: String,
+    pub ops: Vec<pb::ipfs::Op>,
+}
 
 impl EventHandler {
     pub async fn handle_edits_published(
@@ -46,7 +56,7 @@ impl EventHandler {
                     proposal.proposal_id
                 );
 
-                self.process_ops(block, &proposal.space, proposal.ops).await
+                self.process_edit(block, proposal).await
             })
             .await
             .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
@@ -54,22 +64,18 @@ impl EventHandler {
         Ok(())
     }
 
-    async fn fetch_edit(
-        &self,
-        edit: &geo::EditPublished,
-    ) -> Result<Vec<EditProposal>, HandlerError> {
-        let space = if let Some(space) =
-            Space::find_by_dao_address(&self.neo4j, &edit.dao_address)
-                .await
-                .map_err(|e| {
-                    HandlerError::Other(
-                        format!(
-                            "Error querying space with plugin address {} {e:?}",
-                            checksum_address(&edit.plugin_address)
-                        )
-                        .into(),
+    async fn fetch_edit(&self, edit: &geo::EditPublished) -> Result<Vec<Edit>, HandlerError> {
+        let space = if let Some(space) = Space::find_by_dao_address(&self.neo4j, &edit.dao_address)
+            .await
+            .map_err(|e| {
+                HandlerError::Other(
+                    format!(
+                        "Error querying space with plugin address {} {e:?}",
+                        checksum_address(&edit.plugin_address)
                     )
-                })? {
+                    .into(),
+                )
+            })? {
             space
         } else {
             tracing::warn!(
@@ -94,7 +100,7 @@ impl EventHandler {
         match metadata.r#type() {
             pb::ipfs::ActionType::AddEdit => {
                 let edit = deserialize::<pb::ipfs::Edit>(&bytes)?;
-                Ok(vec![EditProposal {
+                Ok(vec![Edit {
                     name: edit.name,
                     proposal_id: edit.id,
                     space: space.id.to_string(),
@@ -120,7 +126,7 @@ impl EventHandler {
 
                 Ok(edits
                     .into_iter()
-                    .map(|edit| EditProposal {
+                    .map(|edit| Edit {
                         name: edit.name,
                         proposal_id: edit.id,
                         space: space.id.to_string(),
@@ -138,18 +144,31 @@ impl EventHandler {
         }
     }
 
-    pub async fn process_ops(
+    pub async fn process_edit(
         &self,
         block: &models::BlockMetadata,
-        space_id: &str,
-        ops: impl IntoIterator<Item = pb::ipfs::Op>,
+        edit: Edit,
     ) -> Result<(), DatabaseError> {
+        // Get version index of the edit
+        let relation = relation_node::find_one(
+            &self.neo4j,
+            &Proposals::gen_id(&edit.space, &edit.proposal_id),
+            indexer_ids::INDEXER_SPACE_ID,
+            None,
+        )
+        .send()
+        .await?;
+
+        let version_index = relation
+            .map(|relation| relation.index().to_string())
+            .unwrap_or("0".to_string());
+
         // Group ops by entity and type
-        let entity_ops = EntityOps::from_ops(ops);
+        let entity_ops = EntityOps::from_ops(edit.ops);
 
         for (_, op_groups) in entity_ops.0 {
             // Handle SET_TRIPLE ops
-            triple::insert_many(&self.neo4j, block, space_id, 0)
+            triple::insert_many(&self.neo4j, block, &edit.space, &version_index)
                 .triples(
                     op_groups
                         .set_triples
@@ -160,7 +179,7 @@ impl EventHandler {
                 .await?;
 
             // Handle DELETE_TRIPLE ops
-            triple::delete_many(&self.neo4j, block, space_id, 0)
+            triple::delete_many(&self.neo4j, block, &edit.space, &version_index)
                 .triples(
                     op_groups
                         .delete_triples
@@ -171,7 +190,7 @@ impl EventHandler {
                 .await?;
 
             // Handle CREATE_RELATION ops
-            relation_node::insert_many(&self.neo4j, block, space_id, 0)
+            relation_node::insert_many(&self.neo4j, block, &edit.space, &version_index)
                 .relations(
                     op_groups
                         .create_relations
@@ -182,7 +201,7 @@ impl EventHandler {
                 .await?;
 
             // Handle DELETE_RELATION ops
-            relation_node::delete_many(&self.neo4j, block, space_id, 0)
+            relation_node::delete_many(&self.neo4j, block, &edit.space, &version_index)
                 .relations(
                     op_groups
                         .delete_relations

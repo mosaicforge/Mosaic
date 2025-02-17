@@ -1,6 +1,9 @@
 //! This module contains models reserved for use by the KG Indexer.
 
-use crate::{ids, indexer_ids, mapping::{self, Relation}};
+use crate::{
+    ids, indexer_ids,
+    mapping::{self, Relation},
+};
 
 /// A vote cast by a user on a proposal.
 ///
@@ -36,8 +39,12 @@ impl mapping::IntoAttributes for VoteCast {
 }
 
 impl mapping::FromAttributes for VoteCast {
-    fn from_attributes(mut attributes: mapping::Attributes) -> Result<Self, mapping::TriplesConversionError> {
-        Ok(Self { vote_type: attributes.pop(indexer_ids::VOTE_TYPE_ATTRIBUTE)? })
+    fn from_attributes(
+        mut attributes: mapping::Attributes,
+    ) -> Result<Self, mapping::TriplesConversionError> {
+        Ok(Self {
+            vote_type: attributes.pop(indexer_ids::VOTE_TYPE_ATTRIBUTE)?,
+        })
     }
 }
 

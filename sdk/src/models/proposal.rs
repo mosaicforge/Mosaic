@@ -7,9 +7,13 @@ use crate::{
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
-        self, attributes::{FromAttributes, IntoAttributes}, entity, query_utils::{AttributeFilter, PropFilter, Query}, Entity, Relation, Value
+        self,
+        attributes::{FromAttributes, IntoAttributes},
+        entity,
+        query_utils::{AttributeFilter, PropFilter, Query},
+        Entity, Relation, Value,
     },
-    pb::ipfs,
+    pb,
 };
 
 use super::BlockMetadata;
@@ -84,7 +88,9 @@ impl Proposal {
 }
 
 impl IntoAttributes for Proposal {
-    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+    fn into_attributes(
+        self,
+    ) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
         Ok(crate::mapping::Attributes::default()
             .attribute(("onchain_proposal_id", self.onchain_proposal_id))
             .attribute(("status", self.status.to_string()))
@@ -95,7 +101,9 @@ impl IntoAttributes for Proposal {
 }
 
 impl FromAttributes for Proposal {
-    fn from_attributes(mut attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+    fn from_attributes(
+        mut attributes: crate::mapping::Attributes,
+    ) -> Result<Self, crate::mapping::TriplesConversionError> {
         Ok(Self {
             onchain_proposal_id: attributes.pop("onchain_proposal_id")?,
             status: attributes.pop("status")?,
@@ -116,16 +124,16 @@ pub enum ProposalType {
     ArchiveSpace,
 }
 
-impl TryFrom<ipfs::ActionType> for ProposalType {
+impl TryFrom<pb::ipfs::ActionType> for ProposalType {
     type Error = String;
 
-    fn try_from(action_type: ipfs::ActionType) -> Result<Self, Self::Error> {
+    fn try_from(action_type: pb::ipfs::ActionType) -> Result<Self, Self::Error> {
         match action_type {
-            ipfs::ActionType::AddEdit => Ok(Self::AddEdit),
-            ipfs::ActionType::AddSubspace => Ok(Self::AddSubspace),
-            ipfs::ActionType::RemoveSubspace => Ok(Self::RemoveSubspace),
-            ipfs::ActionType::ImportSpace => Ok(Self::ImportSpace),
-            ipfs::ActionType::ArchiveSpace => Ok(Self::ArchiveSpace),
+            pb::ipfs::ActionType::AddEdit => Ok(Self::AddEdit),
+            pb::ipfs::ActionType::AddSubspace => Ok(Self::AddSubspace),
+            pb::ipfs::ActionType::RemoveSubspace => Ok(Self::RemoveSubspace),
+            pb::ipfs::ActionType::ImportSpace => Ok(Self::ImportSpace),
+            pb::ipfs::ActionType::ArchiveSpace => Ok(Self::ArchiveSpace),
             _ => Err(format!("Invalid action type: {:?}", action_type)),
         }
     }
@@ -185,13 +193,17 @@ impl Display for ProposalStatus {
 pub struct Proposals;
 
 impl Proposals {
+    pub fn gen_id(space_id: &str, proposal_id: &str) -> String {
+        ids::create_id_from_unique_string(&format!("{space_id}:{proposal_id}"))
+    }
+
     pub fn new(space_id: &str, proposal_id: &str) -> Relation<Self> {
         Relation::new(
-            &ids::create_id_from_unique_string(&format!("{space_id}:{proposal_id}")),
+            &Self::gen_id(space_id, proposal_id),
             space_id,
             proposal_id,
             indexer_ids::PROPOSALS,
-            "0",
+            "a0",
             Proposals {},
         )
     }
@@ -204,7 +216,9 @@ impl mapping::IntoAttributes for Proposals {
 }
 
 impl FromAttributes for Proposals {
-    fn from_attributes(_attributes: mapping::Attributes) -> Result<Self, mapping::TriplesConversionError> {
+    fn from_attributes(
+        _attributes: mapping::Attributes,
+    ) -> Result<Self, mapping::TriplesConversionError> {
         Ok(Self {})
     }
 }
@@ -233,17 +247,11 @@ impl mapping::IntoAttributes for ProposalCreator {
 }
 
 impl FromAttributes for ProposalCreator {
-    fn from_attributes(_attributes: mapping::Attributes) -> Result<Self, mapping::TriplesConversionError> {
+    fn from_attributes(
+        _attributes: mapping::Attributes,
+    ) -> Result<Self, mapping::TriplesConversionError> {
         Ok(Self {})
     }
-}
-pub struct EditProposal {
-    pub name: String,
-    pub proposal_id: String,
-    pub space: String,
-    pub space_address: String,
-    pub creator: String,
-    pub ops: Vec<ipfs::Op>,
 }
 
 #[derive(Clone)]
@@ -263,13 +271,17 @@ impl AddMemberProposal {
 }
 
 impl IntoAttributes for AddMemberProposal {
-    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+    fn into_attributes(
+        self,
+    ) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
         self.proposal.into_attributes()
     }
 }
 
 impl FromAttributes for AddMemberProposal {
-    fn from_attributes(attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+    fn from_attributes(
+        attributes: crate::mapping::Attributes,
+    ) -> Result<Self, crate::mapping::TriplesConversionError> {
         Ok(Self {
             proposal: Proposal::from_attributes(attributes)?,
         })
@@ -293,13 +305,17 @@ impl RemoveMemberProposal {
 }
 
 impl IntoAttributes for RemoveMemberProposal {
-    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+    fn into_attributes(
+        self,
+    ) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
         self.proposal.into_attributes()
     }
 }
 
 impl FromAttributes for RemoveMemberProposal {
-    fn from_attributes(attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+    fn from_attributes(
+        attributes: crate::mapping::Attributes,
+    ) -> Result<Self, crate::mapping::TriplesConversionError> {
         Ok(Self {
             proposal: Proposal::from_attributes(attributes)?,
         })
@@ -323,13 +339,17 @@ impl AddEditorProposal {
 }
 
 impl IntoAttributes for AddEditorProposal {
-    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+    fn into_attributes(
+        self,
+    ) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
         self.proposal.into_attributes()
     }
 }
 
 impl FromAttributes for AddEditorProposal {
-    fn from_attributes(attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+    fn from_attributes(
+        attributes: crate::mapping::Attributes,
+    ) -> Result<Self, crate::mapping::TriplesConversionError> {
         Ok(Self {
             proposal: Proposal::from_attributes(attributes)?,
         })
@@ -353,13 +373,17 @@ impl RemoveEditorProposal {
 }
 
 impl IntoAttributes for RemoveEditorProposal {
-    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+    fn into_attributes(
+        self,
+    ) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
         self.proposal.into_attributes()
     }
 }
 
 impl FromAttributes for RemoveEditorProposal {
-    fn from_attributes(attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+    fn from_attributes(
+        attributes: crate::mapping::Attributes,
+    ) -> Result<Self, crate::mapping::TriplesConversionError> {
         Ok(Self {
             proposal: Proposal::from_attributes(attributes)?,
         })
@@ -390,13 +414,17 @@ impl ProposedAccount {
 }
 
 impl IntoAttributes for ProposedAccount {
-    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+    fn into_attributes(
+        self,
+    ) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
         Ok(crate::mapping::Attributes::default())
     }
 }
 
 impl FromAttributes for ProposedAccount {
-    fn from_attributes(_attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+    fn from_attributes(
+        _attributes: crate::mapping::Attributes,
+    ) -> Result<Self, crate::mapping::TriplesConversionError> {
         Ok(Self {})
     }
 }
@@ -418,19 +446,22 @@ impl AddSubspaceProposal {
 }
 
 impl IntoAttributes for AddSubspaceProposal {
-    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+    fn into_attributes(
+        self,
+    ) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
         self.proposal.into_attributes()
     }
 }
 
 impl FromAttributes for AddSubspaceProposal {
-    fn from_attributes(attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+    fn from_attributes(
+        attributes: crate::mapping::Attributes,
+    ) -> Result<Self, crate::mapping::TriplesConversionError> {
         Ok(Self {
             proposal: Proposal::from_attributes(attributes)?,
         })
     }
 }
-
 
 #[derive(Clone)]
 pub struct RemoveSubspaceProposal {
@@ -449,13 +480,17 @@ impl RemoveSubspaceProposal {
 }
 
 impl IntoAttributes for RemoveSubspaceProposal {
-    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+    fn into_attributes(
+        self,
+    ) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
         self.proposal.into_attributes()
     }
 }
 
 impl FromAttributes for RemoveSubspaceProposal {
-    fn from_attributes(attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+    fn from_attributes(
+        attributes: crate::mapping::Attributes,
+    ) -> Result<Self, crate::mapping::TriplesConversionError> {
         Ok(Self {
             proposal: Proposal::from_attributes(attributes)?,
         })
@@ -483,13 +518,61 @@ impl ProposedSubspace {
 }
 
 impl IntoAttributes for ProposedSubspace {
-    fn into_attributes(self) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
+    fn into_attributes(
+        self,
+    ) -> Result<crate::mapping::Attributes, crate::mapping::TriplesConversionError> {
         Ok(crate::mapping::Attributes::default())
     }
 }
 
 impl FromAttributes for ProposedSubspace {
-    fn from_attributes(_attributes: crate::mapping::Attributes) -> Result<Self, crate::mapping::TriplesConversionError> {
+    fn from_attributes(
+        _attributes: crate::mapping::Attributes,
+    ) -> Result<Self, crate::mapping::TriplesConversionError> {
         Ok(Self {})
+    }
+}
+
+#[derive(Clone)]
+pub struct EditProposal {
+    pub name: String,
+    pub proposal: Proposal,
+    pub content_uri: String,
+}
+
+impl EditProposal {
+    pub fn new(name: String, proposal: Proposal, content_uri: String) -> Entity<Self> {
+        Entity::new(
+            Proposal::generate_id(&proposal.onchain_proposal_id),
+            Self {
+                name,
+                proposal,
+                content_uri,
+            },
+        )
+        .with_type(indexer_ids::PROPOSAL_TYPE)
+        .with_type(indexer_ids::EDIT_PROPOSAL)
+    }
+}
+
+impl IntoAttributes for EditProposal {
+    fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
+        Ok(self
+            .proposal
+            .into_attributes()?
+            .attribute(("content_uri", self.content_uri))
+            .attribute(("name", self.name)))
+    }
+}
+
+impl FromAttributes for EditProposal {
+    fn from_attributes(
+        mut attributes: mapping::Attributes,
+    ) -> Result<Self, mapping::TriplesConversionError> {
+        Ok(Self {
+            content_uri: attributes.pop("content_uri")?,
+            name: attributes.pop("name")?,
+            proposal: Proposal::from_attributes(attributes)?,
+        })
     }
 }

@@ -1,6 +1,9 @@
 use futures::{stream, StreamExt, TryStreamExt};
 use sdk::{
-    indexer_ids, mapping::query_utils::Query, models::{self, Account, Space, SpaceEditor}, pb::geo
+    indexer_ids,
+    mapping::query_utils::Query,
+    models::{self, Account, Space, SpaceEditor},
+    pb::geo,
 };
 
 use super::{handler::HandlerError, EventHandler};
@@ -12,8 +15,7 @@ impl EventHandler {
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space =
-            Space::find_by_dao_address(&self.neo4j, &initial_editor_added.dao_address)
-                .await?;
+            Space::find_by_dao_address(&self.neo4j, &initial_editor_added.dao_address).await?;
 
         if let Some(space) = &space {
             stream::iter(&initial_editor_added.addresses)
@@ -22,15 +24,16 @@ impl EventHandler {
                     // Create editor account and relation
                     let editor = Account::new(editor_address.clone());
                     let editor_rel = SpaceEditor::new(&editor.id, &space.id);
-                    
+
                     // Insert editor account
-                    editor.insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+                    editor
+                        .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
                         .send()
                         .await?;
 
                     // Insert space editor relation
                     editor_rel
-                        .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+                        .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
                         .send()
                         .await?;
 

@@ -78,7 +78,8 @@ impl RelationFilter {
         self,
         mut query: relation_node::FindManyQuery,
     ) -> relation_node::FindManyQuery {
-        query = query.id(self.id_filter())
+        query = query
+            .id(self.id_filter())
             .relation_type(self.relation_type_filter());
 
         // if let Some(attributes) = self.attributes {

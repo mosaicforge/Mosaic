@@ -28,12 +28,10 @@ impl EventHandler {
                 )
                 .await?;
 
-                let maybe_account = entity_node::find_one(
-                    &self.neo4j,
-                    &Account::generate_id(&vote.voter),
-                )
-                .send()
-                .await?;
+                let maybe_account =
+                    entity_node::find_one(&self.neo4j, &Account::generate_id(&vote.voter))
+                        .send()
+                        .await?;
 
                 match (maybe_proposal, maybe_account) {
                     (Some(proposal), Some(account)) => {
@@ -44,7 +42,7 @@ impl EventHandler {
                                 .try_into()
                                 .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?,
                         )
-                        .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, 0)
+                        .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
                         .send()
                         .await?;
                     }

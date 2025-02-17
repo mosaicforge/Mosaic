@@ -339,8 +339,12 @@ impl substreams_utils::Sink for EventHandler {
             );
         }
         stream::iter(&value.executed_proposals)
+            .enumerate()
             .map(Ok)
-            .try_for_each(|event| async { self.handle_proposal_executed(event, &block).await })
+            .try_for_each(|(idx, event)| {
+                let block = block.clone();
+                async move { self.handle_proposal_executed(event, &block, idx).await }
+            })
             .await?;
 
         Ok(())

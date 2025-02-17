@@ -1,7 +1,11 @@
 use juniper::{graphql_object, Executor, ScalarValue};
 
 use sdk::{
-    mapping::{entity_node, query_utils::{prop_filter, Query}, triple, EntityNode},
+    mapping::{
+        entity_node,
+        query_utils::{prop_filter, Query},
+        triple, EntityNode,
+    },
     neo4rs, system_ids,
 };
 
@@ -16,11 +20,11 @@ use super::{AttributeFilter, EntityRelationFilter};
 pub struct Entity {
     node: EntityNode,
     space_id: String,
-    space_version: Option<i64>,
+    space_version: Option<String>,
 }
 
 impl Entity {
-    pub fn new(node: EntityNode, space_id: String, space_version: Option<i64>) -> Self {
+    pub fn new(node: EntityNode, space_id: String, space_version: Option<String>) -> Self {
         Self {
             node,
             space_id,
@@ -32,7 +36,7 @@ impl Entity {
         neo4j: &neo4rs::Graph,
         id: impl Into<String>,
         space_id: impl Into<String>,
-        space_version: Option<i64>,
+        space_version: Option<String>,
     ) -> Option<Self> {
         let id = id.into();
         let space_id = space_id.into();
@@ -64,7 +68,7 @@ impl Entity {
             system_ids::NAME_ATTRIBUTE,
             &self.node.id,
             &self.space_id,
-            self.space_version,
+            self.space_version.clone(),
         )
         .send()
         .await
@@ -82,7 +86,7 @@ impl Entity {
             system_ids::DESCRIPTION_ATTRIBUTE,
             &self.node.id,
             &self.space_id,
-            self.space_version,
+            self.space_version.clone(),
         )
         .send()
         .await
@@ -100,7 +104,7 @@ impl Entity {
             system_ids::COVER_ATTRIBUTE,
             &self.node.id,
             &self.space_id,
-            self.space_version,
+            self.space_version.clone(),
         )
         .send()
         .await
@@ -113,23 +117,27 @@ impl Entity {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Vec<Entity> {
-        let types_rel = self.node.get_outbound_relations(
-            &executor.context().0, 
-            &self.space_id, 
-            self.space_version,
-        )
-        .relation_type(prop_filter::value(system_ids::BLOCKS))
-        .send()
-        .await
-        .expect("Failed to get types");
+        let types_rel = self
+            .node
+            .get_outbound_relations(
+                &executor.context().0,
+                &self.space_id,
+                self.space_version.clone(),
+            )
+            .relation_type(prop_filter::value(system_ids::BLOCKS))
+            .send()
+            .await
+            .expect("Failed to get types");
 
         entity_node::find_many(&executor.context().0)
-            .id(prop_filter::value_in(types_rel.into_iter().map(|rel| rel.to).collect()))
+            .id(prop_filter::value_in(
+                types_rel.into_iter().map(|rel| rel.to).collect(),
+            ))
             .send()
             .await
             .expect("Failed to get types entities")
             .into_iter()
-            .map(|node| Entity::new(node, self.space_id.clone(), self.space_version))
+            .map(|node| Entity::new(node, self.space_id.clone(), self.space_version.clone()))
             .collect()
     }
 
@@ -138,23 +146,27 @@ impl Entity {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Vec<Entity> {
-        let types_rel = self.node.get_outbound_relations(
-            &executor.context().0, 
-            &self.space_id, 
-            self.space_version,
-        )
-        .relation_type(prop_filter::value(system_ids::TYPES_ATTRIBUTE))
-        .send()
-        .await
-        .expect("Failed to get types");
+        let types_rel = self
+            .node
+            .get_outbound_relations(
+                &executor.context().0,
+                &self.space_id,
+                self.space_version.clone(),
+            )
+            .relation_type(prop_filter::value(system_ids::TYPES_ATTRIBUTE))
+            .send()
+            .await
+            .expect("Failed to get types");
 
         entity_node::find_many(&executor.context().0)
-            .id(prop_filter::value_in(types_rel.into_iter().map(|rel| rel.to).collect()))
+            .id(prop_filter::value_in(
+                types_rel.into_iter().map(|rel| rel.to).collect(),
+            ))
             .send()
             .await
             .expect("Failed to get types entities")
             .into_iter()
-            .map(|node| Entity::new(node, self.space_id.clone(), self.space_version))
+            .map(|node| Entity::new(node, self.space_id.clone(), self.space_version.clone()))
             .collect()
     }
 
@@ -190,7 +202,7 @@ impl Entity {
             .entity_id(prop_filter::value(&self.node.id))
             .space_id(prop_filter::value(&self.space_id));
 
-        if let Some(version) = self.space_version {
+        if let Some(version) = &self.space_version {
             query = query.space_version(version);
         }
 
@@ -199,7 +211,7 @@ impl Entity {
             .await
             .expect("Failed to get attributes")
             .into_iter()
-            .map(|triple| Triple::new(triple, self.space_id.clone(), self.space_version))
+            .map(|triple| Triple::new(triple, self.space_id.clone(), self.space_version.clone()))
             .collect()
     }
 
@@ -212,7 +224,7 @@ impl Entity {
         let mut base_query = self.node.get_outbound_relations(
             &executor.context().0,
             &self.space_id,
-            self.space_version,
+            self.space_version.clone(),
         );
 
         if let Some(filter) = r#where {
@@ -224,7 +236,9 @@ impl Entity {
             .await
             .expect("Failed to get relations")
             .into_iter()
-            .map(|relation| Relation::new(relation, self.space_id.clone(), self.space_version))
+            .map(|relation| {
+                Relation::new(relation, self.space_id.clone(), self.space_version.clone())
+            })
             .collect()
     }
 }

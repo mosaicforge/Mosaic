@@ -55,11 +55,21 @@ impl EntityAttributeFilter {
         }
 
         if let Some(value_type_in) = &self.value_type_in {
-            filter = filter.value_in(value_type_in.iter().map(|value_type| value_type.to_string()).collect());
+            filter = filter.value_in(
+                value_type_in
+                    .iter()
+                    .map(|value_type| value_type.to_string())
+                    .collect(),
+            );
         }
 
         if let Some(value_type_not_in) = &self.value_type_not_in {
-            filter = filter.value_not_in(value_type_not_in.iter().map(|value_type| value_type.to_string()).collect());
+            filter = filter.value_not_in(
+                value_type_not_in
+                    .iter()
+                    .map(|value_type| value_type.to_string())
+                    .collect(),
+            );
         }
 
         filter

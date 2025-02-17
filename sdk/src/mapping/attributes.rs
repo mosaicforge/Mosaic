@@ -27,54 +27,57 @@ impl Attributes {
         self.0.insert(attr.id.clone(), attr);
     }
 
-    pub fn pop<T>(&mut self, attribute_id: &str) -> Result<T, TriplesConversionError> 
+    pub fn pop<T>(&mut self, attribute_id: &str) -> Result<T, TriplesConversionError>
     where
         T: TryFrom<Value, Error = String>,
     {
-        self.0.remove(attribute_id)
-            .ok_or_else(|| {
-                TriplesConversionError::MissingAttribute(
-                    attribute_id.to_string()
-                )
-            })?
+        self.0
+            .remove(attribute_id)
+            .ok_or_else(|| TriplesConversionError::MissingAttribute(attribute_id.to_string()))?
             .value
             .try_into()
             .map_err(|err| TriplesConversionError::InvalidValue(err))
     }
 
-    pub fn pop_opt<T>(&mut self, attribute_id: &str) -> Result<Option<T>, TriplesConversionError> 
+    pub fn pop_opt<T>(&mut self, attribute_id: &str) -> Result<Option<T>, TriplesConversionError>
     where
         T: TryFrom<Value, Error = String>,
     {
-        self.0.remove(attribute_id)
-            .map(|attr| attr.value.try_into()
-                .map_err(|err| TriplesConversionError::InvalidValue(err)))
+        self.0
+            .remove(attribute_id)
+            .map(|attr| {
+                attr.value
+                    .try_into()
+                    .map_err(|err| TriplesConversionError::InvalidValue(err))
+            })
             .transpose()
     }
 
-    pub fn get<T>(&self, attribute_id: &str) -> Result<T, TriplesConversionError> 
+    pub fn get<T>(&self, attribute_id: &str) -> Result<T, TriplesConversionError>
     where
         T: TryFrom<Value, Error = String>,
     {
-        self.0.get(attribute_id)
-            .ok_or_else(|| {
-                TriplesConversionError::MissingAttribute(
-                    attribute_id.to_string()
-                )
-            })?
+        self.0
+            .get(attribute_id)
+            .ok_or_else(|| TriplesConversionError::MissingAttribute(attribute_id.to_string()))?
             .value
             .clone()
             .try_into()
             .map_err(|err| TriplesConversionError::InvalidValue(err))
     }
 
-    pub fn get_opt<T>(&self, attribute_id: &str) -> Result<Option<T>, TriplesConversionError> 
+    pub fn get_opt<T>(&self, attribute_id: &str) -> Result<Option<T>, TriplesConversionError>
     where
         T: TryFrom<Value, Error = String>,
     {
-        self.0.get(attribute_id)
-            .map(|attr| attr.value.clone().try_into()
-                .map_err(|err| TriplesConversionError::InvalidValue(err)))
+        self.0
+            .get(attribute_id)
+            .map(|attr| {
+                attr.value
+                    .clone()
+                    .try_into()
+                    .map_err(|err| TriplesConversionError::InvalidValue(err))
+            })
             .transpose()
     }
 
@@ -88,11 +91,18 @@ impl Attributes {
         self,
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
-        entity_id: String,
-        space_id: String,
-        space_version: i64,
+        entity_id: impl Into<String>,
+        space_id: impl Into<String>,
+        space_version: impl Into<String>,
     ) -> InsertOneQuery<Attributes> {
-        InsertOneQuery::new(neo4j, block, entity_id, space_id, space_version, self)
+        InsertOneQuery::new(
+            neo4j,
+            block,
+            entity_id.into(),
+            space_id.into(),
+            space_version.into(),
+            self,
+        )
     }
 }
 
@@ -109,10 +119,15 @@ impl From<Vec<Triple>> for Attributes {
         Attributes(
             value
                 .into_iter()
-                .map(|triple| (triple.attribute.clone(), AttributeNode {
-                    id: triple.attribute,
-                    value: triple.value,
-                }))
+                .map(|triple| {
+                    (
+                        triple.attribute.clone(),
+                        AttributeNode {
+                            id: triple.attribute,
+                            value: triple.value,
+                        },
+                    )
+                })
                 .collect(),
         )
     }
@@ -120,7 +135,12 @@ impl From<Vec<Triple>> for Attributes {
 
 impl From<Vec<AttributeNode>> for Attributes {
     fn from(value: Vec<AttributeNode>) -> Self {
-        Attributes(value.into_iter().map(|attr| (attr.id.clone(), attr)).collect())
+        Attributes(
+            value
+                .into_iter()
+                .map(|attr| (attr.id.clone(), attr))
+                .collect(),
+        )
     }
 }
 
@@ -128,7 +148,7 @@ pub fn find_one(
     neo4j: &neo4rs::Graph,
     entity_id: impl Into<String>,
     space_id: impl Into<String>,
-    space_version: Option<i64>,
+    space_version: Option<String>,
 ) -> FindOneQuery {
     FindOneQuery::new(neo4j, entity_id.into(), space_id.into(), space_version)
 }
@@ -136,10 +156,10 @@ pub fn find_one(
 pub fn insert_many(
     neo4j: &neo4rs::Graph,
     block: &BlockMetadata,
-    space_id: String,
-    space_version: i64,
+    space_id: impl Into<String>,
+    space_version: impl Into<String>,
 ) -> InsertManyQuery {
-    InsertManyQuery::new(neo4j, block, space_id, space_version)
+    InsertManyQuery::new(neo4j, block, space_id.into(), space_version.into())
 }
 
 pub fn insert_one<T>(
@@ -147,7 +167,7 @@ pub fn insert_one<T>(
     block: &BlockMetadata,
     entity_id: impl Into<String>,
     space_id: impl Into<String>,
-    space_version: i64,
+    space_version: impl Into<String>,
     attributes: T,
 ) -> InsertOneQuery<T> {
     InsertOneQuery::new(
@@ -155,7 +175,7 @@ pub fn insert_one<T>(
         block,
         entity_id.into(),
         space_id.into(),
-        space_version,
+        space_version.into(),
         attributes,
     )
 }
@@ -182,7 +202,7 @@ pub struct InsertOneQuery<T> {
     block: BlockMetadata,
     entity_id: String,
     space_id: String,
-    space_version: i64,
+    space_version: String,
     attributes: T,
 }
 
@@ -192,7 +212,7 @@ impl<T> InsertOneQuery<T> {
         block: &BlockMetadata,
         entity_id: String,
         space_id: String,
-        space_version: i64,
+        space_version: String,
         attributes: T,
     ) -> Self {
         Self {
@@ -255,7 +275,7 @@ pub struct InsertManyQuery {
     neo4j: neo4rs::Graph,
     block: BlockMetadata,
     space_id: String,
-    space_version: i64,
+    space_version: String,
     attributes: Vec<(String, Attributes)>,
 }
 
@@ -264,7 +284,7 @@ impl InsertManyQuery {
         neo4j: &neo4rs::Graph,
         block: &BlockMetadata,
         space_id: String,
-        space_version: i64,
+        space_version: String,
     ) -> Self {
         Self {
             neo4j: neo4j.clone(),
@@ -365,7 +385,7 @@ impl FindOneQuery {
         neo4j: &neo4rs::Graph,
         entity_id: String,
         space_id: String,
-        space_version: Option<i64>,
+        space_version: Option<String>,
     ) -> Self {
         Self {
             neo4j: neo4j.clone(),
@@ -377,7 +397,9 @@ impl FindOneQuery {
 
     fn into_query_part(self) -> QueryPart {
         QueryPart::default()
-            .match_clause("(:Entity {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute)")
+            .match_clause(
+                "(:Entity {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute)",
+            )
             .merge(self.space_version.into_query_part("r"))
             .with_clause("collect(n{.*}) AS attrs")
             .return_clause("attrs")
@@ -564,7 +586,9 @@ mod tests {
     }
 
     impl mapping::FromAttributes for Foo {
-        fn from_attributes(mut attributes: mapping::Attributes) -> Result<Self, mapping::TriplesConversionError> {
+        fn from_attributes(
+            mut attributes: mapping::Attributes,
+        ) -> Result<Self, mapping::TriplesConversionError> {
             Ok(Self {
                 foo: attributes.pop("foo")?,
                 bar: attributes.pop("bar")?,
@@ -611,18 +635,17 @@ mod tests {
                 &BlockMetadata::default(),
                 "abc".to_string(),
                 "space_id".to_string(),
-                0,
+                "0",
             )
             .send()
             .await
             .expect("Failed to insert triple set");
 
-        let result: Attributes =
-            find_one(&neo4j, "abc".to_string(), "space_id".to_string(), None)
-                .send()
-                .await
-                .expect("Failed to find triple set")
-                .expect("Triple set not found");
+        let result: Attributes = find_one(&neo4j, "abc".to_string(), "space_id".to_string(), None)
+            .send()
+            .await
+            .expect("Failed to find triple set")
+            .expect("Triple set not found");
 
         assert_eq!(attributes, result);
     }
@@ -658,7 +681,7 @@ mod tests {
             &BlockMetadata::default(),
             "abc".to_string(),
             "space_id".to_string(),
-            0,
+            "0",
             foo.clone(),
         )
         .send()
@@ -705,7 +728,7 @@ mod tests {
             &BlockMetadata::default(),
             "abc".to_string(),
             "space_id".to_string(),
-            0,
+            "0",
             foo,
         )
         .send()
@@ -717,7 +740,7 @@ mod tests {
             attribute: "bar".to_string(),
             value: 456u64.into(),
         }
-        .insert(&neo4j, &BlockMetadata::default(), "space_id", 1)
+        .insert(&neo4j, &BlockMetadata::default(), "space_id", "1")
         .send()
         .await
         .expect("Failed to insert triple");
@@ -739,7 +762,7 @@ mod tests {
             )
         );
 
-        let foo_v1 = entity::find_one(&neo4j, "abc", "space_id", Some(0))
+        let foo_v1 = entity::find_one(&neo4j, "abc", "space_id", Some("0".into()))
             .send()
             .await
             .expect("Failed to find entity")
