@@ -1,4 +1,3 @@
-use futures::try_join;
 use sdk::{
     indexer_ids,
     mapping::query_utils::Query,

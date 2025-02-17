@@ -105,6 +105,38 @@ impl EntityNode {
             attributes,
         )
     }
+
+    /// Get all the edits that have been applied to this entity
+    pub async fn edits(
+        &self,
+        neo4j: &neo4rs::Graph,
+    ) -> Result<Vec<Self>, DatabaseError> {
+        const QUERY: &str = r#"
+            MATCH (:Entity {id: $id}) -[r:ATTRIBUTE]-> (:Attribute)
+            WITH COLLECT(DISTINCT r.min_version) AS versions
+            UNWIND versions AS version
+            MATCH (e:Entity) -[:ATTRIBUTE]-> ({id: $EDIT_INDEX_ATTR, value: version})
+            RETURN e
+        "#;
+
+        let query = neo4rs::query(QUERY)
+            .param("id", self.id.clone())
+            .param("EDIT_INDEX_ATTR", indexer_ids::EDIT_INDEX_ATTRIBUTE);
+
+        #[derive(Debug, Deserialize)]
+        struct RowResult {
+            e: EntityNode,
+        }
+
+        Ok(neo4j
+            .execute(query)
+            .await?
+            .into_stream_as::<RowResult>()
+            .map_err(DatabaseError::from)
+            .and_then(|row| async move { Ok(row.e) })
+            .try_collect::<Vec<_>>()
+            .await?)
+    }
 }
 
 pub fn delete_one(
@@ -254,6 +286,10 @@ impl Query<Vec<EntityNode>> for FindManyQuery {
         let neo4j = self.neo4j.clone();
         let query = self.into_query_part().build();
 
+        // let part = self.into_query_part();
+        // println!("FindManyQuery: {}", part.query());
+        // let query = part.build();
+
         #[derive(Debug, Deserialize)]
         struct RowResult {
             e: EntityNode,
@@ -320,12 +356,7 @@ impl EntityFilter {
         }
 
         if let Some(relations) = self.relations {
-            query_part = query_part
-                .match_clause(format!(
-                    "({node_var}) <-[:`{FROM_ENTITY}`]- (r_{node_var})",
-                    FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE
-                ))
-                .merge(relations.into_query_part(format!("r_{node_var}")));
+            query_part.merge_mut(relations.into_query_part(node_var));
         }
 
         query_part
@@ -364,22 +395,31 @@ impl EntityRelationFilter {
 
     pub(crate) fn into_query_part(self, node_var: impl Into<String>) -> QueryPart {
         let node_var = node_var.into();
+        let rel_node_var = format!("r_{node_var}");
         let mut query_part = QueryPart::default();
 
-        if let Some(relation_type) = self.relation_type {
-            query_part.merge_mut(relation_type.into_query_part(
-                &node_var,
-                system_ids::RELATION_TYPE_ATTRIBUTE,
-                self.space_version.clone(),
-            ));
-        }
-
-        if let Some(to_id) = self.to_id {
-            query_part.merge_mut(to_id.into_query_part(
-                &node_var,
-                system_ids::RELATION_TO_ATTRIBUTE,
-                self.space_version,
-            ));
+        if !self.is_empty() {
+            query_part = query_part
+                .match_clause(format!(
+                    "({node_var}) <-[:`{FROM_ENTITY}`]- ({rel_node_var})",
+                    FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE
+                ));
+            
+            if let Some(relation_type) = self.relation_type {
+                query_part.merge_mut(relation_type.into_query_part(
+                    &rel_node_var,
+                    system_ids::RELATION_TYPE_ATTRIBUTE,
+                    self.space_version.clone(),
+                ));
+            }
+    
+            if let Some(to_id) = self.to_id {
+                query_part.merge_mut(to_id.into_query_part(
+                    &rel_node_var,
+                    system_ids::RELATION_TO_ATTRIBUTE,
+                    self.space_version,
+                ));
+            }
         }
 
         query_part

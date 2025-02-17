@@ -17,7 +17,7 @@ impl EventHandler {
             SpaceEditor::remove(
                 &self.neo4j,
                 block,
-                &Account::generate_id(&editor_removed.editor_address),
+                &Account::gen_id(&editor_removed.editor_address),
                 &space.id,
             )
             .await?;

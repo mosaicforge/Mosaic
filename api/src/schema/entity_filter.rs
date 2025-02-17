@@ -66,9 +66,7 @@ impl EntityFilter {
     }
 
     fn types_filter(&self) -> entity_node::EntityRelationFilter {
-        let mut filter = entity_node::EntityRelationFilter::default().relation_type(
-            EdgeFilter::default().to_id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)),
-        );
+        let mut filter = entity_node::EntityRelationFilter::default();
 
         // if let Some(types) = &self.types {
         //     filter = filter.to_id(EdgeFilter::default().to_id(prop_filter::value_in(types.clone())));
@@ -77,6 +75,12 @@ impl EntityFilter {
         // if let Some(types_not) = &self.types_not {
         //     filter = filter.to_id(EdgeFilter::default().to_id_not_in(types_not.clone()));
         // }
+
+        if self.types_contains.is_some() || self.types_not_contains.is_some() {
+            filter = filter.relation_type(
+                EdgeFilter::default().to_id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)),
+            );
+        }
 
         if let Some(types_contains) = &self.types_contains {
             filter = filter

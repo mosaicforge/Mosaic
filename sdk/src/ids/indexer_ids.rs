@@ -52,3 +52,14 @@ pub const PROPOSAL_CREATOR: &str = "FUS7nfaWo8Ugzv9AxsMPNX";
 
 /// INDEXED_SPACE > PROPOSALS > PROPOSAL
 pub const PROPOSALS: &str = "3gmeTonVCB6B11p3YF8mj5";
+
+// Edits
+/// Edit type ID
+pub const EDIT_TYPE: &str = "Q2dfub76oMdzJpyR8z4GZv";
+pub const EDIT_INDEX_ATTRIBUTE: &str = "edit_index";
+pub const EDIT_CONTENT_URI_ATTRIBUTE: &str = "content_uri";
+
+/// Proposal > PROPOSED_EDIT > Edit
+pub const PROPOSED_EDIT: &str = "8NPzSYo8fXBeFHs7WvGtif";
+/// Space > EDITS > Edit
+pub const EDITS: &str = "QRkn8QWyKjo1sKmpVKsoUJ";

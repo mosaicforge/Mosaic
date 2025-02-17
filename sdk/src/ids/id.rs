@@ -59,9 +59,9 @@ pub fn create_space_id(network: &str, address: &str) -> String {
     create_id_from_unique_string(&format!("{}:{}", network, address))
 }
 
-pub fn create_id_from_unique_string(text: &str) -> String {
+pub fn create_id_from_unique_string(text: impl Into<String>) -> String {
     let mut hasher = Md5::new();
-    hasher.update(text);
+    hasher.update(text.into());
     let hashed: [u8; 16] = hasher.finalize().into();
 
     let uuid = Builder::from_random_bytes(hashed).into_uuid();

@@ -124,7 +124,7 @@ impl EventHandler {
                 block.block_number,
                 block.timestamp,
                 space.id,
-                Account::generate_id(&personal_space_created.initial_editor),
+                Account::gen_id(&personal_space_created.initial_editor),
             );
         } else {
             tracing::warn!(

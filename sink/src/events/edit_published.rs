@@ -5,8 +5,10 @@ use ipfs::deserialize;
 use sdk::{
     error::DatabaseError,
     indexer_ids,
-    mapping::{query_utils::Query, relation, relation_node, triple},
-    models::{self, Proposals, Space},
+    mapping::{entity_node, query_utils::Query, relation_node, triple, Entity},
+    models::{
+        self, edit::{Edits, ProposedEdit}, Proposal, Space
+    },
     pb::{self, geo},
 };
 use web3_utils::checksum_address;
@@ -16,9 +18,10 @@ use super::{handler::HandlerError, EventHandler};
 pub struct Edit {
     pub name: String,
     pub proposal_id: String,
-    pub space: String,
-    pub space_address: String,
+    pub space_id: String,
+    pub space_plugin_address: String,
     pub creator: String,
+    pub content_uri: String,
     pub ops: Vec<pb::ipfs::Op>,
 }
 
@@ -47,16 +50,18 @@ impl EventHandler {
         // personal spaces
 
         stream::iter(proposals)
+            .enumerate()
             .map(Ok) // Need to wrap the proposal in a Result to use try_for_each
-            .try_for_each(|proposal| async move {
+            .try_for_each(|(idx, proposal)| async move {
                 tracing::info!(
-                    "Block #{} ({}): Processing ops for proposal {}",
+                    "Block #{} ({}): Processing {} ops for proposal {}",
                     block.block_number,
                     block.timestamp,
+                    proposal.ops.len(),
                     proposal.proposal_id
                 );
 
-                self.process_edit(block, proposal).await
+                self.process_edit(block, proposal, idx).await
             })
             .await
             .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
@@ -64,36 +69,41 @@ impl EventHandler {
         Ok(())
     }
 
-    async fn fetch_edit(&self, edit: &geo::EditPublished) -> Result<Vec<Edit>, HandlerError> {
-        let space = if let Some(space) = Space::find_by_dao_address(&self.neo4j, &edit.dao_address)
-            .await
-            .map_err(|e| {
-                HandlerError::Other(
-                    format!(
-                        "Error querying space with plugin address {} {e:?}",
-                        checksum_address(&edit.plugin_address)
+    async fn fetch_edit(
+        &self,
+        edit_published: &geo::EditPublished,
+    ) -> Result<Vec<Edit>, HandlerError> {
+        // TODO: (optimization) Check if need to fetch entire space
+        let space = if let Some(space) =
+            Space::find_by_dao_address(&self.neo4j, &edit_published.dao_address)
+                .await
+                .map_err(|e| {
+                    HandlerError::Other(
+                        format!(
+                            "Error querying space with plugin address {} {e:?}",
+                            checksum_address(&edit_published.plugin_address)
+                        )
+                        .into(),
                     )
-                    .into(),
-                )
-            })? {
+                })? {
             space
         } else {
             tracing::warn!(
                 "Matching space in edit not found for plugin address {}",
-                edit.plugin_address
+                edit_published.plugin_address
             );
             return Ok(vec![]);
         };
 
         let bytes = self
             .ipfs
-            .get_bytes(&edit.content_uri.replace("ipfs://", ""), true)
+            .get_bytes(&edit_published.content_uri.replace("ipfs://", ""), true)
             .await?;
 
         let metadata = if let Ok(metadata) = deserialize::<pb::ipfs::IpfsMetadata>(&bytes) {
             metadata
         } else {
-            tracing::warn!("Invalid metadata for edit {}", edit.content_uri);
+            tracing::warn!("Invalid metadata for edit {}", edit_published.content_uri);
             return Ok(vec![]);
         };
 
@@ -102,9 +112,10 @@ impl EventHandler {
                 let edit = deserialize::<pb::ipfs::Edit>(&bytes)?;
                 Ok(vec![Edit {
                     name: edit.name,
+                    content_uri: edit_published.content_uri.clone(),
                     proposal_id: edit.id,
-                    space: space.id.to_string(),
-                    space_address: space
+                    space_id: space.id.to_string(),
+                    space_plugin_address: space
                         .attributes
                         .space_plugin_address
                         .clone()
@@ -115,30 +126,33 @@ impl EventHandler {
             }
             pb::ipfs::ActionType::ImportSpace => {
                 let import = deserialize::<pb::ipfs::Import>(&bytes)?;
-                let edits = stream::iter(import.edits)
-                    .map(|edit| async move {
-                        let hash = edit.replace("ipfs://", "");
-                        self.ipfs.get::<pb::ipfs::ImportEdit>(&hash, true).await
-                    })
-                    .buffer_unordered(10)
-                    .try_collect::<Vec<_>>()
-                    .await?;
-
-                Ok(edits
-                    .into_iter()
-                    .map(|edit| Edit {
-                        name: edit.name,
-                        proposal_id: edit.id,
-                        space: space.id.to_string(),
-                        space_address: space
+                stream::iter(import.edits)
+                    .map(|edit_uri| {
+                        let space_id = space.id.clone();
+                        let space_plugin_address = space
                             .attributes
                             .space_plugin_address
                             .clone()
-                            .expect("Space plugin address not found"),
-                        creator: edit.authors[0].clone(),
-                        ops: edit.ops,
+                            .expect("Space plugin address not found");
+
+                        async move {
+                            let hash = edit_uri.replace("ipfs://", "");
+                            let edit = self.ipfs.get::<pb::ipfs::ImportEdit>(&hash, true).await?;
+
+                            Ok(Edit {
+                                name: edit.name,
+                                content_uri: edit_uri,
+                                proposal_id: edit.id,
+                                space_id,
+                                space_plugin_address,
+                                creator: edit.authors[0].clone(),
+                                ops: edit.ops,
+                            })
+                        }
                     })
-                    .collect())
+                    .buffer_unordered(10)
+                    .try_collect::<Vec<_>>()
+                    .await
             }
             _ => Ok(vec![]),
         }
@@ -148,27 +162,25 @@ impl EventHandler {
         &self,
         block: &models::BlockMetadata,
         edit: Edit,
+        index: usize,
     ) -> Result<(), DatabaseError> {
-        // Get version index of the edit
-        let relation = relation_node::find_one(
-            &self.neo4j,
-            &Proposals::gen_id(&edit.space, &edit.proposal_id),
-            indexer_ids::INDEXER_SPACE_ID,
-            None,
-        )
-        .send()
-        .await?;
+        // TODO: Store edit metadata
+        // 1. Check if edit exists (i.e.: was created via edit proposal)
+        // 2. If exists, update edit metadata
+        // 3. If not, create edit metadata
 
-        let version_index = relation
-            .map(|relation| relation.index().to_string())
-            .unwrap_or("0".to_string());
+        let version_index = format!("{}:{}", block.block_number, index);
+        let edit_medatata = models::Edit::new(edit.name, edit.content_uri, Some(version_index.clone()));
+        let proposal_id = Proposal::gen_id(&edit.space_plugin_address, &edit.proposal_id);
+        self.create_edit_relations(block, edit_medatata, &edit.space_id, &proposal_id)
+            .await?;
 
         // Group ops by entity and type
         let entity_ops = EntityOps::from_ops(edit.ops);
 
         for (_, op_groups) in entity_ops.0 {
             // Handle SET_TRIPLE ops
-            triple::insert_many(&self.neo4j, block, &edit.space, &version_index)
+            triple::insert_many(&self.neo4j, block, &edit.space_id, &version_index)
                 .triples(
                     op_groups
                         .set_triples
@@ -179,7 +191,7 @@ impl EventHandler {
                 .await?;
 
             // Handle DELETE_TRIPLE ops
-            triple::delete_many(&self.neo4j, block, &edit.space, &version_index)
+            triple::delete_many(&self.neo4j, block, &edit.space_id, &version_index)
                 .triples(
                     op_groups
                         .delete_triples
@@ -190,7 +202,7 @@ impl EventHandler {
                 .await?;
 
             // Handle CREATE_RELATION ops
-            relation_node::insert_many(&self.neo4j, block, &edit.space, &version_index)
+            relation_node::insert_many(&self.neo4j, block, &edit.space_id, &version_index)
                 .relations(
                     op_groups
                         .create_relations
@@ -201,7 +213,7 @@ impl EventHandler {
                 .await?;
 
             // Handle DELETE_RELATION ops
-            relation_node::delete_many(&self.neo4j, block, &edit.space, &version_index)
+            relation_node::delete_many(&self.neo4j, block, &edit.space_id, &version_index)
                 .relations(
                     op_groups
                         .delete_relations
@@ -211,6 +223,46 @@ impl EventHandler {
                 .send()
                 .await?;
         }
+
+        Ok(())
+    }
+
+    async fn create_edit_relations(
+        &self,
+        block: &models::BlockMetadata,
+        edit: Entity<models::Edit>,
+        space_id: &str,
+        proposal_id: &str,
+    ) -> Result<(), DatabaseError> {
+        let edit_id = edit.id.clone();
+
+        // Insert edit
+        edit.insert(&self.neo4j, block, space_id, "0")
+            .send()
+            .await?;
+
+        // Create relation between proposal and edit
+        if let Some(proposal) = entity_node::find_one(&self.neo4j, proposal_id)
+            .send()
+            .await?
+        {
+            ProposedEdit::new(proposal.id, &edit_id)
+                .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
+                .send()
+                .await?;
+        } else {
+            tracing::warn!(
+                "Block #{} ({}): Proposal {proposal_id} not found for edit {edit_id}",
+                block.block_number,
+                block.timestamp,
+            );
+        }
+
+        // Create relation between space and edit
+        Edits::new(space_id, edit_id)
+            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
+            .send()
+            .await?;
 
         Ok(())
     }

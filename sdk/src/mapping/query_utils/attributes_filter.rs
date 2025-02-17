@@ -45,7 +45,7 @@ impl AttributeFilter {
         let attr_node_var = format!("{node_var}_{}", self.attribute);
 
         let mut query_part = QueryPart::default()
-            .match_clause(format!("({node_var}) -[{attr_rel_var}:ATTRIBUTE]-> ({attr_node_var} {{attribute: $attribute}})"))
+            .match_clause(format!("({node_var}) -[{attr_rel_var}:ATTRIBUTE]-> ({attr_node_var}:Attribute {{id: $attribute}})"))
             .params("attribute", self.attribute)
             .merge(self.space_version.into_query_part(&attr_rel_var));
 

@@ -12,7 +12,7 @@ pub struct Account {
 }
 
 impl Account {
-    pub fn generate_id(address: &str) -> String {
+    pub fn gen_id(address: &str) -> String {
         ids::create_id_from_unique_string(&checksum_address(address))
     }
 
@@ -20,7 +20,7 @@ impl Account {
         let checksummed_address = checksum_address(&address);
 
         Entity::new(
-            Self::generate_id(&checksummed_address),
+            Self::gen_id(&checksummed_address),
             Self {
                 address: checksummed_address,
             },

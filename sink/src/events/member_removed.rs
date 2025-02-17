@@ -17,7 +17,7 @@ impl EventHandler {
             SpaceMember::remove(
                 &self.neo4j,
                 block,
-                &Account::generate_id(&member_removed.member_address),
+                &Account::gen_id(&member_removed.member_address),
                 &space.id,
             )
             .await?;

@@ -16,8 +16,6 @@ use crate::{
     pb,
 };
 
-use super::BlockMetadata;
-
 /// Common fields for all proposals
 #[derive(Clone)]
 pub struct Proposal {
@@ -29,8 +27,12 @@ pub struct Proposal {
 }
 
 impl Proposal {
-    pub fn generate_id(proposal_id: &str) -> String {
-        ids::create_id_from_unique_string(proposal_id)
+    pub fn gen_id(gov_plugin_address: &str, proposal_id: &str) -> String {
+        ids::create_id_from_unique_string(format!(
+            "{}:{}",
+            checksum_address(gov_plugin_address),
+            proposal_id
+        ))
     }
 
     /// Finds a proposal by its onchain ID and plugin address
@@ -43,7 +45,7 @@ impl Proposal {
             entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
                 .attribute(
                     AttributeFilter::new("onchain_proposal_id")
-                        .value(PropFilter::new().value(checksum_address(proposal_id))),
+                        .value(PropFilter::new().value(proposal_id)),
                 )
                 .attribute(
                     AttributeFilter::new("plugin_address")
@@ -56,35 +58,35 @@ impl Proposal {
         )
     }
 
-    /// Returns a query to set the status of a proposal given its ID
-    pub async fn set_status(
-        neo4j: &neo4rs::Graph,
-        block: &BlockMetadata,
-        proposal_id: &str,
-        status: ProposalStatus,
-    ) -> Result<(), DatabaseError> {
-        const QUERY: &str = const_format::formatcp!(
-            r#"
-            MATCH (n:`{PROPOSAL_TYPE}` {{onchain_proposal_id: $proposal_id}})
-            SET n.status = $status
-            SET n += {{
-                `{UPDATED_AT}`: datetime($updated_at),
-                `{UPDATED_AT_BLOCK}`: $updated_at_block
-            }}
-            "#,
-            PROPOSAL_TYPE = indexer_ids::PROPOSAL_TYPE,
-            UPDATED_AT = indexer_ids::UPDATED_AT_TIMESTAMP,
-            UPDATED_AT_BLOCK = indexer_ids::UPDATED_AT_BLOCK,
-        );
+    // /// Returns a query to set the status of a proposal given its ID
+    // pub async fn set_status(
+    //     neo4j: &neo4rs::Graph,
+    //     block: &BlockMetadata,
+    //     proposal_id: &str,
+    //     status: ProposalStatus,
+    // ) -> Result<(), DatabaseError> {
+    //     const QUERY: &str = const_format::formatcp!(
+    //         r#"
+    //         MATCH (n:`{PROPOSAL_TYPE}` {{onchain_proposal_id: $proposal_id}})
+    //         SET n.status = $status
+    //         SET n += {{
+    //             `{UPDATED_AT}`: datetime($updated_at),
+    //             `{UPDATED_AT_BLOCK}`: $updated_at_block
+    //         }}
+    //         "#,
+    //         PROPOSAL_TYPE = indexer_ids::PROPOSAL_TYPE,
+    //         UPDATED_AT = indexer_ids::UPDATED_AT_TIMESTAMP,
+    //         UPDATED_AT_BLOCK = indexer_ids::UPDATED_AT_BLOCK,
+    //     );
 
-        let query = neo4rs::query(QUERY)
-            .param("proposal_id", proposal_id)
-            .param("status", status.to_string())
-            .param("updated_at", block.timestamp.to_rfc3339())
-            .param("updated_at_block", block.block_number.to_string());
+    //     let query = neo4rs::query(QUERY)
+    //         .param("proposal_id", proposal_id)
+    //         .param("status", status.to_string())
+    //         .param("updated_at", block.timestamp.to_rfc3339())
+    //         .param("updated_at_block", block.block_number.to_string());
 
-        Ok(neo4j.run(query).await?)
-    }
+    //     Ok(neo4j.run(query).await?)
+    // }
 }
 
 impl IntoAttributes for Proposal {
@@ -194,7 +196,7 @@ pub struct Proposals;
 
 impl Proposals {
     pub fn gen_id(space_id: &str, proposal_id: &str) -> String {
-        ids::create_id_from_unique_string(&format!("{space_id}:{proposal_id}"))
+        ids::create_id_from_unique_string(&format!("PROPOSALS:{space_id}:{proposal_id}"))
     }
 
     pub fn new(space_id: &str, proposal_id: &str) -> Relation<Self> {
@@ -204,6 +206,17 @@ impl Proposals {
             proposal_id,
             indexer_ids::PROPOSALS,
             "a0",
+            Proposals {},
+        )
+    }
+
+    pub fn with_index(space_id: &str, proposal_id: &str, index: impl Into<Value>) -> Relation<Self> {
+        Relation::new(
+            &Self::gen_id(space_id, proposal_id),
+            space_id,
+            proposal_id,
+            indexer_ids::PROPOSALS,
+            index,
             Proposals {},
         )
     }
@@ -262,7 +275,7 @@ pub struct AddMemberProposal {
 impl AddMemberProposal {
     pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            Proposal::generate_id(&proposal.onchain_proposal_id),
+            Proposal::gen_id(&proposal.plugin_address, &proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -296,7 +309,7 @@ pub struct RemoveMemberProposal {
 impl RemoveMemberProposal {
     pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            Proposal::generate_id(&proposal.onchain_proposal_id),
+            Proposal::gen_id(&proposal.plugin_address, &proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -330,7 +343,7 @@ pub struct AddEditorProposal {
 impl AddEditorProposal {
     pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            Proposal::generate_id(&proposal.onchain_proposal_id),
+            Proposal::gen_id(&proposal.plugin_address, &proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -364,7 +377,7 @@ pub struct RemoveEditorProposal {
 impl RemoveEditorProposal {
     pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            Proposal::generate_id(&proposal.onchain_proposal_id),
+            Proposal::gen_id(&proposal.plugin_address, &proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -437,7 +450,7 @@ pub struct AddSubspaceProposal {
 impl AddSubspaceProposal {
     pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            Proposal::generate_id(&proposal.onchain_proposal_id),
+            Proposal::gen_id(&proposal.plugin_address, &proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -471,7 +484,7 @@ pub struct RemoveSubspaceProposal {
 impl RemoveSubspaceProposal {
     pub fn new(proposal: Proposal) -> Entity<Self> {
         Entity::new(
-            Proposal::generate_id(&proposal.onchain_proposal_id),
+            Proposal::gen_id(&proposal.plugin_address, &proposal.onchain_proposal_id),
             Self { proposal },
         )
         .with_type(indexer_ids::PROPOSAL_TYPE)
@@ -535,17 +548,15 @@ impl FromAttributes for ProposedSubspace {
 
 #[derive(Clone)]
 pub struct EditProposal {
-    pub name: String,
     pub proposal: Proposal,
     pub content_uri: String,
 }
 
 impl EditProposal {
-    pub fn new(name: String, proposal: Proposal, content_uri: String) -> Entity<Self> {
+    pub fn new(proposal: Proposal, content_uri: String) -> Entity<Self> {
         Entity::new(
-            Proposal::generate_id(&proposal.onchain_proposal_id),
+            Proposal::gen_id(&proposal.plugin_address, &proposal.onchain_proposal_id),
             Self {
-                name,
                 proposal,
                 content_uri,
             },
@@ -560,8 +571,7 @@ impl IntoAttributes for EditProposal {
         Ok(self
             .proposal
             .into_attributes()?
-            .attribute(("content_uri", self.content_uri))
-            .attribute(("name", self.name)))
+            .attribute(("content_uri", self.content_uri)))
     }
 }
 
@@ -571,7 +581,6 @@ impl FromAttributes for EditProposal {
     ) -> Result<Self, mapping::TriplesConversionError> {
         Ok(Self {
             content_uri: attributes.pop("content_uri")?,
-            name: attributes.pop("name")?,
             proposal: Proposal::from_attributes(attributes)?,
         })
     }
