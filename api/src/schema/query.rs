@@ -1,4 +1,4 @@
-use juniper::{graphql_object, Executor, ScalarValue};
+use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use sdk::mapping::{self, entity_node, relation_node, Query as _};
 
@@ -21,9 +21,19 @@ impl Query {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         id: String,
         space_id: String,
-        // version_id: Option<String>,
-    ) -> Option<Entity> {
-        Entity::load(&executor.context().0, id, space_id, None).await
+        version_id: Option<String>,
+    ) -> FieldResult<Option<Entity>> {
+        tracing::info!("version_id: {:?}", version_id);
+        let version_index = if let Some(version_id) = version_id {
+            mapping::get_version_index(&executor.context().0, version_id)
+                .await?
+        } else {
+            None
+        };
+        tracing::info!("version_index: {:?}", version_index);
+
+        Entity::load(&executor.context().0, id, space_id, version_index)
+            .await
     }
 
     // TODO: Add order_by and order_direction
@@ -65,9 +75,16 @@ impl Query {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         id: String,
         space_id: String,
-        // version_id: Option<String>,
-    ) -> Option<Relation> {
-        Relation::load(&executor.context().0, id, space_id, None).await
+        version_id: Option<String>,
+    ) -> FieldResult<Option<Relation>> {
+        let version_index = if let Some(version_id) = version_id {
+            mapping::get_version_index(&executor.context().0, version_id)
+                .await?
+        } else {
+            None
+        };
+
+        Relation::load(&executor.context().0, id, space_id, version_index).await
     }
 
     // TODO: Add order_by and order_direction

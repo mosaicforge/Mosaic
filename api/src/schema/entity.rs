@@ -1,4 +1,4 @@
-use juniper::{graphql_object, Executor, ScalarValue};
+use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use sdk::{
     mapping::{
@@ -14,7 +14,7 @@ use crate::{
     schema::{Relation, Triple},
 };
 
-use super::{AttributeFilter, EntityRelationFilter};
+use super::{AttributeFilter, EntityRelationFilter, EntityVersion};
 
 #[derive(Debug)]
 pub struct Entity {
@@ -37,15 +37,14 @@ impl Entity {
         id: impl Into<String>,
         space_id: impl Into<String>,
         space_version: Option<String>,
-    ) -> Option<Self> {
+    ) -> FieldResult<Option<Self>> {
         let id = id.into();
         let space_id = space_id.into();
 
-        entity_node::find_one(neo4j, id)
+        Ok(entity_node::find_one(neo4j, id)
             .send()
-            .await
-            .expect("Failed to find entity")
-            .map(|node| Entity::new(node, space_id, space_version))
+            .await?
+            .map(|node| Entity::new(node, space_id, space_version)))
     }
 }
 
@@ -220,7 +219,7 @@ impl Entity {
         &'a self,
         r#where: Option<EntityRelationFilter>,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-    ) -> Vec<Relation> {
+    ) -> FieldResult<Vec<Relation>> {
         let mut base_query = self.node.get_outbound_relations(
             &executor.context().0,
             &self.space_id,
@@ -231,14 +230,34 @@ impl Entity {
             base_query = filter.apply_filter(base_query);
         }
 
-        base_query
+        Ok(base_query
             .send()
-            .await
-            .expect("Failed to get relations")
+            .await?
             .into_iter()
             .map(|relation| {
                 Relation::new(relation, self.space_id.clone(), self.space_version.clone())
             })
-            .collect()
+            .collect())
+    }
+
+    // TODO: Add version filtering (e.g.: time range, edit author)
+    /// Versions of the entity, ordered chronologically
+    async fn versions<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> FieldResult<Vec<EntityVersion>> {
+        Ok(self.node
+            .versions(&executor.context().0, self.space_id.clone())
+            .await?
+            .into_iter()
+            .map(|version| {
+                EntityVersion::new(
+                    version.id,
+                    version.entity_id,
+                    version.index,
+                    self.space_id.clone(),
+                )
+            })
+            .collect())
     }
 }

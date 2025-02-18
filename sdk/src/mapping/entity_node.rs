@@ -106,34 +106,32 @@ impl EntityNode {
         )
     }
 
-    /// Get all the edits that have been applied to this entity
-    pub async fn edits(
+    /// Get all the versions that have been applied to this entity
+    pub async fn versions(
         &self,
         neo4j: &neo4rs::Graph,
-    ) -> Result<Vec<Self>, DatabaseError> {
+        space_id: impl Into<String>,
+    ) -> Result<Vec<EntityVersion>, DatabaseError> {
         const QUERY: &str = r#"
             MATCH (:Entity {id: $id}) -[r:ATTRIBUTE]-> (:Attribute)
+            WHERE r.space_id = $space_id
             WITH COLLECT(DISTINCT r.min_version) AS versions
             UNWIND versions AS version
             MATCH (e:Entity) -[:ATTRIBUTE]-> ({id: $EDIT_INDEX_ATTR, value: version})
-            RETURN e
+            RETURN {entity_id: $id, id: e.id, index: version}
         "#;
 
         let query = neo4rs::query(QUERY)
             .param("id", self.id.clone())
+            .param("space_id", space_id.into())
             .param("EDIT_INDEX_ATTR", indexer_ids::EDIT_INDEX_ATTRIBUTE);
-
-        #[derive(Debug, Deserialize)]
-        struct RowResult {
-            e: EntityNode,
-        }
 
         Ok(neo4j
             .execute(query)
             .await?
-            .into_stream_as::<RowResult>()
+            .into_stream_as::<EntityVersion>()
             .map_err(DatabaseError::from)
-            .and_then(|row| async move { Ok(row.e) })
+            .and_then(|row| async move { Ok(row) })
             .try_collect::<Vec<_>>()
             .await?)
     }
@@ -173,6 +171,13 @@ pub struct SystemProperties {
     pub updated_at: DateTime<Utc>,
     #[serde(rename = "7pXCVQDV9C7ozrXkpVg8RJ")] // UPDATED_AT_BLOCK
     pub updated_at_block: String,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct EntityVersion {
+    pub entity_id: String,
+    pub id: String,
+    pub index: String,
 }
 
 impl Default for SystemProperties {

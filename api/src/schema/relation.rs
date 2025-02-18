@@ -1,4 +1,4 @@
-use juniper::{graphql_object, Executor, ScalarValue};
+use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use sdk::{
     mapping::{query_utils::Query, relation_node, RelationNode},
@@ -30,15 +30,14 @@ impl Relation {
         id: impl Into<String>,
         space_id: impl Into<String>,
         space_version: Option<String>,
-    ) -> Option<Self> {
+    ) -> FieldResult<Option<Self>> {
         let id = id.into();
         let space_id = space_id.into();
 
-        relation_node::find_one(neo4j, id, space_id.clone(), space_version.clone())
+        Ok(relation_node::find_one(neo4j, id, space_id.clone(), space_version.clone())
             .send()
-            .await
-            .expect("Failed to find relation")
-            .map(|node| Relation::new(node, space_id, space_version))
+            .await?
+            .map(|node| Relation::new(node, space_id, space_version)))
     }
 }
 
@@ -55,59 +54,59 @@ impl Relation {
     async fn entity<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-    ) -> Entity {
-        Entity::load(
+    ) -> FieldResult<Entity> {
+        Ok(Entity::load(
             &executor.context().0,
             &self.node.id,
             self.space_id.clone(),
             self.space_version.clone(),
         )
-        .await
-        .expect("Relation entity not found")
+        .await?
+        .expect("Relation entity not found"))
     }
 
     /// Relation type of the relation
     async fn relation_type<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-    ) -> Entity {
-        Entity::load(
+    ) -> FieldResult<Entity> {
+        Ok(Entity::load(
             &executor.context().0,
             &self.node.relation_type,
             self.space_id.clone(),
             self.space_version.clone(),
         )
-        .await
-        .expect("Relation type entity not found")
+        .await?
+        .expect("Relation type entity not found"))
     }
 
     /// Entity from which the relation originates
     async fn from<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-    ) -> Entity {
-        Entity::load(
+    ) -> FieldResult<Entity> {
+        Ok(Entity::load(
             &executor.context().0,
             &self.node.from,
             self.space_id.clone(),
             self.space_version.clone(),
         )
-        .await
-        .expect("From entity not found")
+        .await?
+        .expect("Relation from entity not found"))
     }
 
     /// Entity to which the relation points
     async fn to<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-    ) -> Entity {
-        Entity::load(
+    ) -> FieldResult<Entity> {
+        Ok(Entity::load(
             &executor.context().0,
             &self.node.to,
             self.space_id.clone(),
             self.space_version.clone(),
         )
-        .await
-        .expect("To entity not found")
+        .await?
+        .expect("Relation to entity not found"))
     }
 }

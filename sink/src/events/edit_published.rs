@@ -5,7 +5,7 @@ use ipfs::deserialize;
 use sdk::{
     error::DatabaseError,
     indexer_ids,
-    mapping::{entity_node, query_utils::Query, relation_node, triple, Entity},
+    mapping::{self, entity_node, query_utils::Query, relation_node, triple, Entity},
     models::{
         self, edit::{Edits, ProposedEdit}, Proposal, Space
     },
@@ -169,7 +169,7 @@ impl EventHandler {
         // 2. If exists, update edit metadata
         // 3. If not, create edit metadata
 
-        let version_index = format!("{}:{}", block.block_number, index);
+        let version_index = mapping::new_version_index(block.block_number, index);
         let edit_medatata = models::Edit::new(edit.name, edit.content_uri, Some(version_index.clone()));
         let proposal_id = Proposal::gen_id(&edit.space_plugin_address, &edit.proposal_id);
         self.create_edit_relations(block, edit_medatata, &edit.space_id, &proposal_id)
@@ -237,7 +237,7 @@ impl EventHandler {
         let edit_id = edit.id.clone();
 
         // Insert edit
-        edit.insert(&self.neo4j, block, space_id, "0")
+        edit.insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
             .send()
             .await?;
 
