@@ -3,7 +3,10 @@ use sdk::{
     indexer_ids,
     mapping::{attributes::IntoAttributes, query_utils::Query, Entity},
     models::{
-        proposal::{ProposalStatus, ProposedAccount, ProposedSubspace}, Account, AddEditorProposal, AddMemberProposal, AddSubspaceProposal, BlockMetadata, EditProposal, Proposal, ProposalCreator, Proposals, RemoveEditorProposal, RemoveMemberProposal, RemoveSubspaceProposal, Space
+        proposal::{ProposalStatus, ProposedAccount, ProposedSubspace},
+        Account, AddEditorProposal, AddMemberProposal, AddSubspaceProposal, BlockMetadata,
+        EditProposal, Proposal, ProposalCreator, Proposals, RemoveEditorProposal,
+        RemoveMemberProposal, RemoveSubspaceProposal, Space,
     },
     network_ids,
     pb::geo,

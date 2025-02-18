@@ -36,7 +36,7 @@ impl Attributes {
             .ok_or_else(|| TriplesConversionError::MissingAttribute(attribute_id.to_string()))?
             .value
             .try_into()
-            .map_err(|err| TriplesConversionError::InvalidValue(err))
+            .map_err(TriplesConversionError::InvalidValue)
     }
 
     pub fn pop_opt<T>(&mut self, attribute_id: &str) -> Result<Option<T>, TriplesConversionError>
@@ -48,7 +48,7 @@ impl Attributes {
             .map(|attr| {
                 attr.value
                     .try_into()
-                    .map_err(|err| TriplesConversionError::InvalidValue(err))
+                    .map_err(TriplesConversionError::InvalidValue)
             })
             .transpose()
     }
@@ -63,7 +63,7 @@ impl Attributes {
             .value
             .clone()
             .try_into()
-            .map_err(|err| TriplesConversionError::InvalidValue(err))
+            .map_err(TriplesConversionError::InvalidValue)
     }
 
     pub fn get_opt<T>(&self, attribute_id: &str) -> Result<Option<T>, TriplesConversionError>
@@ -76,7 +76,7 @@ impl Attributes {
                 attr.value
                     .clone()
                     .try_into()
-                    .map_err(|err| TriplesConversionError::InvalidValue(err))
+                    .map_err(TriplesConversionError::InvalidValue)
             })
             .transpose()
     }
@@ -106,10 +106,10 @@ impl Attributes {
     }
 }
 
-impl Into<BoltType> for Attributes {
-    fn into(self) -> BoltType {
+impl From<Attributes> for BoltType {
+    fn from(attributes: Attributes) -> Self {
         BoltType::List(BoltList {
-            value: self.0.into_iter().map(|(_, attr)| attr.into()).collect(),
+            value: attributes.0.into_values().map(|attr| attr.into()).collect(),
         })
     }
 }
@@ -180,7 +180,7 @@ pub fn insert_one<T>(
     )
 }
 
-/// Aggregate triples by entity as triple sets
+// /// Aggregate triples by entity as triple sets
 // pub fn aggregate(triples: Vec<Triple>) -> Vec<Attributes> {
 //     let mut map = HashMap::new();
 

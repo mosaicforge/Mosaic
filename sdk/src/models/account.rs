@@ -13,7 +13,7 @@ pub struct Account {
 
 impl Account {
     pub fn gen_id(address: &str) -> String {
-        ids::create_id_from_unique_string(&checksum_address(address))
+        ids::create_id_from_unique_string(checksum_address(address))
     }
 
     pub fn new(address: String) -> Entity<Self> {

@@ -1,5 +1,4 @@
 use juniper::{GraphQLEnum, GraphQLInputObject};
-use sdk::mapping;
 
 #[derive(GraphQLInputObject)]
 pub struct EntityOrderBy {

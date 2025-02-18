@@ -191,13 +191,13 @@ impl FindMany {
 impl IntoQueryPart for FindMany {
     fn into_query_part(self) -> QueryPart {
         let mut base_query = QueryPart::default()
-            .match_clause(&format!(
+            .match_clause(format!(
                 "(from) <-[:`{FROM_ENTITY}`]- ({node_var}) -[:`{TO_ENTITY}`]-> (to)",
                 FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
                 TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
                 node_var = self.order_by.node_var,
             ))
-            .match_clause(&format!(
+            .match_clause(format!(
                 "({node_var}) -[:`{RELATION_TYPE}`]-> (rt)",
                 RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
                 node_var = self.order_by.node_var,

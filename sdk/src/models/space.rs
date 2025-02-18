@@ -34,7 +34,7 @@ pub struct Space {
 
 impl Space {
     pub fn generate_id(network: &str, address: &str) -> String {
-        ids::create_id_from_unique_string(&format!("{network}:{}", checksum_address(address)))
+        ids::create_id_from_unique_string(format!("{network}:{}", checksum_address(address)))
     }
 
     pub fn builder(id: &str, dao_contract_address: &str) -> SpaceBuilder {
@@ -65,7 +65,7 @@ impl Space {
             entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
                 .attribute(
                     AttributeFilter::new(indexer_ids::SPACE_PLUGIN_ADDRESS)
-                        .value(PropFilter::new().value(checksum_address(space_plugin_address))),
+                        .value(PropFilter::default().value(checksum_address(space_plugin_address))),
                 )
                 .send()
                 .await?
@@ -82,8 +82,9 @@ impl Space {
         Ok(
             entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
                 .attribute(
-                    AttributeFilter::new(indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS)
-                        .value(PropFilter::new().value(checksum_address(voting_plugin_address))),
+                    AttributeFilter::new(indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS).value(
+                        PropFilter::default().value(checksum_address(voting_plugin_address)),
+                    ),
                 )
                 .send()
                 .await?
@@ -101,7 +102,7 @@ impl Space {
             entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
                 .attribute(
                     AttributeFilter::new(indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS)
-                        .value(PropFilter::new().value(checksum_address(member_access_plugin))),
+                        .value(PropFilter::default().value(checksum_address(member_access_plugin))),
                 )
                 .send()
                 .await?
@@ -119,7 +120,7 @@ impl Space {
             entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
                 .attribute(
                     AttributeFilter::new(indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS).value(
-                        PropFilter::new().value(checksum_address(personal_space_admin_plugin)),
+                        PropFilter::default().value(checksum_address(personal_space_admin_plugin)),
                     ),
                 )
                 .send()
@@ -130,7 +131,7 @@ impl Space {
     }
 
     /// Returns all spaces
-    pub async fn find_all(neo4j: &neo4rs::Graph) -> Result<Vec<Self>, DatabaseError> {
+    pub async fn find_all(_neo4j: &neo4rs::Graph) -> Result<Vec<Self>, DatabaseError> {
         // const QUERY: &str = const_format::formatcp!(
         //     "MATCH (n:`{INDEXED_SPACE}`) RETURN n",
         //     INDEXED_SPACE = system_ids::SPACE_TYPE,
@@ -213,9 +214,9 @@ pub enum SpaceGovernanceType {
     Personal,
 }
 
-impl Into<Value> for SpaceGovernanceType {
-    fn into(self) -> Value {
-        match self {
+impl From<SpaceGovernanceType> for Value {
+    fn from(governance_type: SpaceGovernanceType) -> Self {
+        match governance_type {
             SpaceGovernanceType::Public => Value::text("Public".to_string()),
             SpaceGovernanceType::Personal => Value::text("Personal".to_string()),
         }
@@ -321,12 +322,12 @@ pub struct ParentSpace;
 
 impl ParentSpace {
     pub fn generate_id(space_id: &str, parent_space_id: &str) -> String {
-        ids::create_id_from_unique_string(&format!("PARENT_SPACE:{space_id}:{parent_space_id}"))
+        ids::create_id_from_unique_string(format!("PARENT_SPACE:{space_id}:{parent_space_id}"))
     }
 
     pub fn new(space_id: &str, parent_space_id: &str) -> Relation<Self> {
         Relation::new(
-            &Self::generate_id(space_id, parent_space_id),
+            Self::generate_id(space_id, parent_space_id),
             space_id,
             parent_space_id,
             indexer_ids::PARENT_SPACE,

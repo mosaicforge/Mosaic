@@ -34,10 +34,12 @@ impl Relation {
         let id = id.into();
         let space_id = space_id.into();
 
-        Ok(relation_node::find_one(neo4j, id, space_id.clone(), space_version.clone())
-            .send()
-            .await?
-            .map(|node| Relation::new(node, space_id, space_version)))
+        Ok(
+            relation_node::find_one(neo4j, id, space_id.clone(), space_version.clone())
+                .send()
+                .await?
+                .map(|node| Relation::new(node, space_id, space_version)),
+        )
     }
 }
 

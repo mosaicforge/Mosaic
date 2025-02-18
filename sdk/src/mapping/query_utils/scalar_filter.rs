@@ -96,7 +96,7 @@ impl IntoQueryPart for ScalarFieldFilter {
         let mut query_part = QueryPart::default();
 
         if let Some(value) = self.value {
-            query_part = query_part.where_clause(&format!(
+            query_part = query_part.where_clause(format!(
                 "{}.`{}` = $value_{}",
                 self.node_var, self.field_name, self.id,
             ));
@@ -104,7 +104,7 @@ impl IntoQueryPart for ScalarFieldFilter {
         }
 
         if let Some(value_not) = self.value_not {
-            query_part = query_part.where_clause(&format!(
+            query_part = query_part.where_clause(format!(
                 "{}.`{}` <> $value_not_{}",
                 self.node_var, self.field_name, self.id,
             ));
@@ -112,7 +112,7 @@ impl IntoQueryPart for ScalarFieldFilter {
         }
 
         if let Some(value_in) = self.value_in {
-            query_part = query_part.where_clause(&format!(
+            query_part = query_part.where_clause(format!(
                 "{}.`{}` IN $value_in_{}",
                 self.node_var, self.field_name, self.id,
             ));
@@ -120,7 +120,7 @@ impl IntoQueryPart for ScalarFieldFilter {
         }
 
         if let Some(value_not_in) = self.value_not_in {
-            query_part = query_part.where_clause(&format!(
+            query_part = query_part.where_clause(format!(
                 "{}.`{}` NOT IN $value_not_in_{}",
                 self.node_var, self.field_name, self.id,
             ));

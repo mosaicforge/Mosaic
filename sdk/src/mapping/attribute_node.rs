@@ -24,23 +24,23 @@ impl AttributeNode {
     }
 }
 
-impl Into<BoltType> for AttributeNode {
-    fn into(self) -> BoltType {
+impl From<AttributeNode> for BoltType {
+    fn from(attr: AttributeNode) -> Self {
         let mut map = HashMap::new();
-        map.insert(neo4rs::BoltString { value: "id".into() }, self.id.into());
+        map.insert(neo4rs::BoltString { value: "id".into() }, attr.id.into());
         map.insert(
             neo4rs::BoltString {
                 value: "value".into(),
             },
-            self.value.value.into(),
+            attr.value.value.into(),
         );
         map.insert(
             neo4rs::BoltString {
                 value: "value_type".into(),
             },
-            self.value.value_type.to_string().into(),
+            attr.value.value_type.to_string().into(),
         );
-        if let Some(format) = self.value.options.format {
+        if let Some(format) = attr.value.options.format {
             map.insert(
                 neo4rs::BoltString {
                     value: "format".into(),
@@ -48,7 +48,7 @@ impl Into<BoltType> for AttributeNode {
                 format.into(),
             );
         }
-        if let Some(unit) = self.value.options.unit {
+        if let Some(unit) = attr.value.options.unit {
             map.insert(
                 neo4rs::BoltString {
                     value: "unit".into(),
@@ -56,7 +56,7 @@ impl Into<BoltType> for AttributeNode {
                 unit.into(),
             );
         }
-        if let Some(language) = self.value.options.language {
+        if let Some(language) = attr.value.options.language {
             map.insert(
                 neo4rs::BoltString {
                     value: "language".into(),

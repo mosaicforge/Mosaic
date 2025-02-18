@@ -14,11 +14,11 @@ impl IntoQueryPart for FieldOrderBy {
         match self.order_direction {
             OrderDirection::Asc => {
                 query_part =
-                    query_part.order_by_clause(&format!("{}.`{}`", self.node_var, self.field_name));
+                    query_part.order_by_clause(format!("{}.`{}`", self.node_var, self.field_name));
             }
             OrderDirection::Desc => {
                 query_part = query_part
-                    .order_by_clause(&format!("{}.`{}` DESC", self.node_var, self.field_name));
+                    .order_by_clause(format!("{}.`{}` DESC", self.node_var, self.field_name));
             }
         }
 

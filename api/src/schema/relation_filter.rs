@@ -31,7 +31,7 @@ pub struct RelationFilter {
 
 impl RelationFilter {
     pub fn id_filter(&self) -> mapping::PropFilter<String> {
-        let mut filter = mapping::PropFilter::new();
+        let mut filter = mapping::PropFilter::default();
 
         if let Some(id) = &self.id {
             filter = filter.value(id);
@@ -53,7 +53,7 @@ impl RelationFilter {
     }
 
     pub fn relation_type_filter(&self) -> mapping::PropFilter<String> {
-        let mut filter = mapping::PropFilter::new();
+        let mut filter = mapping::PropFilter::default();
 
         if let Some(relation_type) = &self.relation_type {
             filter = filter.value(relation_type);

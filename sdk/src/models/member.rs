@@ -12,12 +12,12 @@ pub struct SpaceMember;
 
 impl SpaceMember {
     pub fn generate_id(member_id: &str, space_id: &str) -> String {
-        ids::create_id_from_unique_string(&format!("MEMBER:{space_id}:{member_id}"))
+        ids::create_id_from_unique_string(format!("MEMBER:{space_id}:{member_id}"))
     }
 
     pub fn new(member_id: &str, space_id: &str) -> Relation<Self> {
         Relation::new(
-            &Self::generate_id(member_id, space_id),
+            Self::generate_id(member_id, space_id),
             member_id,
             space_id,
             indexer_ids::MEMBER_RELATION,

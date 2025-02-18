@@ -1,15 +1,9 @@
-use futures::join;
 use sdk::{
     indexer_ids,
-    mapping::{
-        entity_node,
-        query_utils::{prop_filter, Query},
-        triple,
-    },
-    models::{self, Account, Proposal, Space, VoteCast},
+    mapping::{entity_node, query_utils::Query},
+    models::{self, Account, Proposal, VoteCast},
     pb::geo,
 };
-use web3_utils::checksum_address;
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -102,7 +96,7 @@ impl EventHandler {
             .send()
             .await?;
 
-        let maybe_account = entity_node::find_one(&self.neo4j, &Account::gen_id(&vote.voter))
+        let maybe_account = entity_node::find_one(&self.neo4j, Account::gen_id(&vote.voter))
             .send()
             .await?;
 

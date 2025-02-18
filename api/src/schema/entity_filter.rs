@@ -44,7 +44,7 @@ pub struct EntityFilter {
 
 impl EntityFilter {
     fn id_filter(&self) -> PropFilter<String> {
-        let mut filter = PropFilter::new();
+        let mut filter = PropFilter::default();
 
         if let Some(id) = &self.id {
             filter = filter.value(id);
@@ -143,7 +143,7 @@ pub struct EntityRelationFilter {
 
 impl EntityRelationFilter {
     fn id_filter(&self) -> PropFilter<String> {
-        let mut filter = PropFilter::new();
+        let mut filter = PropFilter::default();
 
         if let Some(id) = &self.id {
             filter = filter.value(id);
@@ -165,7 +165,7 @@ impl EntityRelationFilter {
     }
 
     fn to_id_filter(&self) -> PropFilter<String> {
-        let mut filter = PropFilter::new();
+        let mut filter = PropFilter::default();
 
         if let Some(to_id) = &self.to_id {
             filter = filter.value(to_id);
@@ -187,7 +187,7 @@ impl EntityRelationFilter {
     }
 
     fn relation_type_filter(&self) -> PropFilter<String> {
-        let mut filter = PropFilter::new();
+        let mut filter = PropFilter::default();
 
         if let Some(relation_type) = &self.relation_type {
             filter = filter.value(relation_type);

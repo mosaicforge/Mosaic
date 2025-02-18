@@ -69,13 +69,13 @@ impl IntoQueryPart for TypeFilter {
 
         if !query_part.is_empty() {
             query_part
-                .match_clause(&format!(
+                .match_clause(format!(
                     "({node_var}) <-[:`{FROM_ENTITY}`]- ({node_var}_r) -[:`{TO_ENTITY}`]-> ({node_var}_t)",
                     FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
                     TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
                     node_var = self.node_var,
                 ))
-                .match_clause(&format!(
+                .match_clause(format!(
                     "({node_var}_r) -[:`{RELATION_TYPE}`]-> ({{id: \"{TYPES}\"}})",
                     RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
                     TYPES = system_ids::TYPES_ATTRIBUTE,

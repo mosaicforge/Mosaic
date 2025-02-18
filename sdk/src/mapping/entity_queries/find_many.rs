@@ -244,13 +244,13 @@ impl IntoQueryPart for FindMany {
     fn into_query_part(self) -> QueryPart {
         let mut query_part = QueryPart::default();
 
-        query_part = query_part.match_clause(&format!(
+        query_part = query_part.match_clause(format!(
             r#"({node_var}) -[r_attr_{node_var}:ATTRIBUTE]-> (attr_{node_var})"#,
             node_var = self.node_var
         ));
 
         if let Some(version) = self.version {
-            query_part = query_part.where_clause(&format!(
+            query_part = query_part.where_clause(format!(
                 "r_attr_{node_var}.min_version =< $version AND (r_attr_{node_var}.max_version > $version OR r_attr_{node_var}.max_version IS NULL)",
                 node_var = self.node_var,
             ));
@@ -259,7 +259,7 @@ impl IntoQueryPart for FindMany {
                 .params
                 .insert("version".to_owned(), version.into());
         } else {
-            query_part = query_part.where_clause(&format!(
+            query_part = query_part.where_clause(format!(
                 "r_attr_{node_var}.max_version IS NULL",
                 node_var = self.node_var
             ));
@@ -275,7 +275,7 @@ impl IntoQueryPart for FindMany {
         }
 
         if query_part.match_clauses.is_empty() {
-            query_part = query_part.match_clause(&format!("({})", self.node_var));
+            query_part = query_part.match_clause(format!("({})", self.node_var));
         }
 
         query_part

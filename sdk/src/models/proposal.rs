@@ -45,11 +45,11 @@ impl Proposal {
             entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
                 .attribute(
                     AttributeFilter::new("onchain_proposal_id")
-                        .value(PropFilter::new().value(proposal_id)),
+                        .value(PropFilter::default().value(proposal_id)),
                 )
                 .attribute(
                     AttributeFilter::new("plugin_address")
-                        .value(PropFilter::new().value(checksum_address(plugin_address))),
+                        .value(PropFilter::default().value(checksum_address(plugin_address))),
                 )
                 .send()
                 .await?
@@ -151,9 +151,9 @@ pub enum ProposalStatus {
     Executed,
 }
 
-impl Into<Value> for ProposalStatus {
-    fn into(self) -> Value {
-        match self {
+impl From<ProposalStatus> for Value {
+    fn from(status: ProposalStatus) -> Self {
+        match status {
             ProposalStatus::Proposed => Value::text("Proposed".to_string()),
             ProposalStatus::Accepted => Value::text("Accepted".to_string()),
             ProposalStatus::Rejected => Value::text("Rejected".to_string()),
@@ -196,12 +196,12 @@ pub struct Proposals;
 
 impl Proposals {
     pub fn gen_id(space_id: &str, proposal_id: &str) -> String {
-        ids::create_id_from_unique_string(&format!("PROPOSALS:{space_id}:{proposal_id}"))
+        ids::create_id_from_unique_string(format!("PROPOSALS:{space_id}:{proposal_id}"))
     }
 
     pub fn new(space_id: &str, proposal_id: &str) -> Relation<Self> {
         Relation::new(
-            &Self::gen_id(space_id, proposal_id),
+            Self::gen_id(space_id, proposal_id),
             space_id,
             proposal_id,
             indexer_ids::PROPOSALS,
@@ -210,9 +210,13 @@ impl Proposals {
         )
     }
 
-    pub fn with_index(space_id: &str, proposal_id: &str, index: impl Into<Value>) -> Relation<Self> {
+    pub fn with_index(
+        space_id: &str,
+        proposal_id: &str,
+        index: impl Into<Value>,
+    ) -> Relation<Self> {
         Relation::new(
-            &Self::gen_id(space_id, proposal_id),
+            Self::gen_id(space_id, proposal_id),
             space_id,
             proposal_id,
             indexer_ids::PROPOSALS,
@@ -243,7 +247,7 @@ pub struct ProposalCreator;
 impl ProposalCreator {
     pub fn new(proposal_id: &str, account_id: &str) -> Relation<Self> {
         Relation::new(
-            &ids::create_id_from_unique_string(&format!("CREATOR:{proposal_id}:{account_id}")),
+            ids::create_id_from_unique_string(format!("CREATOR:{proposal_id}:{account_id}")),
             proposal_id,
             account_id,
             indexer_ids::PROPOSAL_CREATOR,
@@ -411,12 +415,16 @@ impl FromAttributes for RemoveEditorProposal {
 pub struct ProposedAccount;
 
 impl ProposedAccount {
+    pub fn gen_id(proposal_id: &str, account_id: &str) -> String {
+        ids::create_id_from_unique_string(format!(
+            "PROPOSED_ACCOUNT:{}:{}",
+            proposal_id, account_id
+        ))
+    }
+
     pub fn new(proposal_id: &str, account_id: &str) -> Relation<Self> {
         Relation::new(
-            &ids::create_id_from_unique_string(&format!(
-                "PROPOSED_ACCOUNT:{}:{}",
-                proposal_id, account_id
-            )),
+            Self::gen_id(proposal_id, account_id),
             proposal_id,
             account_id,
             indexer_ids::PROPOSED_ACCOUNT,
@@ -516,11 +524,15 @@ impl FromAttributes for RemoveSubspaceProposal {
 pub struct ProposedSubspace;
 
 impl ProposedSubspace {
+    pub fn gen_id(subspace_proposal_id: &str, subspace_id: &str) -> String {
+        ids::create_id_from_unique_string(format!(
+            "PROPOSED_SUBSPACE:{subspace_proposal_id}:{subspace_id}",
+        ))
+    }
+
     pub fn new(subspace_proposal_id: &str, subspace_id: &str) -> Relation<Self> {
         Relation::new(
-            &ids::create_id_from_unique_string(&format!(
-                "PROPOSED_SUBSPACE:{subspace_proposal_id}:{subspace_id}",
-            )),
+            Self::gen_id(subspace_proposal_id, subspace_id),
             subspace_proposal_id,
             subspace_id,
             indexer_ids::PROPOSED_SUBSPACE,

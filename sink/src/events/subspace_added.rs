@@ -24,7 +24,7 @@ impl EventHandler {
         ) {
             (Ok(Some(parent_space)), Ok(Some(subspace))) => {
                 ParentSpace::new(&subspace.id, &parent_space.id)
-                    .insert(&self.neo4j, &block, indexer_ids::INDEXER_SPACE_ID, "0")
+                    .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
                     .send()
                     .await?;
             }

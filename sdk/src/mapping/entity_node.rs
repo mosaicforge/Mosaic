@@ -126,14 +126,14 @@ impl EntityNode {
             .param("space_id", space_id.into())
             .param("EDIT_INDEX_ATTR", indexer_ids::EDIT_INDEX_ATTRIBUTE);
 
-        Ok(neo4j
+        neo4j
             .execute(query)
             .await?
             .into_stream_as::<EntityVersion>()
             .map_err(DatabaseError::from)
             .and_then(|row| async move { Ok(row) })
             .try_collect::<Vec<_>>()
-            .await?)
+            .await
     }
 }
 
@@ -219,8 +219,7 @@ impl Query<Option<EntityNode>> for FindOneQuery {
             e: EntityNode,
         }
 
-        Ok(self
-            .neo4j
+        self.neo4j
             .execute(query)
             .await?
             .next()
@@ -229,7 +228,7 @@ impl Query<Option<EntityNode>> for FindOneQuery {
                 let row = row.to::<RowResult>()?;
                 Result::<_, DatabaseError>::Ok(row.e)
             })
-            .transpose()?)
+            .transpose()
     }
 }
 
@@ -300,14 +299,14 @@ impl Query<Vec<EntityNode>> for FindManyQuery {
             e: EntityNode,
         }
 
-        Ok(neo4j
+        neo4j
             .execute(query)
             .await?
             .into_stream_as::<RowResult>()
             .map_err(DatabaseError::from)
             .and_then(|row| async move { Ok(row.e) })
             .try_collect::<Vec<_>>()
-            .await?)
+            .await
     }
 }
 
@@ -404,12 +403,11 @@ impl EntityRelationFilter {
         let mut query_part = QueryPart::default();
 
         if !self.is_empty() {
-            query_part = query_part
-                .match_clause(format!(
-                    "({node_var}) <-[:`{FROM_ENTITY}`]- ({rel_node_var})",
-                    FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE
-                ));
-            
+            query_part = query_part.match_clause(format!(
+                "({node_var}) <-[:`{FROM_ENTITY}`]- ({rel_node_var})",
+                FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE
+            ));
+
             if let Some(relation_type) = self.relation_type {
                 query_part.merge_mut(relation_type.into_query_part(
                     &rel_node_var,
@@ -417,7 +415,7 @@ impl EntityRelationFilter {
                     self.space_version.clone(),
                 ));
             }
-    
+
             if let Some(to_id) = self.to_id {
                 query_part.merge_mut(to_id.into_query_part(
                     &rel_node_var,

@@ -136,28 +136,34 @@ impl From<pb::ipfs::Relation> for RelationNode {
     }
 }
 
-impl Into<BoltType> for RelationNode {
-    fn into(self) -> BoltType {
+impl From<RelationNode> for BoltType {
+    fn from(relation: RelationNode) -> Self {
         let mut triple_bolt_map = HashMap::new();
-        triple_bolt_map.insert(neo4rs::BoltString { value: "id".into() }, self.id.into());
+        triple_bolt_map.insert(
+            neo4rs::BoltString { value: "id".into() },
+            relation.id.into(),
+        );
         triple_bolt_map.insert(
             neo4rs::BoltString {
                 value: "from".into(),
             },
-            self.from.into(),
+            relation.from.into(),
         );
-        triple_bolt_map.insert(neo4rs::BoltString { value: "to".into() }, self.to.into());
+        triple_bolt_map.insert(
+            neo4rs::BoltString { value: "to".into() },
+            relation.to.into(),
+        );
         triple_bolt_map.insert(
             neo4rs::BoltString {
                 value: "relation_type".into(),
             },
-            self.relation_type.into(),
+            relation.relation_type.into(),
         );
         triple_bolt_map.insert(
             neo4rs::BoltString {
                 value: "index".into(),
             },
-            self.index.into(),
+            relation.index.into(),
         );
 
         BoltType::Map(neo4rs::BoltMap {
@@ -636,13 +642,13 @@ impl Query<Option<RelationNode>> for FindOneQuery {
         let neo4j = self.neo4j.clone();
         let query = self.into_query_part().build();
 
-        Ok(neo4j
+        neo4j
             .execute(query)
             .await?
             .next()
             .await?
             .map(|row| Result::<_, DatabaseError>::Ok(row.to::<RelationNode>()?))
-            .transpose()?)
+            .transpose()
     }
 }
 
@@ -788,13 +794,13 @@ impl Query<Vec<RelationNode>> for FindManyQuery {
         let neo4j = self.neo4j.clone();
         let query = self.into_query_part().build();
 
-        Ok(neo4j
+        neo4j
             .execute(query)
             .await?
             .into_stream_as::<RelationNode>()
             .map_err(DatabaseError::from)
             .try_collect::<Vec<_>>()
-            .await?)
+            .await
     }
 }
 
@@ -963,8 +969,8 @@ mod tests {
         ];
 
         let found_relations = find_many(&neo4j)
-            .relation_type(PropFilter::new().value("knows"))
-            .from_id(PropFilter::new().value("alice"))
+            .relation_type(PropFilter::default().value("knows"))
+            .from_id(PropFilter::default().value("alice"))
             .send()
             .await
             .expect("Failed to find relations");
@@ -1016,8 +1022,8 @@ mod tests {
             .expect("Failed to insert relations");
 
         let found_relations = find_many(&neo4j)
-            .relation_type(PropFilter::new().value("knows"))
-            .from_id(PropFilter::new().value("alice"))
+            .relation_type(PropFilter::default().value("knows"))
+            .from_id(PropFilter::default().value("alice"))
             .send()
             .await
             .expect("Failed to find relations");

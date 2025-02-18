@@ -1,4 +1,10 @@
-use crate::{ids, indexer_ids, mapping::{Attributes, Entity, FromAttributes, IntoAttributes, Relation, TriplesConversionError}, system_ids};
+use crate::{
+    ids, indexer_ids,
+    mapping::{
+        Attributes, Entity, FromAttributes, IntoAttributes, Relation, TriplesConversionError,
+    },
+    system_ids,
+};
 
 pub struct Edit {
     pub name: String,
@@ -11,13 +17,16 @@ impl Edit {
         ids::create_id_from_unique_string(content_uri)
     }
 
-    pub fn new(
-        name: String,
-        content_uri: String,
-        index: Option<String>
-    ) -> Entity<Self> {
-        Entity::new(Self::gen_id(&content_uri), Self { name, content_uri, index })
-            .with_type(indexer_ids::EDIT_TYPE)
+    pub fn new(name: String, content_uri: String, index: Option<String>) -> Entity<Self> {
+        Entity::new(
+            Self::gen_id(&content_uri),
+            Self {
+                name,
+                content_uri,
+                index,
+            },
+        )
+        .with_type(indexer_ids::EDIT_TYPE)
     }
 }
 
@@ -51,13 +60,10 @@ pub struct Edits;
 
 impl Edits {
     pub fn gen_id(space_id: &str, edit_id: &str) -> String {
-        ids::create_id_from_unique_string(&format!("{}:{}", space_id, edit_id))
+        ids::create_id_from_unique_string(format!("{}:{}", space_id, edit_id))
     }
 
-    pub fn new(
-        space_id: impl Into<String>,
-        edit_id: impl Into<String>,
-    ) -> Relation<Self> {
+    pub fn new(space_id: impl Into<String>, edit_id: impl Into<String>) -> Relation<Self> {
         let space_id = space_id.into();
         let edit_id = edit_id.into();
 
@@ -67,7 +73,7 @@ impl Edits {
             edit_id,
             indexer_ids::EDITS,
             "0",
-            Self {}
+            Self {},
         )
     }
 }
@@ -90,13 +96,10 @@ pub struct ProposedEdit;
 
 impl ProposedEdit {
     pub fn gen_id(proposal_id: &str, edit_id: &str) -> String {
-        ids::create_id_from_unique_string(&format!("{}:{}", proposal_id, edit_id))
+        ids::create_id_from_unique_string(format!("{}:{}", proposal_id, edit_id))
     }
 
-    pub fn new(
-        proposal_id: impl Into<String>,
-        edit_id: impl Into<String>,
-    ) -> Relation<Self> {
+    pub fn new(proposal_id: impl Into<String>, edit_id: impl Into<String>) -> Relation<Self> {
         let proposal_id = proposal_id.into();
         let edit_id = edit_id.into();
 
@@ -106,7 +109,7 @@ impl ProposedEdit {
             edit_id,
             indexer_ids::PROPOSED_EDIT,
             "0",
-            Self {}
+            Self {},
         )
     }
 }

@@ -15,10 +15,3 @@ pub struct BlockMetadata {
     pub timestamp: DateTime<Utc>,
     pub request_id: String,
 }
-
-#[derive(Clone)]
-pub struct SpaceMetadata {
-    id: String,
-    version: String,
-    revision: u64,
-}

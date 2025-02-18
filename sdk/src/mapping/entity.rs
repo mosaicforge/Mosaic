@@ -121,7 +121,7 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
             .iter()
             .map(|t| {
                 RelationNode::new(
-                    &ids::create_id_from_unique_string(&format!(
+                    ids::create_id_from_unique_string(format!(
                         "{}:{}:{}:{}",
                         self.space_id,
                         self.entity.id,
@@ -181,9 +181,9 @@ impl<T: FromAttributes> Query<Option<Entity<T>>> for FindOneQuery {
         .await?;
 
         let types = relation_node::find_many(&self.neo4j)
-            .space_id(PropFilter::new().value(self.space_id.clone()))
-            .from_id(PropFilter::new().value(self.entity_id.clone()))
-            .relation_type(PropFilter::new().value(system_ids::TYPES_ATTRIBUTE))
+            .space_id(PropFilter::default().value(self.space_id.clone()))
+            .from_id(PropFilter::default().value(self.entity_id.clone()))
+            .relation_type(PropFilter::default().value(system_ids::TYPES_ATTRIBUTE))
             .send()
             .await?;
 
@@ -275,7 +275,7 @@ impl<T: FromAttributes> Query<Vec<Entity<T>>> for FindManyQuery {
             .try_collect::<Vec<Option<Entity<T>>>>()
             .await?
             .into_iter()
-            .filter_map(|attributes| attributes)
+            .flatten()
             .collect())
     }
 }

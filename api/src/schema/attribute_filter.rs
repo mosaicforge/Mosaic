@@ -22,7 +22,7 @@ pub struct EntityAttributeFilter {
 
 impl EntityAttributeFilter {
     fn value_filter(&self) -> mapping::PropFilter<String> {
-        let mut filter = mapping::PropFilter::new();
+        let mut filter = mapping::PropFilter::default();
 
         if let Some(value) = &self.value {
             filter = filter.value(value);
@@ -44,7 +44,7 @@ impl EntityAttributeFilter {
     }
 
     fn value_type_filter(&self) -> mapping::PropFilter<String> {
-        let mut filter = mapping::PropFilter::new();
+        let mut filter = mapping::PropFilter::default();
 
         if let Some(value_type) = &self.value_type {
             filter = filter.value(value_type.to_string());
@@ -76,10 +76,10 @@ impl EntityAttributeFilter {
     }
 }
 
-impl Into<mapping::AttributeFilter> for EntityAttributeFilter {
-    fn into(self) -> mapping::AttributeFilter {
-        mapping::AttributeFilter::new(&self.attribute)
-            .value(self.value_filter())
-            .value_type(self.value_type_filter())
+impl From<EntityAttributeFilter> for mapping::AttributeFilter {
+    fn from(filter: EntityAttributeFilter) -> Self {
+        mapping::AttributeFilter::new(&filter.attribute)
+            .value(filter.value_filter())
+            .value_type(filter.value_type_filter())
     }
 }

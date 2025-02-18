@@ -3,39 +3,39 @@ use neo4rs::BoltType;
 use super::query_part::QueryPart;
 
 pub fn value<T>(value: impl Into<T>) -> PropFilter<T> {
-    PropFilter::new().value(value)
+    PropFilter::default().value(value)
 }
 
 pub fn value_gt<T>(value: impl Into<T>) -> PropFilter<T> {
-    PropFilter::new().value_gt(value)
+    PropFilter::default().value_gt(value)
 }
 
 pub fn value_gte<T>(value: impl Into<T>) -> PropFilter<T> {
-    PropFilter::new().value_gte(value)
+    PropFilter::default().value_gte(value)
 }
 
 pub fn value_lt<T>(value: impl Into<T>) -> PropFilter<T> {
-    PropFilter::new().value_lt(value)
+    PropFilter::default().value_lt(value)
 }
 
 pub fn value_lte<T>(value: impl Into<T>) -> PropFilter<T> {
-    PropFilter::new().value_lte(value)
+    PropFilter::default().value_lte(value)
 }
 
 pub fn value_not<T>(value: impl Into<T>) -> PropFilter<T> {
-    PropFilter::new().value_not(value)
+    PropFilter::default().value_not(value)
 }
 
 pub fn value_in<T>(values: Vec<T>) -> PropFilter<T> {
-    PropFilter::new().value_in(values)
+    PropFilter::default().value_in(values)
 }
 
 pub fn value_not_in<T>(values: Vec<T>) -> PropFilter<T> {
-    PropFilter::new().value_not_in(values)
+    PropFilter::default().value_not_in(values)
 }
 
 /// Filter for property P of node N
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct PropFilter<T> {
     value: Option<T>,
     value_gt: Option<T>,
@@ -48,8 +48,8 @@ pub struct PropFilter<T> {
     // or: Option<Vec<PropFilter<T>>>,
 }
 
-impl<T> PropFilter<T> {
-    pub fn new() -> Self {
+impl<T> Default for PropFilter<T> {
+    fn default() -> Self {
         Self {
             value: None,
             value_gt: None,
@@ -59,10 +59,11 @@ impl<T> PropFilter<T> {
             value_not: None,
             value_in: None,
             value_not_in: None,
-            // or: None,
         }
     }
+}
 
+impl<T> PropFilter<T> {
     pub fn value(mut self, value: impl Into<T>) -> Self {
         self.value = Some(value.into());
         self
@@ -143,56 +144,56 @@ impl<T: Clone + Into<BoltType>> PropFilter<T> {
         if let Some(value) = self.value {
             let param_key = format!("{node_var}_{key}_value");
             query_part = query_part
-                .where_clause(&format!("{node_var}.`{key}` = ${param_key}"))
+                .where_clause(format!("{node_var}.`{key}` = ${param_key}"))
                 .params(param_key, value);
         }
 
         if let Some(value_gt) = self.value_gt {
             let param_key = format!("{node_var}_{key}_value_gt");
             query_part = query_part
-                .where_clause(&format!("{node_var}.`{key}` > ${param_key}"))
+                .where_clause(format!("{node_var}.`{key}` > ${param_key}"))
                 .params(param_key, value_gt);
         }
 
         if let Some(value_gte) = self.value_gte {
             let param_key = format!("{node_var}_{key}_value_gte");
             query_part = query_part
-                .where_clause(&format!("{node_var}.`{key}` >= ${param_key}"))
+                .where_clause(format!("{node_var}.`{key}` >= ${param_key}"))
                 .params(param_key, value_gte);
         }
 
         if let Some(value_lt) = self.value_lt {
             let param_key = format!("{node_var}_{key}_value_lt");
             query_part = query_part
-                .where_clause(&format!("{node_var}.`{key}` < ${param_key}"))
+                .where_clause(format!("{node_var}.`{key}` < ${param_key}"))
                 .params(param_key, value_lt);
         }
 
         if let Some(value_lte) = self.value_lte {
             let param_key = format!("{node_var}_{key}_value_lte");
             query_part = query_part
-                .where_clause(&format!("{node_var}.`{key}` <= ${param_key}"))
+                .where_clause(format!("{node_var}.`{key}` <= ${param_key}"))
                 .params(param_key, value_lte);
         }
 
         if let Some(value_not) = self.value_not {
             let param_key = format!("{node_var}_{key}_value_not");
             query_part = query_part
-                .where_clause(&format!("{node_var}.`{key}` <> ${param_key}"))
+                .where_clause(format!("{node_var}.`{key}` <> ${param_key}"))
                 .params(param_key, value_not);
         }
 
         if let Some(value_in) = self.value_in {
             let param_key = format!("{node_var}_{key}_value_in");
             query_part = query_part
-                .where_clause(&format!("{node_var}.`{key}` IN ${param_key}"))
+                .where_clause(format!("{node_var}.`{key}` IN ${param_key}"))
                 .params(param_key, value_in);
         }
 
         if let Some(value_not_in) = self.value_not_in {
             let param_key = format!("{node_var}_{key}_value_not_in");
             query_part = query_part
-                .where_clause(&format!("{node_var}.`{key}` NOT IN ${param_key}"))
+                .where_clause(format!("{node_var}.`{key}` NOT IN ${param_key}"))
                 .params(param_key, value_not_in);
         }
 

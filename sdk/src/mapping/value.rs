@@ -57,22 +57,22 @@ impl Value {
     }
 }
 
-impl Into<BoltType> for Value {
-    fn into(self) -> BoltType {
+impl From<Value> for BoltType {
+    fn from(value: Value) -> Self {
         let mut value_bolt_map = HashMap::new();
         value_bolt_map.insert(
             neo4rs::BoltString {
                 value: "value".into(),
             },
-            self.value.into(),
+            value.value.into(),
         );
         value_bolt_map.insert(
             neo4rs::BoltString {
                 value: "value_type".into(),
             },
-            self.value_type.to_string().into(),
+            value.value_type.to_string().into(),
         );
-        if let Some(format) = self.options.format {
+        if let Some(format) = value.options.format {
             value_bolt_map.insert(
                 neo4rs::BoltString {
                     value: "format".into(),
@@ -80,7 +80,7 @@ impl Into<BoltType> for Value {
                 format.into(),
             );
         }
-        if let Some(unit) = self.options.unit {
+        if let Some(unit) = value.options.unit {
             value_bolt_map.insert(
                 neo4rs::BoltString {
                     value: "unit".into(),
@@ -88,7 +88,7 @@ impl Into<BoltType> for Value {
                 unit.into(),
             );
         }
-        if let Some(language) = self.options.language {
+        if let Some(language) = value.options.language {
             value_bolt_map.insert(
                 neo4rs::BoltString {
                     value: "language".into(),

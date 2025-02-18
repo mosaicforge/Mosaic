@@ -25,15 +25,13 @@ impl Query {
     ) -> FieldResult<Option<Entity>> {
         tracing::info!("version_id: {:?}", version_id);
         let version_index = if let Some(version_id) = version_id {
-            mapping::get_version_index(&executor.context().0, version_id)
-                .await?
+            mapping::get_version_index(&executor.context().0, version_id).await?
         } else {
             None
         };
         tracing::info!("version_index: {:?}", version_index);
 
-        Entity::load(&executor.context().0, id, space_id, version_index)
-            .await
+        Entity::load(&executor.context().0, id, space_id, version_index).await
     }
 
     // TODO: Add order_by and order_direction
@@ -42,8 +40,8 @@ impl Query {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         space_id: String,
-        order_by: Option<String>,
-        order_direction: Option<OrderDirection>,
+        _order_by: Option<String>,
+        _order_direction: Option<OrderDirection>,
         r#where: Option<EntityFilter>,
     ) -> Vec<Entity> {
         let mut query = entity_node::find_many(&executor.context().0);
@@ -78,8 +76,7 @@ impl Query {
         version_id: Option<String>,
     ) -> FieldResult<Option<Relation>> {
         let version_index = if let Some(version_id) = version_id {
-            mapping::get_version_index(&executor.context().0, version_id)
-                .await?
+            mapping::get_version_index(&executor.context().0, version_id).await?
         } else {
             None
         };
@@ -93,8 +90,8 @@ impl Query {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         space_id: String,
-        order_by: Option<String>,
-        order_direction: Option<OrderDirection>,
+        _order_by: Option<String>,
+        _order_direction: Option<OrderDirection>,
         r#where: Option<RelationFilter>,
     ) -> Vec<Relation> {
         let mut query = relation_node::find_many(&executor.context().0);

@@ -1,5 +1,5 @@
 use juniper::{graphql_object, Executor, ScalarValue};
-use sdk::mapping::{query_utils::prop_filter, triple, EntityNode, Query};
+use sdk::mapping::{query_utils::prop_filter, triple, Query};
 
 use crate::context::KnowledgeGraph;
 
@@ -13,12 +13,7 @@ pub struct EntityVersion {
 }
 
 impl EntityVersion {
-    pub fn new(
-        id: String,
-        entity_id: String,
-        index: String,
-        space_id: String,
-    ) -> Self {
+    pub fn new(id: String, entity_id: String, index: String, space_id: String) -> Self {
         Self {
             entity_id,
             id,
@@ -41,10 +36,10 @@ impl EntityVersion {
 
     // TODO: Add entity attributes filtering
     /// Attributes of the entity
-    async fn attributes<'a, S: ScalarValue>(
+    async fn attributes<S: ScalarValue>(
         &self,
         _filter: Option<AttributeFilter>,
-        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        executor: &'_ Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Vec<Triple> {
         let query = triple::find_many(&executor.context().0)
             .entity_id(prop_filter::value(&self.entity_id))

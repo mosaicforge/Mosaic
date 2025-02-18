@@ -118,26 +118,26 @@ impl TryFrom<pb::ipfs::Triple> for Triple {
     }
 }
 
-impl Into<BoltType> for Triple {
-    fn into(self) -> BoltType {
+impl From<Triple> for BoltType {
+    fn from(triple: Triple) -> Self {
         let mut triple_bolt_map = HashMap::new();
         triple_bolt_map.insert(
             neo4rs::BoltString {
                 value: "entity".into(),
             },
-            self.entity.into(),
+            triple.entity.into(),
         );
         triple_bolt_map.insert(
             neo4rs::BoltString {
                 value: "attribute".into(),
             },
-            self.attribute.into(),
+            triple.attribute.into(),
         );
         triple_bolt_map.insert(
             neo4rs::BoltString {
                 value: "value".into(),
             },
-            self.value.into(),
+            triple.value.into(),
         );
 
         BoltType::Map(neo4rs::BoltMap {
@@ -339,8 +339,7 @@ impl Query<Option<Triple>> for FindOneQuery {
             .params("space_id", self.space_id)
             .build();
 
-        Ok(self
-            .neo4j
+        self.neo4j
             .execute(query)
             .await?
             .next()
@@ -353,7 +352,7 @@ impl Query<Option<Triple>> for FindOneQuery {
                 // Result::<_, DatabaseError>::Ok(row.triple)
                 row.to::<Triple>().map_err(DatabaseError::from)
             })
-            .transpose()?)
+            .transpose()
     }
 }
 
@@ -412,7 +411,7 @@ impl<T> FindManyQuery<T> {
         self
     }
 
-    fn to_query_part(self) -> QueryPart {
+    fn into_query_part(self) -> QueryPart {
         let mut query_part =
             QueryPart::default().match_clause("(e:Entity) -[r:ATTRIBUTE]-> (n:Attribute)");
 
@@ -445,7 +444,7 @@ impl<T> FindManyQuery<T> {
 impl Query<Vec<Triple>> for FindManyQuery<Vec<Triple>> {
     async fn send(self) -> Result<Vec<Triple>, DatabaseError> {
         let neo4j = self.neo4j.clone();
-        let query = self.to_query_part().build();
+        let query = self.into_query_part().build();
 
         neo4j
             .execute(query)
@@ -751,11 +750,11 @@ mod tests {
             .expect("Failed to insert triples");
 
         let found_triples = FindManyQuery::<Vec<Triple>>::new(&neo4j)
-            .attribute_id(PropFilter::new().value("name"))
-            .value(PropFilter::new().value("Alice"))
-            .value_type(PropFilter::new().value("TEXT"))
-            .entity_id(PropFilter::new().value("abc"))
-            .space_id(PropFilter::new().value("ROOT"))
+            .attribute_id(PropFilter::default().value("name"))
+            .value(PropFilter::default().value("Alice"))
+            .value_type(PropFilter::default().value("TEXT"))
+            .entity_id(PropFilter::default().value("abc"))
+            .space_id(PropFilter::default().value("ROOT"))
             .space_version("0")
             .send()
             .await
@@ -812,11 +811,11 @@ mod tests {
             .expect("Failed to insert triple");
 
         let found_triples = FindManyQuery::<Vec<Triple>>::new(&neo4j)
-            .attribute_id(PropFilter::new().value("name"))
-            .value(PropFilter::new().value("Alice"))
-            .value_type(PropFilter::new().value("TEXT"))
-            .entity_id(PropFilter::new().value("abc"))
-            .space_id(PropFilter::new().value("ROOT"))
+            .attribute_id(PropFilter::default().value("name"))
+            .value(PropFilter::default().value("Alice"))
+            .value_type(PropFilter::default().value("TEXT"))
+            .entity_id(PropFilter::default().value("abc"))
+            .space_id(PropFilter::default().value("ROOT"))
             .space_version("0")
             .send()
             .await

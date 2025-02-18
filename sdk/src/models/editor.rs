@@ -13,7 +13,7 @@ pub struct SpaceEditor;
 
 impl SpaceEditor {
     pub fn generate_id(editor_id: &str, space_id: &str) -> String {
-        ids::create_id_from_unique_string(&format!("EDITOR:{space_id}:{editor_id}"))
+        ids::create_id_from_unique_string(format!("EDITOR:{space_id}:{editor_id}"))
     }
 
     pub fn new(editor_id: &str, space_id: &str) -> Relation<Self> {

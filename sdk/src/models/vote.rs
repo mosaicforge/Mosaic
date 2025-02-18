@@ -15,13 +15,13 @@ pub struct VoteCast {
 
 impl VoteCast {
     pub fn new_id(account_id: &str, proposal_id: &str) -> String {
-        ids::create_id_from_unique_string(&format!("VOTE:{account_id}:{proposal_id}"))
+        ids::create_id_from_unique_string(format!("VOTE:{account_id}:{proposal_id}"))
     }
 
     /// Creates a new vote cast with the given vote type.
     pub fn new(account_id: &str, proposal_id: &str, vote_type: VoteType) -> Relation<Self> {
         Relation::new(
-            &Self::new_id(account_id, proposal_id),
+            Self::new_id(account_id, proposal_id),
             account_id,
             proposal_id,
             indexer_ids::VOTE_CAST_TYPE,
@@ -66,11 +66,11 @@ impl TryFrom<u64> for VoteType {
     }
 }
 
-impl Into<mapping::Value> for VoteType {
-    fn into(self) -> mapping::Value {
-        match self {
-            Self::Accept => mapping::Value::text("ACCEPT"),
-            Self::Reject => mapping::Value::text("REJECT"),
+impl From<VoteType> for mapping::Value {
+    fn from(vote_type: VoteType) -> Self {
+        match vote_type {
+            VoteType::Accept => mapping::Value::text("ACCEPT"),
+            VoteType::Reject => mapping::Value::text("REJECT"),
         }
     }
 }

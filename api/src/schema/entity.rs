@@ -192,10 +192,10 @@ impl Entity {
 
     // TODO: Add entity attributes filtering
     /// Attributes of the entity
-    async fn attributes<'a, S: ScalarValue>(
+    async fn attributes<S: ScalarValue>(
         &self,
-        filter: Option<AttributeFilter>,
-        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        _filter: Option<AttributeFilter>,
+        executor: &'_ Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Vec<Triple> {
         let mut query = triple::find_many(&executor.context().0)
             .entity_id(prop_filter::value(&self.node.id))
@@ -246,7 +246,8 @@ impl Entity {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Vec<EntityVersion>> {
-        Ok(self.node
+        Ok(self
+            .node
             .versions(&executor.context().0, self.space_id.clone())
             .await?
             .into_iter()

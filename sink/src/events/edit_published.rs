@@ -7,7 +7,9 @@ use sdk::{
     indexer_ids,
     mapping::{self, entity_node, query_utils::Query, relation_node, triple, Entity},
     models::{
-        self, edit::{Edits, ProposedEdit}, Proposal, Space
+        self,
+        edit::{Edits, ProposedEdit},
+        Proposal, Space,
     },
     pb::{self, geo},
 };
@@ -170,7 +172,8 @@ impl EventHandler {
         // 3. If not, create edit metadata
 
         let version_index = mapping::new_version_index(block.block_number, index);
-        let edit_medatata = models::Edit::new(edit.name, edit.content_uri, Some(version_index.clone()));
+        let edit_medatata =
+            models::Edit::new(edit.name, edit.content_uri, Some(version_index.clone()));
         let proposal_id = Proposal::gen_id(&edit.space_plugin_address, &edit.proposal_id);
         self.create_edit_relations(block, edit_medatata, &edit.space_id, &proposal_id)
             .await?;
@@ -294,7 +297,7 @@ impl EntityOps {
                 ) => {
                     entity_ops
                         .entry(triple.entity.clone())
-                        .or_insert_with(|| OpGroups::default())
+                        .or_insert_with(OpGroups::default)
                         .set_triples
                         .push(triple);
                 }
@@ -307,7 +310,7 @@ impl EntityOps {
                 ) => {
                     entity_ops
                         .entry(triple.entity.clone())
-                        .or_insert_with(|| OpGroups::default())
+                        .or_insert_with(OpGroups::default)
                         .delete_triples
                         .push(triple);
                 }
@@ -321,7 +324,7 @@ impl EntityOps {
                 ) => {
                     entity_ops
                         .entry(relation.id.clone())
-                        .or_insert_with(|| OpGroups::default())
+                        .or_insert_with(OpGroups::default)
                         .create_relations
                         .push(relation);
                 }
@@ -334,7 +337,7 @@ impl EntityOps {
                 ) => {
                     entity_ops
                         .entry(relation.id.clone())
-                        .or_insert_with(|| OpGroups::default())
+                        .or_insert_with(OpGroups::default)
                         .delete_relations
                         .push(relation);
                 }
