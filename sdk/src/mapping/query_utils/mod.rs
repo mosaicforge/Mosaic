@@ -10,6 +10,8 @@ pub mod scalar_filter;
 pub mod version_filter;
 
 pub use attributes_filter::AttributeFilter;
+pub use edge_filter::EdgeFilter;
+pub use order_by::{FieldOrderBy, OrderDirection};
 pub use prop_filter::PropFilter;
 pub use query_part::QueryPart;
 pub use version_filter::VersionFilter;

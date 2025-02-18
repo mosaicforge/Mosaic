@@ -8,7 +8,7 @@ use crate::{error::DatabaseError, indexer_ids, models::BlockMetadata, system_ids
 use super::{
     attributes,
     query_utils::{
-        edge_filter::EdgeFilter, prop_filter, AttributeFilter, PropFilter, Query, QueryPart,
+        edge_filter::EdgeFilter, order_by::FieldOrderBy, prop_filter, AttributeFilter, PropFilter, Query, QueryPart
     },
     relation_node, triple, AttributeNode, Triple,
 };
@@ -235,6 +235,7 @@ impl Query<Option<EntityNode>> for FindOneQuery {
 pub struct FindManyQuery {
     neo4j: neo4rs::Graph,
     filter: EntityFilter,
+    order_by: Option<FieldOrderBy>,
 }
 
 impl FindManyQuery {
@@ -242,6 +243,7 @@ impl FindManyQuery {
         Self {
             neo4j: neo4j.clone(),
             filter: EntityFilter::default(),
+            order_by: None,
         }
     }
 
@@ -274,12 +276,25 @@ impl FindManyQuery {
         self
     }
 
+    pub fn order_by(mut self, order_by: FieldOrderBy) -> Self {
+        self.order_by = Some(order_by);
+        self
+    }
+
+    pub fn order_by_mut(&mut self, order_by: FieldOrderBy) {
+        self.order_by = Some(order_by);
+    }
+
     fn into_query_part(self) -> QueryPart {
         let mut query_part = QueryPart::default()
             .match_clause("(e:Entity)")
             .return_clause("e");
 
         query_part.merge_mut(self.filter.into_query_part("e"));
+
+        if let Some(order_by) = self.order_by {
+            query_part.merge_mut(order_by.into_query_part("e"));
+        }
 
         query_part
     }

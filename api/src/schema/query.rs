@@ -40,14 +40,24 @@ impl Query {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         space_id: String,
-        _order_by: Option<String>,
-        _order_direction: Option<OrderDirection>,
+        order_by: Option<String>,
+        order_direction: Option<OrderDirection>,
         r#where: Option<EntityFilter>,
     ) -> Vec<Entity> {
         let mut query = entity_node::find_many(&executor.context().0);
 
         if let Some(r#where) = r#where {
             query = query.with_filter(r#where.into());
+        }
+
+        match (order_by, order_direction) {
+            (Some(order_by), Some(OrderDirection::Asc) | None) => {
+                query.order_by_mut(mapping::order_by::asc(order_by));
+            }
+            (Some(order_by), Some(OrderDirection::Desc)) => {
+                query.order_by_mut(mapping::order_by::desc(order_by));
+            }
+            _ => {}
         }
 
         // if let Some(order_by) = order_by {
