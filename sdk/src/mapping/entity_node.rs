@@ -8,7 +8,8 @@ use crate::{error::DatabaseError, indexer_ids, models::BlockMetadata, system_ids
 use super::{
     attributes,
     query_utils::{
-        edge_filter::EdgeFilter, order_by::FieldOrderBy, prop_filter, AttributeFilter, PropFilter, Query, QueryPart
+        edge_filter::EdgeFilter, order_by::FieldOrderBy, prop_filter, AttributeFilter, PropFilter,
+        Query, QueryPart,
     },
     relation_node, triple, AttributeNode, Triple,
 };

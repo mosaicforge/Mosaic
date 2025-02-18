@@ -23,17 +23,17 @@ pub fn desc(field_name: impl Into<String>) -> FieldOrderBy {
 impl FieldOrderBy {
     pub(crate) fn into_query_part(self, node_var: impl Into<String>) -> QueryPart {
         let node_var = node_var.into();
-        let mut query_part = QueryPart::default()
-            .match_clause(format!(r#"({node_var}) -[:ATTRIBUTE]-> ({node_var}_order_by:Attribute {{id: "{}"}})"#, self.field_name));
+        let mut query_part = QueryPart::default().match_clause(format!(
+            r#"({node_var}) -[:ATTRIBUTE]-> ({node_var}_order_by:Attribute {{id: "{}"}})"#,
+            self.field_name
+        ));
 
         match self.order_direction {
             OrderDirection::Asc => {
-                query_part =
-                    query_part.order_by_clause(format!("{node_var}_order_by.value"));
+                query_part = query_part.order_by_clause(format!("{node_var}_order_by.value"));
             }
             OrderDirection::Desc => {
-                query_part = query_part
-                    .order_by_clause(format!("{node_var}_order_by.value DESC"));
+                query_part = query_part.order_by_clause(format!("{node_var}_order_by.value DESC"));
             }
         }
 
