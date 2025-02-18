@@ -1,48 +1,61 @@
-use serde::{Deserialize, Serialize};
-
-use crate::{error::DatabaseError, ids, indexer_ids, mapping::Relation, system_ids};
+use crate::{
+    error::DatabaseError,
+    ids, indexer_ids,
+    mapping::{self, query_utils::Query, relation, Relation},
+};
 
 use super::BlockMetadata;
 
 /// Space editor relation.
-#[derive(Deserialize, Serialize)]
+/// Account > EDITOR > Space
+#[derive(Clone)]
 pub struct SpaceEditor;
 
 impl SpaceEditor {
-    pub fn new(editor_id: &str, space_id: &str, block: &BlockMetadata) -> Relation<Self> {
+    pub fn generate_id(editor_id: &str, space_id: &str) -> String {
+        ids::create_id_from_unique_string(format!("EDITOR:{space_id}:{editor_id}"))
+    }
+
+    pub fn new(editor_id: &str, space_id: &str) -> Relation<Self> {
         Relation::new(
-            &ids::create_geo_id(),
-            indexer_ids::INDEXER_SPACE_ID,
-            indexer_ids::EDITOR_RELATION,
+            Self::generate_id(editor_id, space_id),
             editor_id,
             space_id,
-            block,
+            indexer_ids::EDITOR_RELATION,
+            "0",
             Self,
         )
     }
 
-    /// Returns a query to delete a relation between an editor and a space.
+    /// Delete a relation between an editor and a space.
     pub async fn remove(
         neo4j: &neo4rs::Graph,
+        block: &BlockMetadata,
         editor_id: &str,
         space_id: &str,
     ) -> Result<(), DatabaseError> {
-        const QUERY: &str = const_format::formatcp!(
-            r#"
-                MATCH ({{id: $from}})<-[:`{FROM_ENTITY}`]-(r)-[:`{TO_ENTITY}`]->({{id: $to}})
-                MATCH (r) -[:`{RELATION_TYPE}`]-> ({{id: $relation_type}})
-                DETACH DELETE r
-            "#,
-            FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
-            TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
-            RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
-        );
+        relation::delete_one(
+            neo4j,
+            block,
+            SpaceEditor::generate_id(editor_id, space_id),
+            indexer_ids::INDEXER_SPACE_ID,
+            "0",
+        )
+        .send()
+        .await
+    }
+}
 
-        let query = neo4rs::query(QUERY)
-            .param("from", editor_id)
-            .param("to", space_id)
-            .param("relation_type", indexer_ids::EDITOR_RELATION);
+impl mapping::IntoAttributes for SpaceEditor {
+    fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
+        Ok(mapping::Attributes::default())
+    }
+}
 
-        Ok(neo4j.run(query).await?)
+impl mapping::FromAttributes for SpaceEditor {
+    fn from_attributes(
+        _attributes: mapping::Attributes,
+    ) -> Result<Self, mapping::TriplesConversionError> {
+        Ok(Self)
     }
 }

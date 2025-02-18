@@ -1,48 +1,44 @@
-use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
 use web3_utils::checksum_address;
 
 use crate::{
     error::DatabaseError,
     ids, indexer_ids,
-    mapping::{Entity, Relation},
+    mapping::{
+        self,
+        attributes::{FromAttributes, IntoAttributes},
+        entity,
+        query_utils::{AttributeFilter, PropFilter, Query},
+        relation, Attributes, Entity, Relation, TriplesConversionError, Value,
+    },
     network_ids, system_ids,
 };
 
 use super::BlockMetadata;
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone)]
 pub struct Space {
     pub network: String,
-    pub r#type: SpaceType,
+    pub governance_type: SpaceGovernanceType,
     /// The address of the space's DAO contract.
     pub dao_contract_address: String,
     /// The address of the space plugin contract.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub space_plugin_address: Option<String>,
     /// The address of the voting plugin contract.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub voting_plugin_address: Option<String>,
     /// The address of the member access plugin contract.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub member_access_plugin: Option<String>,
     /// The address of the personal space admin plugin contract.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub personal_space_admin_plugin: Option<String>,
 }
 
 impl Space {
-    pub fn new_id(network: &str, address: &str) -> String {
-        ids::create_id_from_unique_string(&format!("{network}:{}", checksum_address(address)))
+    pub fn generate_id(network: &str, address: &str) -> String {
+        ids::create_id_from_unique_string(format!("{network}:{}", checksum_address(address)))
     }
 
-    pub fn builder(id: &str, dao_contract_address: &str, block: &BlockMetadata) -> SpaceBuilder {
-        SpaceBuilder::new(id, dao_contract_address, block)
-    }
-
-    pub fn new(id: &str, space: Space, block: &BlockMetadata) -> Entity<Self> {
-        Entity::new(id, indexer_ids::INDEXER_SPACE_ID, block, space)
-            .with_type(system_ids::SPACE_TYPE)
+    pub fn builder(id: &str, dao_contract_address: &str) -> SpaceBuilder {
+        SpaceBuilder::new(id, dao_contract_address)
     }
 
     /// Find a space by its DAO contract address.
@@ -50,31 +46,14 @@ impl Space {
         neo4j: &neo4rs::Graph,
         dao_contract_address: &str,
     ) -> Result<Option<Entity<Self>>, DatabaseError> {
-        const QUERY: &str = const_format::formatcp!(
-            "MATCH (n:`{INDEXED_SPACE}` {{dao_contract_address: $dao_contract_address}}) RETURN n",
-            INDEXED_SPACE = system_ids::SPACE_TYPE,
-        );
-
-        let query = neo4rs::query(QUERY).param(
-            "dao_contract_address",
-            checksum_address(dao_contract_address),
-        );
-
-        #[derive(Debug, Deserialize)]
-        struct ResultRow {
-            n: neo4rs::Node,
-        }
-
-        Ok(neo4j
-            .execute(query)
-            .await?
-            .next()
-            .await?
-            .map(|row| {
-                let row = row.to::<ResultRow>()?;
-                row.n.try_into()
-            })
-            .transpose()?)
+        entity::find_one(
+            neo4j,
+            Space::generate_id(network_ids::GEO, dao_contract_address),
+            indexer_ids::INDEXER_SPACE_ID,
+            None,
+        )
+        .send()
+        .await
     }
 
     /// Find a space by its space plugin address.
@@ -82,31 +61,17 @@ impl Space {
         neo4j: &neo4rs::Graph,
         space_plugin_address: &str,
     ) -> Result<Option<Entity<Self>>, DatabaseError> {
-        const QUERY: &str = const_format::formatcp!(
-            "MATCH (n:`{INDEXED_SPACE}` {{space_plugin_address: $space_plugin_address}}) RETURN n",
-            INDEXED_SPACE = system_ids::SPACE_TYPE,
-        );
-
-        let query = neo4rs::query(QUERY).param(
-            "space_plugin_address",
-            checksum_address(space_plugin_address),
-        );
-
-        #[derive(Debug, Deserialize)]
-        struct ResultRow {
-            n: neo4rs::Node,
-        }
-
-        Ok(neo4j
-            .execute(query)
-            .await?
-            .next()
-            .await?
-            .map(|row| {
-                let row = row.to::<ResultRow>()?;
-                row.n.try_into()
-            })
-            .transpose()?)
+        Ok(
+            entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
+                .attribute(
+                    AttributeFilter::new(indexer_ids::SPACE_PLUGIN_ADDRESS)
+                        .value(PropFilter::default().value(checksum_address(space_plugin_address))),
+                )
+                .send()
+                .await?
+                .into_iter()
+                .next(),
+        )
     }
 
     /// Find a space by its voting plugin address.
@@ -114,31 +79,18 @@ impl Space {
         neo4j: &neo4rs::Graph,
         voting_plugin_address: &str,
     ) -> Result<Option<Entity<Self>>, DatabaseError> {
-        const QUERY: &str = const_format::formatcp!(
-            "MATCH (n:`{INDEXED_SPACE}` {{voting_plugin_address: $voting_plugin_address}}) RETURN n",
-            INDEXED_SPACE = system_ids::SPACE_TYPE,
-        );
-
-        let query = neo4rs::query(QUERY).param(
-            "voting_plugin_address",
-            checksum_address(voting_plugin_address),
-        );
-
-        #[derive(Debug, Deserialize)]
-        struct ResultRow {
-            n: neo4rs::Node,
-        }
-
-        Ok(neo4j
-            .execute(query)
-            .await?
-            .next()
-            .await?
-            .map(|row| {
-                let row = row.to::<ResultRow>()?;
-                row.n.try_into()
-            })
-            .transpose()?)
+        Ok(
+            entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
+                .attribute(
+                    AttributeFilter::new(indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS).value(
+                        PropFilter::default().value(checksum_address(voting_plugin_address)),
+                    ),
+                )
+                .send()
+                .await?
+                .into_iter()
+                .next(),
+        )
     }
 
     /// Find a space by its member access plugin address.
@@ -146,31 +98,17 @@ impl Space {
         neo4j: &neo4rs::Graph,
         member_access_plugin: &str,
     ) -> Result<Option<Entity<Self>>, DatabaseError> {
-        const QUERY: &str = const_format::formatcp!(
-            "MATCH (n:`{INDEXED_SPACE}` {{member_access_plugin: $member_access_plugin}}) RETURN n",
-            INDEXED_SPACE = system_ids::SPACE_TYPE,
-        );
-
-        let query = neo4rs::query(QUERY).param(
-            "member_access_plugin",
-            checksum_address(member_access_plugin),
-        );
-
-        #[derive(Debug, Deserialize)]
-        struct ResultRow {
-            n: neo4rs::Node,
-        }
-
-        Ok(neo4j
-            .execute(query)
-            .await?
-            .next()
-            .await?
-            .map(|row| {
-                let row = row.to::<ResultRow>()?;
-                row.n.try_into()
-            })
-            .transpose()?)
+        Ok(
+            entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
+                .attribute(
+                    AttributeFilter::new(indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS)
+                        .value(PropFilter::default().value(checksum_address(member_access_plugin))),
+                )
+                .send()
+                .await?
+                .into_iter()
+                .next(),
+        )
     }
 
     /// Find a space by its personal space admin plugin address.
@@ -178,70 +116,132 @@ impl Space {
         neo4j: &neo4rs::Graph,
         personal_space_admin_plugin: &str,
     ) -> Result<Option<Entity<Self>>, DatabaseError> {
-        const QUERY: &str = const_format::formatcp!(
-            "MATCH (n:`{INDEXED_SPACE}` {{personal_space_admin_plugin: $personal_space_admin_plugin}}) RETURN n",
-            INDEXED_SPACE = system_ids::SPACE_TYPE,
-        );
-
-        let query = neo4rs::query(QUERY).param(
-            "personal_space_admin_plugin",
-            checksum_address(personal_space_admin_plugin),
-        );
-
-        #[derive(Debug, Deserialize)]
-        struct ResultRow {
-            n: neo4rs::Node,
-        }
-
-        Ok(neo4j
-            .execute(query)
-            .await?
-            .next()
-            .await?
-            .map(|row| {
-                let row = row.to::<ResultRow>()?;
-                row.n.try_into()
-            })
-            .transpose()?)
+        Ok(
+            entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
+                .attribute(
+                    AttributeFilter::new(indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS).value(
+                        PropFilter::default().value(checksum_address(personal_space_admin_plugin)),
+                    ),
+                )
+                .send()
+                .await?
+                .into_iter()
+                .next(),
+        )
     }
 
     /// Returns all spaces
-    pub async fn find_all(neo4j: &neo4rs::Graph) -> Result<Vec<Entity<Self>>, DatabaseError> {
-        const QUERY: &str = const_format::formatcp!(
-            "MATCH (n:`{INDEXED_SPACE}`) RETURN n",
-            INDEXED_SPACE = system_ids::SPACE_TYPE,
-        );
+    pub async fn find_all(_neo4j: &neo4rs::Graph) -> Result<Vec<Self>, DatabaseError> {
+        // const QUERY: &str = const_format::formatcp!(
+        //     "MATCH (n:`{INDEXED_SPACE}`) RETURN n",
+        //     INDEXED_SPACE = system_ids::SPACE_TYPE,
+        // );
 
-        let query = neo4rs::query(QUERY);
+        // let query = neo4rs::query(QUERY);
 
-        #[derive(Debug, Deserialize)]
-        struct ResultRow {
-            n: neo4rs::Node,
+        // #[derive(Debug, Deserialize)]
+        // struct ResultRow {
+        //     n: neo4rs::Node,
+        // }
+
+        // neo4j
+        //     .execute(query)
+        //     .await?
+        //     .into_stream_as::<ResultRow>()
+        //     .map_err(DatabaseError::from)
+        //     .and_then(|neo4j_node| async move { Ok(neo4j_node.n.try_into()?) })
+        //     .try_collect::<Vec<_>>()
+        //     .await
+        todo!()
+    }
+}
+
+impl IntoAttributes for Space {
+    fn into_attributes(self) -> Result<Attributes, TriplesConversionError> {
+        let mut attributes = Attributes::default()
+            .attribute((system_ids::NETWORK_ATTRIBUTE, self.network))
+            .attribute((indexer_ids::SPACE_GOVERNANCE_TYPE, self.governance_type))
+            .attribute((indexer_ids::SPACE_DAO_ADDRESS, self.dao_contract_address));
+
+        if let Some(space_plugin_address) = self.space_plugin_address {
+            attributes.attribute_mut((indexer_ids::SPACE_PLUGIN_ADDRESS, space_plugin_address))
         }
 
-        neo4j
-            .execute(query)
-            .await?
-            .into_stream_as::<ResultRow>()
-            .map_err(DatabaseError::from)
-            .and_then(|neo4j_node| async move { Ok(neo4j_node.n.try_into()?) })
-            .try_collect::<Vec<_>>()
-            .await
+        if let Some(voting_plugin_address) = self.voting_plugin_address {
+            attributes.attribute_mut((
+                indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS,
+                voting_plugin_address,
+            ))
+        }
+
+        if let Some(member_access_plugin) = self.member_access_plugin {
+            attributes.attribute_mut((
+                indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS,
+                member_access_plugin,
+            ))
+        }
+
+        if let Some(personal_space_admin_plugin) = self.personal_space_admin_plugin {
+            attributes.attribute_mut((
+                indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS,
+                personal_space_admin_plugin,
+            ))
+        }
+
+        Ok(attributes)
+    }
+}
+
+impl FromAttributes for Space {
+    fn from_attributes(mut attributes: Attributes) -> Result<Self, TriplesConversionError> {
+        Ok(Self {
+            network: attributes.pop(system_ids::NETWORK_ATTRIBUTE)?,
+            governance_type: attributes.pop(indexer_ids::SPACE_GOVERNANCE_TYPE)?,
+            dao_contract_address: attributes.pop(indexer_ids::SPACE_DAO_ADDRESS)?,
+            space_plugin_address: attributes.pop_opt(indexer_ids::SPACE_PLUGIN_ADDRESS)?,
+            voting_plugin_address: attributes.pop_opt(indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS)?,
+            member_access_plugin: attributes.pop_opt(indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS)?,
+            personal_space_admin_plugin: attributes
+                .pop_opt(indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS)?,
+        })
     }
 }
 
 #[derive(Clone, Default, Deserialize, Serialize)]
-pub enum SpaceType {
+pub enum SpaceGovernanceType {
     #[default]
     Public,
     Personal,
 }
 
+impl From<SpaceGovernanceType> for Value {
+    fn from(governance_type: SpaceGovernanceType) -> Self {
+        match governance_type {
+            SpaceGovernanceType::Public => Value::text("Public".to_string()),
+            SpaceGovernanceType::Personal => Value::text("Personal".to_string()),
+        }
+    }
+}
+
+impl TryFrom<Value> for SpaceGovernanceType {
+    type Error = String;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value.value.as_str() {
+            "Public" => Ok(SpaceGovernanceType::Public),
+            "Personal" => Ok(SpaceGovernanceType::Personal),
+            _ => Err(format!(
+                "Invalid SpaceGovernanceType value: {}",
+                value.value
+            )),
+        }
+    }
+}
+
 pub struct SpaceBuilder {
     id: String,
-    block: BlockMetadata,
     network: String,
-    r#type: SpaceType,
+    governance_type: SpaceGovernanceType,
     dao_contract_address: String,
     space_plugin_address: Option<String>,
     voting_plugin_address: Option<String>,
@@ -250,12 +250,11 @@ pub struct SpaceBuilder {
 }
 
 impl SpaceBuilder {
-    pub fn new(id: &str, dao_contract_address: &str, block: &BlockMetadata) -> Self {
+    pub fn new(id: &str, dao_contract_address: &str) -> Self {
         Self {
             id: id.to_string(),
-            block: block.clone(),
             network: network_ids::GEO.to_string(),
-            r#type: SpaceType::Public,
+            governance_type: SpaceGovernanceType::Public,
             dao_contract_address: checksum_address(dao_contract_address),
             space_plugin_address: None,
             voting_plugin_address: None,
@@ -269,8 +268,8 @@ impl SpaceBuilder {
         self
     }
 
-    pub fn r#type(mut self, r#type: SpaceType) -> Self {
-        self.r#type = r#type;
+    pub fn governance_type(mut self, governance_type: SpaceGovernanceType) -> Self {
+        self.governance_type = governance_type;
         self
     }
 
@@ -302,11 +301,9 @@ impl SpaceBuilder {
     pub fn build(self) -> Entity<Space> {
         Entity::new(
             &self.id,
-            indexer_ids::INDEXER_SPACE_ID,
-            &self.block,
             Space {
                 network: self.network,
-                r#type: self.r#type,
+                governance_type: self.governance_type,
                 dao_contract_address: self.dao_contract_address,
                 space_plugin_address: self.space_plugin_address,
                 voting_plugin_address: self.voting_plugin_address,
@@ -319,19 +316,55 @@ impl SpaceBuilder {
 }
 
 /// Parent space relation (for subspaces).
-#[derive(Deserialize, Serialize)]
+/// Space > PARENT_SPACE > Space
+#[derive(Clone)]
 pub struct ParentSpace;
 
 impl ParentSpace {
-    pub fn new(space_id: &str, parent_space_id: &str, block: &BlockMetadata) -> Relation<Self> {
+    pub fn generate_id(space_id: &str, parent_space_id: &str) -> String {
+        ids::create_id_from_unique_string(format!("PARENT_SPACE:{space_id}:{parent_space_id}"))
+    }
+
+    pub fn new(space_id: &str, parent_space_id: &str) -> Relation<Self> {
         Relation::new(
-            &ids::create_geo_id(),
-            indexer_ids::INDEXER_SPACE_ID,
-            indexer_ids::PARENT_SPACE,
+            Self::generate_id(space_id, parent_space_id),
             space_id,
             parent_space_id,
-            block,
+            indexer_ids::PARENT_SPACE,
+            "0",
             Self,
         )
+    }
+
+    /// Delete a relation between a space and its parent space.
+    pub async fn remove(
+        neo4j: &neo4rs::Graph,
+        block: &BlockMetadata,
+        space_id: &str,
+        parent_space_id: &str,
+    ) -> Result<(), DatabaseError> {
+        relation::delete_one(
+            neo4j,
+            block,
+            ParentSpace::generate_id(space_id, parent_space_id),
+            indexer_ids::INDEXER_SPACE_ID,
+            "0",
+        )
+        .send()
+        .await
+    }
+}
+
+impl mapping::IntoAttributes for ParentSpace {
+    fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
+        Ok(mapping::Attributes::default())
+    }
+}
+
+impl FromAttributes for ParentSpace {
+    fn from_attributes(
+        _attributes: mapping::Attributes,
+    ) -> Result<Self, mapping::TriplesConversionError> {
+        Ok(Self {})
     }
 }

@@ -39,11 +39,15 @@ impl From<Grc20Id> for String {
 }
 
 pub fn create_merged_version_id(merged_version_ids: Vec<&str>) -> String {
-    create_id_from_unique_string(&merged_version_ids.join(","))
+    create_id_from_unique_string(merged_version_ids.join(","))
 }
 
-pub fn create_version_id(proposal_id: &str, entity_id: &str) -> String {
-    create_id_from_unique_string(&format!("{}:{}", proposal_id, entity_id))
+pub fn create_version_id(space_id: &str, proposal_id: &str) -> String {
+    create_id_from_unique_string(format!("{}:{}", space_id, proposal_id))
+}
+
+pub fn create_version_id_from_block(space_id: &str, block: u64) -> String {
+    create_id_from_unique_string(format!("{}:{}", space_id, block))
 }
 
 /**
@@ -52,12 +56,12 @@ pub fn create_version_id(proposal_id: &str, entity_id: &str) -> String {
  * the new one that they're creating.
  */
 pub fn create_space_id(network: &str, address: &str) -> String {
-    create_id_from_unique_string(&format!("{}:{}", network, address))
+    create_id_from_unique_string(format!("{}:{}", network, address))
 }
 
-pub fn create_id_from_unique_string(text: &str) -> String {
+pub fn create_id_from_unique_string(text: impl Into<String>) -> String {
     let mut hasher = Md5::new();
-    hasher.update(text);
+    hasher.update(text.into());
     let hashed: [u8; 16] = hasher.finalize().into();
 
     let uuid = Builder::from_random_bytes(hashed).into_uuid();

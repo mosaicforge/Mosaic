@@ -1,4 +1,8 @@
-use sdk::{models, pb::geo, system_ids};
+use sdk::{
+    models::{self, space::ParentSpace},
+    network_ids,
+    pb::geo,
+};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -12,24 +16,19 @@ impl EventHandler {
             &self.neo4j,
             &subspace_removed.plugin_address,
         )
-        .await
-        .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+        .await?;
+
+        let subspace_id = models::Space::generate_id(network_ids::GEO, &subspace_removed.subspace);
 
         if let Some(space) = space {
-            self.neo4j
-                .run(neo4rs::query(&format!(
-                    "MATCH (subspace:`{INDEXED_SPACE}` {{parent_space: $space_id}}) DELETE subspace",
-                    INDEXED_SPACE = system_ids::SPACE_TYPE,
-                )).param("space_id", space.id()))
-                .await
-                .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
+            ParentSpace::remove(&self.neo4j, block, &subspace_id, &space.id).await?;
 
             tracing::info!(
                 "Block #{} ({}): Removed subspace {} from space {}",
                 block.block_number,
                 block.timestamp,
                 subspace_removed.subspace,
-                space.id()
+                space.id
             );
         } else {
             tracing::warn!(

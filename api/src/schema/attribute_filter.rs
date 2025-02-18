@@ -2,7 +2,7 @@ use juniper::GraphQLInputObject;
 
 use sdk::mapping;
 
-use crate::schema::ValueType;
+use super::triple::ValueType;
 
 /// Filter the entities by attributes and their values and value types
 #[derive(Debug, GraphQLInputObject)]
@@ -21,99 +21,65 @@ pub struct EntityAttributeFilter {
 }
 
 impl EntityAttributeFilter {
-    pub fn add_to_entity_query(
-        self,
-        mut query: mapping::entity_queries::FindMany,
-    ) -> mapping::entity_queries::FindMany {
-        if let Some(value) = self.value {
-            query = query.attribute(&self.attribute, &value);
+    fn value_filter(&self) -> mapping::PropFilter<String> {
+        let mut filter = mapping::PropFilter::default();
+
+        if let Some(value) = &self.value {
+            filter = filter.value(value);
         }
 
-        if let Some(value_not) = self.value_not {
-            query = query.attribute_not(&self.attribute, &value_not);
+        if let Some(value_not) = &self.value_not {
+            filter = filter.value_not(value_not);
         }
 
-        if let Some(value_in) = self.value_in {
-            query = query.attribute_in(&self.attribute, value_in.clone());
+        if let Some(value_in) = &self.value_in {
+            filter = filter.value_in(value_in.clone());
         }
 
-        if let Some(value_not_in) = self.value_not_in {
-            query = query.attribute_not_in(&self.attribute, value_not_in.clone());
+        if let Some(value_not_in) = &self.value_not_in {
+            filter = filter.value_not_in(value_not_in.clone());
         }
 
-        if let Some(value_type) = self.value_type {
-            query = query.attribute_value_type(&self.attribute, &value_type.to_string());
-        }
-
-        if let Some(value_type_not) = self.value_type_not {
-            query = query.attribute_value_type_not(&self.attribute, &value_type_not.to_string());
-        }
-
-        if let Some(value_type_in) = self.value_type_in {
-            query = query.attribute_value_type_in(
-                &self.attribute,
-                value_type_in.into_iter().map(|vt| vt.to_string()).collect(),
-            );
-        }
-
-        if let Some(value_type_not_in) = self.value_type_not_in {
-            query = query.attribute_value_type_not_in(
-                &self.attribute,
-                value_type_not_in
-                    .into_iter()
-                    .map(|vt| vt.to_string())
-                    .collect(),
-            );
-        }
-
-        query
+        filter
     }
 
-    pub fn add_to_relation_query(
-        self,
-        mut query: mapping::relation_queries::FindMany,
-    ) -> mapping::relation_queries::FindMany {
-        if let Some(value) = self.value {
-            query = query.attribute(&self.attribute, &value);
+    fn value_type_filter(&self) -> mapping::PropFilter<String> {
+        let mut filter = mapping::PropFilter::default();
+
+        if let Some(value_type) = &self.value_type {
+            filter = filter.value(value_type.to_string());
         }
 
-        if let Some(value_not) = self.value_not {
-            query = query.attribute_not(&self.attribute, &value_not);
+        if let Some(value_type_not) = &self.value_type_not {
+            filter = filter.value_not(value_type_not.to_string());
         }
 
-        if let Some(value_in) = self.value_in {
-            query = query.attribute_in(&self.attribute, value_in.clone());
-        }
-
-        if let Some(value_not_in) = self.value_not_in {
-            query = query.attribute_not_in(&self.attribute, value_not_in.clone());
-        }
-
-        if let Some(value_type) = self.value_type {
-            query = query.attribute_value_type(&self.attribute, &value_type.to_string());
-        }
-
-        if let Some(value_type_not) = self.value_type_not {
-            query = query.attribute_value_type_not(&self.attribute, &value_type_not.to_string());
-        }
-
-        if let Some(value_type_in) = self.value_type_in {
-            query = query.attribute_value_type_in(
-                &self.attribute,
-                value_type_in.into_iter().map(|vt| vt.to_string()).collect(),
-            );
-        }
-
-        if let Some(value_type_not_in) = self.value_type_not_in {
-            query = query.attribute_value_type_not_in(
-                &self.attribute,
-                value_type_not_in
-                    .into_iter()
-                    .map(|vt| vt.to_string())
+        if let Some(value_type_in) = &self.value_type_in {
+            filter = filter.value_in(
+                value_type_in
+                    .iter()
+                    .map(|value_type| value_type.to_string())
                     .collect(),
             );
         }
 
-        query
+        if let Some(value_type_not_in) = &self.value_type_not_in {
+            filter = filter.value_not_in(
+                value_type_not_in
+                    .iter()
+                    .map(|value_type| value_type.to_string())
+                    .collect(),
+            );
+        }
+
+        filter
+    }
+}
+
+impl From<EntityAttributeFilter> for mapping::AttributeFilter {
+    fn from(filter: EntityAttributeFilter) -> Self {
+        mapping::AttributeFilter::new(&filter.attribute)
+            .value(filter.value_filter())
+            .value_type(filter.value_type_filter())
     }
 }

@@ -1,6 +1,6 @@
 use juniper::GraphQLInputObject;
 
-use sdk::mapping;
+use sdk::mapping::{self, relation_node};
 
 use crate::schema::{EntityAttributeFilter, EntityFilter};
 
@@ -30,55 +30,71 @@ pub struct RelationFilter {
 }
 
 impl RelationFilter {
-    pub fn add_to_relation_query(
+    pub fn id_filter(&self) -> mapping::PropFilter<String> {
+        let mut filter = mapping::PropFilter::default();
+
+        if let Some(id) = &self.id {
+            filter = filter.value(id);
+        }
+
+        if let Some(id_not) = &self.id_not {
+            filter = filter.value_not(id_not);
+        }
+
+        if let Some(id_in) = &self.id_in {
+            filter = filter.value_in(id_in.clone());
+        }
+
+        if let Some(id_not_in) = &self.id_not_in {
+            filter = filter.value_not_in(id_not_in.clone());
+        }
+
+        filter
+    }
+
+    pub fn relation_type_filter(&self) -> mapping::PropFilter<String> {
+        let mut filter = mapping::PropFilter::default();
+
+        if let Some(relation_type) = &self.relation_type {
+            filter = filter.value(relation_type);
+        }
+
+        if let Some(relation_type_not) = &self.relation_type_not {
+            filter = filter.value_not(relation_type_not);
+        }
+
+        if let Some(relation_type_in) = &self.relation_type_in {
+            filter = filter.value_in(relation_type_in.clone());
+        }
+
+        if let Some(relation_type_not_in) = &self.relation_type_not_in {
+            filter = filter.value_not_in(relation_type_not_in.clone());
+        }
+
+        filter
+    }
+
+    pub fn apply_filter(
         self,
-        mut query: mapping::relation_queries::FindMany,
-    ) -> mapping::relation_queries::FindMany {
-        if let Some(id) = self.id {
-            query = query.id(&id);
-        }
+        mut query: relation_node::FindManyQuery,
+    ) -> relation_node::FindManyQuery {
+        query = query
+            .id(self.id_filter())
+            .relation_type(self.relation_type_filter());
 
-        if let Some(id_not) = self.id_not {
-            query = query.id_not(&id_not);
-        }
+        // if let Some(attributes) = self.attributes {
+        //     for attr in attributes {
+        //         query = attr.add_to_relation_query(query);
+        //     }
+        // }
 
-        if let Some(id_in) = self.id_in {
-            query = query.id_in(id_in);
-        }
+        // if let Some(to_) = self.to_ {
+        //     query = query.to(|to_filter| to_.add_to_entity_query(to_filter));
+        // }
 
-        if let Some(id_not_in) = self.id_not_in {
-            query = query.id_not_in(id_not_in);
-        }
-
-        if let Some(relation_type) = self.relation_type {
-            query = query.relation_type(&relation_type);
-        }
-
-        if let Some(relation_type_not) = self.relation_type_not {
-            query = query.relation_type_not(&relation_type_not);
-        }
-
-        if let Some(relation_type_in) = self.relation_type_in {
-            query = query.relation_type_in(relation_type_in);
-        }
-
-        if let Some(relation_type_not_in) = self.relation_type_not_in {
-            query = query.relation_type_not_in(relation_type_not_in);
-        }
-
-        if let Some(attributes) = self.attributes {
-            for attr in attributes {
-                query = attr.add_to_relation_query(query);
-            }
-        }
-
-        if let Some(to_) = self.to_ {
-            query = query.to(|to_filter| to_.add_to_entity_query(to_filter));
-        }
-
-        if let Some(from_) = self.from_ {
-            query = query.from(|from_filter| from_.add_to_entity_query(from_filter));
-        }
+        // if let Some(from_) = self.from_ {
+        //     query = query.from(|from_filter| from_.add_to_entity_query(from_filter));
+        // }
 
         query
     }

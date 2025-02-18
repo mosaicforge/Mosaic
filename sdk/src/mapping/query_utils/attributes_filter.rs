@@ -1,153 +1,66 @@
-use crate::mapping::query_utils::{
-    query_part::{IntoQueryPart, QueryPart},
-    scalar_filter::ScalarFieldFilter,
-};
+use super::{prop_filter::PropFilter, query_part::QueryPart, version_filter::VersionFilter};
 
+#[derive(Clone, Debug)]
 pub struct AttributeFilter {
-    value_filter: ScalarFieldFilter,
-    value_type_filter: ScalarFieldFilter,
+    attribute: String,
+    space_id: Option<PropFilter<String>>,
+    value: Option<PropFilter<String>>,
+    value_type: Option<PropFilter<String>>,
+    space_version: VersionFilter,
 }
 
 impl AttributeFilter {
-    pub fn new(node_var: &str, attribute: &str) -> Self {
+    pub fn new(attribute: &str) -> Self {
         Self {
-            value_filter: ScalarFieldFilter::new(node_var, attribute),
-            value_type_filter: ScalarFieldFilter::new(node_var, &format!("{}.type", attribute)),
+            attribute: attribute.to_owned(),
+            space_id: None,
+            value: None,
+            value_type: None,
+            space_version: VersionFilter::default(),
         }
     }
 
-    pub fn with_id(node_var: &str, attribute: &str, id: &str) -> Self {
-        Self {
-            value_filter: ScalarFieldFilter::with_id(node_var, attribute, id),
-            value_type_filter: ScalarFieldFilter::with_id(
-                node_var,
-                &format!("{}.type", attribute),
-                &format!("vt_{id}"),
-            ),
+    pub fn space_id(mut self, space_id: PropFilter<String>) -> Self {
+        self.space_id = Some(space_id);
+        self
+    }
+
+    pub fn value(mut self, value: PropFilter<String>) -> Self {
+        self.value = Some(value);
+        self
+    }
+
+    pub fn value_type(mut self, value_type: PropFilter<String>) -> Self {
+        self.value_type = Some(value_type);
+        self
+    }
+
+    pub fn space_version(mut self, space_version: impl Into<String>) -> Self {
+        self.space_version.version_mut(space_version.into());
+        self
+    }
+
+    pub fn into_query_part(self, node_var: &str) -> QueryPart {
+        let attr_rel_var = format!("r_{node_var}_{}", self.attribute);
+        let attr_node_var = format!("{node_var}_{}", self.attribute);
+
+        let mut query_part = QueryPart::default()
+            .match_clause(format!("({node_var}) -[{attr_rel_var}:ATTRIBUTE]-> ({attr_node_var}:Attribute {{id: $attribute}})"))
+            .params("attribute", self.attribute)
+            .merge(self.space_version.into_query_part(&attr_rel_var));
+
+        if let Some(space_id) = self.space_id {
+            query_part.merge_mut(space_id.into_query_part(&attr_rel_var, "space_id"));
         }
-    }
 
-    pub fn value(mut self, value: &str) -> Self {
-        self.value_filter = self.value_filter.value(value);
-        self
-    }
+        if let Some(value) = self.value {
+            query_part.merge_mut(value.into_query_part(&attr_node_var, "value"));
+        }
 
-    pub fn value_mut(&mut self, value: &str) {
-        self.value_filter.value_mut(value);
-    }
+        if let Some(value_type) = self.value_type {
+            query_part.merge_mut(value_type.into_query_part(&attr_node_var, "value_type"));
+        }
 
-    pub fn value_not(mut self, value: &str) -> Self {
-        self.value_filter = self.value_filter.value_not(value);
-        self
-    }
-
-    pub fn value_not_mut(&mut self, value: &str) {
-        self.value_filter.value_not_mut(value);
-    }
-
-    pub fn value_in(mut self, values: Vec<String>) -> Self {
-        self.value_filter = self.value_filter.value_in(values);
-        self
-    }
-
-    pub fn value_in_mut(&mut self, values: Vec<String>) {
-        self.value_filter.value_in_mut(values);
-    }
-
-    pub fn value_not_in(mut self, values: Vec<String>) -> Self {
-        self.value_filter = self.value_filter.value_not_in(values);
-        self
-    }
-
-    pub fn value_not_in_mut(&mut self, values: Vec<String>) {
-        self.value_filter.value_not_in_mut(values);
-    }
-
-    pub fn value_type(mut self, value: &str) -> Self {
-        self.value_type_filter = self.value_type_filter.value(value);
-        self
-    }
-
-    pub fn value_type_mut(&mut self, value: &str) {
-        self.value_type_filter.value_mut(value);
-    }
-
-    pub fn value_type_not(mut self, value: &str) -> Self {
-        self.value_type_filter = self.value_type_filter.value_not(value);
-        self
-    }
-
-    pub fn value_type_not_mut(&mut self, value: &str) {
-        self.value_type_filter.value_not_mut(value);
-    }
-
-    pub fn value_type_in(mut self, values: Vec<String>) -> Self {
-        self.value_type_filter = self.value_type_filter.value_in(values);
-        self
-    }
-
-    pub fn value_type_in_mut(&mut self, values: Vec<String>) {
-        self.value_type_filter.value_in_mut(values);
-    }
-
-    pub fn value_type_not_in(mut self, values: Vec<String>) -> Self {
-        self.value_type_filter = self.value_type_filter.value_not_in(values);
-        self
-    }
-
-    pub fn value_type_not_in_mut(&mut self, values: Vec<String>) {
-        self.value_type_filter.value_not_in_mut(values);
-    }
-}
-
-impl IntoQueryPart for AttributeFilter {
-    fn into_query_part(self) -> QueryPart {
-        let query_parts = vec![
-            self.value_filter.into_query_part(),
-            self.value_type_filter.into_query_part(),
-        ];
-
-        query_parts
-            .into_iter()
-            .fold(QueryPart::default(), |acc, part| acc.merge(part))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use pretty_assertions::assert_eq;
-    use std::collections::HashMap;
-
-    #[test]
-    fn test_attribute_filter() {
-        let filter = AttributeFilter::new("n", "name")
-            .value_in(vec!["test".to_string(), "test2".to_string()])
-            .value_type("TEXT");
-
-        let query_part = filter.into_query_part();
-
-        assert_eq!(
-            query_part,
-            QueryPart {
-                where_clauses: vec![
-                    "n.`name` IN $value_in_n_name".to_string(),
-                    "n.`name.type` = $value_n_name_type".to_string(),
-                ],
-                params: HashMap::from([
-                    (
-                        "value_in_n_name".to_string(),
-                        vec!["test".to_string(), "test2".to_string()].into()
-                    ),
-                    ("value_n_name_type".to_string(), "TEXT".to_string().into())
-                ]),
-                ..QueryPart::default()
-            }
-        );
-
-        assert_eq!(
-            query_part.query(),
-            "WHERE n.`name` IN $value_in_n_name\nAND n.`name.type` = $value_n_name_type\n"
-        );
+        query_part
     }
 }

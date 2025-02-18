@@ -1,20 +1,20 @@
+/// Special space for the indexer data
+pub const INDEXER_SPACE_ID: &str = "Y7z7eeWdupgZayxG9Lvi2Z";
+
 // System attributes
 pub const CREATED_AT_TIMESTAMP: &str = "82nP7aFmHJLbaPFszj2nbx";
 pub const CREATED_AT_BLOCK: &str = "59HTYnd2e4gBx2aA98JfNx";
 pub const UPDATED_AT_TIMESTAMP: &str = "5Ms1pYq8v8G1RXC3wWb9ix";
 pub const UPDATED_AT_BLOCK: &str = "7pXCVQDV9C7ozrXkpVg8RJ";
 
-/// Geo Account
-pub const GEO_ACCOUNT: &str = "FUS7nfaWo8Ugzv9AxsMPNX";
-
-// Space types and attributes
-pub const SPACE: &str = "HrFMSEDZ9kFAeJhhkHdsCQ";
-
+// Space attributes
+/// Type of space, e.g., Public or Personal
+pub const SPACE_GOVERNANCE_TYPE: &str = "DEnbDZp79wgfvUXMGJPXDW";
+pub const SPACE_DAO_ADDRESS: &str = "Eye1MG1mjzRba4poijsttb";
 pub const SPACE_PLUGIN_ADDRESS: &str = "8WQFgjEoqNYHPS9niQGcfC";
 pub const SPACE_VOTING_PLUGIN_ADDRESS: &str = "GMuFbsoSsVmiMcCxc34zZA";
 pub const SPACE_MEMBER_PLUGIN_ADDRESS: &str = "AGaTTZWAbEaSrmZYTinQuc";
-/// Type of space, e.g., Public or Personal
-pub const SPACE_KIND: &str = "DEnbDZp79wgfvUXMGJPXDW";
+pub const SPACE_PERSONAL_PLUGIN_ADDRESS: &str = "F75rm9StiixRKWTRiHGgvS";
 
 /// GEO_ACCOUNT > MEMBER_RELATION > INDEXED_SPACE
 pub const MEMBER_RELATION: &str = "2oGooh2PEUo8pbdMPqcBrQ";
@@ -25,12 +25,10 @@ pub const EDITOR_RELATION: &str = "24TNsjdHUhuC5qtsN13stv";
 /// SPACE > PARENT_SPACE > SPACE
 pub const PARENT_SPACE: &str = "4jLdUCbpRzdjnpjhViDm2d";
 
-/// Special space for the indexer data
-pub const INDEXER_SPACE_ID: &str = "Y7z7eeWdupgZayxG9Lvi2Z";
-
 // Voting
 /// GEO_ACCOUNT > VOTE_CAST > PROPOSAL
-pub const VOTE_CAST: &str = "PfgzdxPYwDUTBCzkXCT9ga";
+pub const VOTE_CAST_TYPE: &str = "PfgzdxPYwDUTBCzkXCT9ga";
+pub const VOTE_TYPE_ATTRIBUTE: &str = "UrTNUMukLGV2y4yWEnBKQv";
 
 // Proposal
 pub const PROPOSAL_TYPE: &str = "9No6qfEutiKg1WLeXDv73x";
@@ -49,8 +47,19 @@ pub const PROPOSED_ACCOUNT: &str = "N95e2Jvfe3VX5d6jc9owY6";
 /// SUBSPACE_PROPOSAL_TYPE > PROPOSED_SUBSPACE > INDEXED_SPACE
 pub const PROPOSED_SUBSPACE: &str = "5ZVrZv7S3Mk2ATV9LAZAha";
 
+/// PROPOSAL > CREATOR > ACCOUNT
+pub const PROPOSAL_CREATOR: &str = "FUS7nfaWo8Ugzv9AxsMPNX";
+
 /// INDEXED_SPACE > PROPOSALS > PROPOSAL
 pub const PROPOSALS: &str = "3gmeTonVCB6B11p3YF8mj5";
 
-/// PROPOSAL > CREATOR > ACCOUNT
-pub const PROPOSAL_CREATOR: &str = "213";
+// Edits
+/// Edit type ID
+pub const EDIT_TYPE: &str = "Q2dfub76oMdzJpyR8z4GZv";
+pub const EDIT_INDEX_ATTRIBUTE: &str = "edit_index";
+pub const EDIT_CONTENT_URI_ATTRIBUTE: &str = "content_uri";
+
+/// Proposal > PROPOSED_EDIT > Edit
+pub const PROPOSED_EDIT: &str = "8NPzSYo8fXBeFHs7WvGtif";
+/// Space > EDITS > Edit
+pub const EDITS: &str = "QRkn8QWyKjo1sKmpVKsoUJ";

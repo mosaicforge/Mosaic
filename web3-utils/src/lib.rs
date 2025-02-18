@@ -1,7 +1,7 @@
 use sha3::{Digest, Keccak256};
 
-pub fn checksum_address(address: &str) -> String {
-    let input_address = address.to_lowercase().replace("0x", "");
+pub fn checksum_address(address: impl Into<String>) -> String {
+    let input_address = address.into().to_lowercase().replace("0x", "");
 
     let mut hasher = Keccak256::new();
     hasher.update(input_address.as_bytes());

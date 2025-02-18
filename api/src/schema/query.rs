@@ -1,6 +1,6 @@
-use juniper::{graphql_object, Executor, ScalarValue};
+use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
-use sdk::mapping;
+use sdk::mapping::{self, entity_node, relation_node, Query as _};
 
 use crate::{
     context::KnowledgeGraph,
@@ -21,17 +21,20 @@ impl Query {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         id: String,
         space_id: String,
-        // version_id: Option<String>,
-    ) -> Option<Entity> {
-        // let query = QueryMapper::default().select_root_node(&id, &executor.look_ahead()).build();
-        // tracing::info!("Query: {}", query);
+        version_id: Option<String>,
+    ) -> FieldResult<Option<Entity>> {
+        tracing::info!("version_id: {:?}", version_id);
+        let version_index = if let Some(version_id) = version_id {
+            mapping::get_version_index(&executor.context().0, version_id).await?
+        } else {
+            None
+        };
+        tracing::info!("version_index: {:?}", version_index);
 
-        mapping::Entity::<mapping::Triples>::find_by_id(&executor.context().0, &id, &space_id)
-            .await
-            .expect("Failed to find entity")
-            .map(Entity::from)
+        Entity::load(&executor.context().0, id, space_id, version_index).await
     }
 
+    // TODO: Add order_by and order_direction
     /// Returns multiple entities according to the provided space ID and filter
     async fn entities<'a, S: ScalarValue>(
         &'a self,
@@ -41,25 +44,36 @@ impl Query {
         order_direction: Option<OrderDirection>,
         r#where: Option<EntityFilter>,
     ) -> Vec<Entity> {
-        let mut base_query = mapping::entity_queries::FindMany::new("n").space_id(&space_id);
+        let mut query = entity_node::find_many(&executor.context().0);
 
         if let Some(r#where) = r#where {
-            base_query = r#where.add_to_entity_query(base_query);
-
-            if let Some(order_by) = order_by {
-                base_query = base_query.order_by(&order_by);
-            }
-
-            if let Some(order_direction) = order_direction {
-                base_query = base_query.order_direction(order_direction.into());
-            }
+            query = query.with_filter(r#where.into());
         }
 
-        mapping::Entity::<mapping::Triples>::find_many(&executor.context().0, Some(base_query))
+        match (order_by, order_direction) {
+            (Some(order_by), Some(OrderDirection::Asc) | None) => {
+                query.order_by_mut(mapping::order_by::asc(order_by));
+            }
+            (Some(order_by), Some(OrderDirection::Desc)) => {
+                query.order_by_mut(mapping::order_by::desc(order_by));
+            }
+            _ => {}
+        }
+
+        // if let Some(order_by) = order_by {
+        //     query = query.order_by(&order_by);
+        // }
+
+        // if let Some(order_direction) = order_direction {
+        //     query = query.order_direction(order_direction.into());
+        // }
+
+        query
+            .send()
             .await
             .expect("Failed to find entities")
             .into_iter()
-            .map(Entity::from)
+            .map(|entity| Entity::new(entity, space_id.clone(), None))
             .collect::<Vec<_>>()
     }
 
@@ -69,42 +83,39 @@ impl Query {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         id: String,
         space_id: String,
-        // version_id: Option<String>,
-    ) -> Option<Relation> {
-        mapping::Relation::<mapping::Triples>::find_by_id(&executor.context().0, &id, &space_id)
-            .await
-            .expect("Failed to find relation")
-            .map(|rel| rel.into())
+        version_id: Option<String>,
+    ) -> FieldResult<Option<Relation>> {
+        let version_index = if let Some(version_id) = version_id {
+            mapping::get_version_index(&executor.context().0, version_id).await?
+        } else {
+            None
+        };
+
+        Relation::load(&executor.context().0, id, space_id, version_index).await
     }
 
+    // TODO: Add order_by and order_direction
     /// Returns multiple relations according to the provided space ID and filter
     async fn relations<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         space_id: String,
-        order_by: Option<String>,
-        order_direction: Option<OrderDirection>,
+        _order_by: Option<String>,
+        _order_direction: Option<OrderDirection>,
         r#where: Option<RelationFilter>,
     ) -> Vec<Relation> {
-        let mut base_query = mapping::relation_queries::FindMany::new("r").space_id(&space_id);
+        let mut query = relation_node::find_many(&executor.context().0);
 
         if let Some(r#where) = r#where {
-            base_query = r#where.add_to_relation_query(base_query);
-
-            if let Some(order_by) = order_by {
-                base_query = base_query.order_by(&order_by);
-            }
-
-            if let Some(order_direction) = order_direction {
-                base_query = base_query.order_direction(order_direction.into());
-            }
+            query = r#where.apply_filter(query);
         }
 
-        mapping::Relation::<mapping::Triples>::find_many(&executor.context().0, Some(base_query))
+        query
+            .send()
             .await
             .expect("Failed to find relations")
             .into_iter()
-            .map(|rel| rel.into())
-            .collect::<Vec<_>>()
+            .map(|relation| Relation::new(relation, space_id.clone(), None))
+            .collect()
     }
 }

@@ -1,8 +1,17 @@
 use juniper::GraphQLInputObject;
 
-use sdk::mapping;
+use sdk::{
+    mapping::{
+        entity_node::{self},
+        query_utils::{edge_filter::EdgeFilter, prop_filter, PropFilter},
+        relation_node,
+    },
+    system_ids,
+};
 
-use crate::schema::{EntityAttributeFilter, ValueType};
+use crate::schema::EntityAttributeFilter;
+
+use super::triple::ValueType;
 
 /// Entity filter input object
 ///
@@ -24,10 +33,9 @@ pub struct EntityFilter {
     pub id_in: Option<Vec<String>>,
     pub id_not_in: Option<Vec<String>>,
 
-    // pub space_id: Option<String>,
     /// Exact match for the entity types
-    pub types: Option<Vec<String>>,
-    pub types_not: Option<Vec<String>>,
+    // pub types: Option<Vec<String>>,
+    // pub types_not: Option<Vec<String>>,
     pub types_contains: Option<Vec<String>>,
     pub types_not_contains: Option<Vec<String>>,
 
@@ -35,49 +43,73 @@ pub struct EntityFilter {
 }
 
 impl EntityFilter {
-    pub fn add_to_entity_query(
-        self,
-        mut query: mapping::entity_queries::FindMany,
-    ) -> mapping::entity_queries::FindMany {
-        if let Some(id) = self.id {
-            query = query.id(&id);
+    fn id_filter(&self) -> PropFilter<String> {
+        let mut filter = PropFilter::default();
+
+        if let Some(id) = &self.id {
+            filter = filter.value(id);
         }
 
-        if let Some(id_not) = self.id_not {
-            query = query.id_not(&id_not);
+        if let Some(id_not) = &self.id_not {
+            filter = filter.value_not(id_not);
         }
 
-        if let Some(id_in) = self.id_in {
-            query = query.id_in(id_in);
+        if let Some(id_in) = &self.id_in {
+            filter = filter.value_in(id_in.clone());
         }
 
-        if let Some(id_not_in) = self.id_not_in {
-            query = query.id_not_in(id_not_in);
+        if let Some(id_not_in) = &self.id_not_in {
+            filter = filter.value_not_in(id_not_in.clone());
         }
 
-        if let Some(types) = self.types {
-            query = query.types(types);
+        filter
+    }
+
+    fn types_filter(&self) -> entity_node::EntityRelationFilter {
+        let mut filter = entity_node::EntityRelationFilter::default();
+
+        // if let Some(types) = &self.types {
+        //     filter = filter.to_id(EdgeFilter::default().to_id(prop_filter::value_in(types.clone())));
+        // }
+
+        // if let Some(types_not) = &self.types_not {
+        //     filter = filter.to_id(EdgeFilter::default().to_id_not_in(types_not.clone()));
+        // }
+
+        if self.types_contains.is_some() || self.types_not_contains.is_some() {
+            filter = filter.relation_type(
+                EdgeFilter::default().to_id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)),
+            );
         }
 
-        if let Some(types_not) = self.types_not {
-            query = query.types_not(types_not);
+        if let Some(types_contains) = &self.types_contains {
+            filter = filter
+                .to_id(EdgeFilter::default().to_id(prop_filter::value_in(types_contains.clone())));
         }
 
-        if let Some(types_contains) = self.types_contains {
-            query = query.types_contains(types_contains);
+        if let Some(types_not_contains) = &self.types_not_contains {
+            filter = filter.to_id(
+                EdgeFilter::default().to_id(prop_filter::value_not_in(types_not_contains.clone())),
+            );
         }
 
-        if let Some(types_not_contains) = self.types_not_contains {
-            query = query.types_not_contains(types_not_contains);
-        }
+        filter
+    }
+}
 
-        if let Some(attributes) = self.attributes {
-            for attr in attributes {
-                query = attr.add_to_entity_query(query);
-            }
-        }
-
-        query
+impl From<EntityFilter> for entity_node::EntityFilter {
+    fn from(filter: EntityFilter) -> Self {
+        // TODO: Add types filter
+        entity_node::EntityFilter::default()
+            .id(filter.id_filter())
+            .relations(filter.types_filter())
+            .attributes(
+                filter
+                    .attributes
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|attribute| attribute.into()),
+            )
     }
 }
 
@@ -106,6 +138,83 @@ pub struct EntityRelationFilter {
 
     /// Filter the relations by the entity they point to
     pub to_: Option<EntityFilter>,
+    // pub attributes: Option<Vec<EntityAttributeFilter>>,
+}
 
-    pub attributes: Option<Vec<EntityAttributeFilter>>,
+impl EntityRelationFilter {
+    fn id_filter(&self) -> PropFilter<String> {
+        let mut filter = PropFilter::default();
+
+        if let Some(id) = &self.id {
+            filter = filter.value(id);
+        }
+
+        if let Some(id_not) = &self.id_not {
+            filter = filter.value_not(id_not);
+        }
+
+        if let Some(id_in) = &self.id_in {
+            filter = filter.value_in(id_in.clone());
+        }
+
+        if let Some(id_not_in) = &self.id_not_in {
+            filter = filter.value_not_in(id_not_in.clone());
+        }
+
+        filter
+    }
+
+    fn to_id_filter(&self) -> PropFilter<String> {
+        let mut filter = PropFilter::default();
+
+        if let Some(to_id) = &self.to_id {
+            filter = filter.value(to_id);
+        }
+
+        if let Some(to_id_not) = &self.to_id_not {
+            filter = filter.value_not(to_id_not);
+        }
+
+        if let Some(to_id_in) = &self.to_id_in {
+            filter = filter.value_in(to_id_in.clone());
+        }
+
+        if let Some(to_id_not_in) = &self.to_id_not_in {
+            filter = filter.value_not_in(to_id_not_in.clone());
+        }
+
+        filter
+    }
+
+    fn relation_type_filter(&self) -> PropFilter<String> {
+        let mut filter = PropFilter::default();
+
+        if let Some(relation_type) = &self.relation_type {
+            filter = filter.value(relation_type);
+        }
+
+        if let Some(relation_type_not) = &self.relation_type_not {
+            filter = filter.value_not(relation_type_not);
+        }
+
+        if let Some(relation_type_in) = &self.relation_type_in {
+            filter = filter.value_in(relation_type_in.clone());
+        }
+
+        if let Some(relation_type_not_in) = &self.relation_type_not_in {
+            filter = filter.value_not_in(relation_type_not_in.clone());
+        }
+
+        filter
+    }
+
+    pub fn apply_filter(
+        &self,
+        query: relation_node::FindManyQuery,
+    ) -> relation_node::FindManyQuery {
+        query
+            .id(self.id_filter())
+            .to_id(self.to_id_filter())
+            .relation_type(self.relation_type_filter())
+    }
 }

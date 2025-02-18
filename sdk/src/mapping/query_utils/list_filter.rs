@@ -96,38 +96,37 @@ impl IntoQueryPart for ListFieldFilter {
         let mut query_part = QueryPart::default();
 
         if let Some(value) = self.value {
-            query_part = query_part.where_clause(&format!(
+            query_part = query_part.where_clause(format!(
                 "{}.`{}` = $value_{}",
                 self.node_var, self.field_name, self.id,
             ));
-            query_part = query_part.params(format!("value_{}", self.id), value.into());
+            query_part = query_part.params(format!("value_{}", self.id), value);
         }
 
         if let Some(value_not) = self.value_not {
-            query_part = query_part.where_clause(&format!(
+            query_part = query_part.where_clause(format!(
                 "{}.`{}` <> $value_not_{}",
                 self.node_var, self.field_name, self.id,
             ));
-            query_part = query_part.params(format!("value_not_{}", self.id), value_not.into());
+            query_part = query_part.params(format!("value_not_{}", self.id), value_not);
         }
 
         if let Some(value_contains) = self.value_contains {
-            query_part = query_part.where_clause(&format!(
+            query_part = query_part.where_clause(format!(
                 "ALL(x IN $value_contains_{} WHERE x IN {}.`{}`)",
                 self.id, self.node_var, self.field_name,
             ));
-            query_part =
-                query_part.params(format!("value_contains_{}", self.id), value_contains.into());
+            query_part = query_part.params(format!("value_contains_{}", self.id), value_contains);
         }
 
         if let Some(value_not_contains) = self.value_not_contains {
-            query_part = query_part.where_clause(&format!(
+            query_part = query_part.where_clause(format!(
                 "NOT ANY(x IN $value_not_contains_{} WHERE x IN {}.`{}`)",
                 self.id, self.node_var, self.field_name,
             ));
             query_part = query_part.params(
                 format!("value_not_contains_{}", self.id),
-                value_not_contains.into(),
+                value_not_contains,
             );
         }
 
@@ -178,6 +177,7 @@ mod tests {
                         vec!["test5".to_owned(), "test6".to_owned()].into()
                     ),
                 ]),
+                ..Default::default()
             },
         )
     }

@@ -3,9 +3,12 @@ use std::env;
 use anyhow::Error;
 use axum::{response::Json, routing::get, Router};
 use clap::{Args, Parser};
+use sdk::mapping::query_utils::Query;
+use sdk::models::BlockMetadata;
+use sdk::{indexer_ids, mapping};
+use sink::bootstrap;
 use sink::{events::EventHandler, metrics};
 use substreams_utils::Sink;
-use tracing::Level;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -38,7 +41,7 @@ async fn main() -> Result<(), Error> {
     let args = AppArgs::parse();
 
     set_log_level();
-    init_tracing(args.log_file);
+    let _guard = init_tracing(args.log_file);
 
     let neo4j = neo4rs::Graph::new(
         &args.neo4j_args.neo4j_uri,
@@ -107,14 +110,25 @@ struct Neo4jArgs {
 
 pub async fn reset_db(neo4j: &neo4rs::Graph) -> anyhow::Result<()> {
     // Delete all nodes and relations
-    let mut txn = neo4j.start_txn().await?;
-    txn.run(neo4rs::query("MATCH (n) DETACH DELETE n")).await?;
-    txn.commit().await?;
+    neo4j
+        .run(neo4rs::query("MATCH (n) DETACH DELETE n"))
+        .await?;
+
+    // Bootstrap indexer entities
+    mapping::triple::insert_many(
+        neo4j,
+        &BlockMetadata::default(),
+        indexer_ids::INDEXER_SPACE_ID,
+        "0",
+    )
+    .triples(bootstrap::boostrap_indexer::triples())
+    .send()
+    .await?;
 
     Ok(())
 }
 
-fn init_tracing(log_file: Option<String>) {
+fn init_tracing(log_file: Option<String>) -> Option<tracing_appender::non_blocking::WorkerGuard> {
     if let Some(log_file) = log_file {
         // Set the path of the log file
         let now = chrono::Utc::now();
@@ -124,10 +138,12 @@ fn init_tracing(log_file: Option<String>) {
         );
         let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
 
-        tracing_subscriber::fmt::fmt()
-            .with_max_level(Level::INFO)
+        tracing_subscriber::fmt()
             .with_writer(non_blocking)
+            .with_ansi(false)
             .init();
+
+        Some(_guard)
     } else {
         tracing_subscriber::registry()
             .with(
@@ -136,6 +152,8 @@ fn init_tracing(log_file: Option<String>) {
             )
             .with(tracing_subscriber::fmt::layer())
             .init();
+
+        None
     }
 }
 

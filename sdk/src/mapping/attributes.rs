@@ -1,234 +1,782 @@
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use std::collections::{hash_map, HashMap};
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-pub struct SystemProperties {
-    pub space_id: String,
-    #[serde(rename = "82nP7aFmHJLbaPFszj2nbx")] // CREATED_AT_TIMESTAMP
-    pub created_at: DateTime<Utc>,
-    #[serde(rename = "59HTYnd2e4gBx2aA98JfNx")] // CREATED_AT_BLOCK
-    pub created_at_block: String,
-    #[serde(rename = "5Ms1pYq8v8G1RXC3wWb9ix")] // UPDATED_AT_TIMESTAMP
-    pub updated_at: DateTime<Utc>,
-    #[serde(rename = "7pXCVQDV9C7ozrXkpVg8RJ")] // UPDATED_AT_BLOCK
-    pub updated_at_block: String,
+use neo4rs::{BoltList, BoltMap, BoltType};
+use serde::Deserialize;
+
+use crate::{error::DatabaseError, indexer_ids, models::BlockMetadata};
+
+use super::{
+    query_utils::{Query, QueryPart, VersionFilter},
+    AttributeNode, Triple, TriplesConversionError, Value,
+};
+
+/// Group of attributes belonging to the same entity.
+/// Read and written in bulk
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Attributes(pub HashMap<String, AttributeNode>);
+
+impl Attributes {
+    pub fn attribute(mut self, attribute: impl Into<AttributeNode>) -> Self {
+        let attr = attribute.into();
+        self.0.insert(attr.id.clone(), attr);
+        self
+    }
+
+    pub fn attribute_mut(&mut self, attribute: impl Into<AttributeNode>) {
+        let attr = attribute.into();
+        self.0.insert(attr.id.clone(), attr);
+    }
+
+    pub fn pop<T>(&mut self, attribute_id: &str) -> Result<T, TriplesConversionError>
+    where
+        T: TryFrom<Value, Error = String>,
+    {
+        self.0
+            .remove(attribute_id)
+            .ok_or_else(|| TriplesConversionError::MissingAttribute(attribute_id.to_string()))?
+            .value
+            .try_into()
+            .map_err(TriplesConversionError::InvalidValue)
+    }
+
+    pub fn pop_opt<T>(&mut self, attribute_id: &str) -> Result<Option<T>, TriplesConversionError>
+    where
+        T: TryFrom<Value, Error = String>,
+    {
+        self.0
+            .remove(attribute_id)
+            .map(|attr| {
+                attr.value
+                    .try_into()
+                    .map_err(TriplesConversionError::InvalidValue)
+            })
+            .transpose()
+    }
+
+    pub fn get<T>(&self, attribute_id: &str) -> Result<T, TriplesConversionError>
+    where
+        T: TryFrom<Value, Error = String>,
+    {
+        self.0
+            .get(attribute_id)
+            .ok_or_else(|| TriplesConversionError::MissingAttribute(attribute_id.to_string()))?
+            .value
+            .clone()
+            .try_into()
+            .map_err(TriplesConversionError::InvalidValue)
+    }
+
+    pub fn get_opt<T>(&self, attribute_id: &str) -> Result<Option<T>, TriplesConversionError>
+    where
+        T: TryFrom<Value, Error = String>,
+    {
+        self.0
+            .get(attribute_id)
+            .map(|attr| {
+                attr.value
+                    .clone()
+                    .try_into()
+                    .map_err(TriplesConversionError::InvalidValue)
+            })
+            .transpose()
+    }
+
+    // pub fn iter(&self) -> Iter {
+    //     Iter {
+    //         items: self.triples.iter(),
+    //     }
+    // }
+
+    pub fn insert(
+        self,
+        neo4j: &neo4rs::Graph,
+        block: &BlockMetadata,
+        entity_id: impl Into<String>,
+        space_id: impl Into<String>,
+        space_version: impl Into<String>,
+    ) -> InsertOneQuery<Attributes> {
+        InsertOneQuery::new(
+            neo4j,
+            block,
+            entity_id.into(),
+            space_id.into(),
+            space_version.into(),
+            self,
+        )
+    }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-pub struct Attributes<T> {
-    pub id: String,
+impl From<Attributes> for BoltType {
+    fn from(attributes: Attributes) -> Self {
+        BoltType::List(BoltList {
+            value: attributes.0.into_values().map(|attr| attr.into()).collect(),
+        })
+    }
+}
 
-    // System properties
-    #[serde(flatten)]
-    pub system_properties: SystemProperties,
+impl From<Vec<Triple>> for Attributes {
+    fn from(value: Vec<Triple>) -> Self {
+        Attributes(
+            value
+                .into_iter()
+                .map(|triple| {
+                    (
+                        triple.attribute.clone(),
+                        AttributeNode {
+                            id: triple.attribute,
+                            value: triple.value,
+                        },
+                    )
+                })
+                .collect(),
+        )
+    }
+}
 
-    // Actual node data
-    #[serde(flatten)]
-    pub attributes: T,
+impl From<Vec<AttributeNode>> for Attributes {
+    fn from(value: Vec<AttributeNode>) -> Self {
+        Attributes(
+            value
+                .into_iter()
+                .map(|attr| (attr.id.clone(), attr))
+                .collect(),
+        )
+    }
+}
+
+pub fn find_one(
+    neo4j: &neo4rs::Graph,
+    entity_id: impl Into<String>,
+    space_id: impl Into<String>,
+    space_version: Option<String>,
+) -> FindOneQuery {
+    FindOneQuery::new(neo4j, entity_id.into(), space_id.into(), space_version)
+}
+
+pub fn insert_many(
+    neo4j: &neo4rs::Graph,
+    block: &BlockMetadata,
+    space_id: impl Into<String>,
+    space_version: impl Into<String>,
+) -> InsertManyQuery {
+    InsertManyQuery::new(neo4j, block, space_id.into(), space_version.into())
+}
+
+pub fn insert_one<T>(
+    neo4j: &neo4rs::Graph,
+    block: &BlockMetadata,
+    entity_id: impl Into<String>,
+    space_id: impl Into<String>,
+    space_version: impl Into<String>,
+    attributes: T,
+) -> InsertOneQuery<T> {
+    InsertOneQuery::new(
+        neo4j,
+        block,
+        entity_id.into(),
+        space_id.into(),
+        space_version.into(),
+        attributes,
+    )
+}
+
+// /// Aggregate triples by entity as triple sets
+// pub fn aggregate(triples: Vec<Triple>) -> Vec<Attributes> {
+//     let mut map = HashMap::new();
+
+//     for triple in triples {
+//         let entity = triple.entity.clone();
+
+//         map.entry(entity)
+//             .or_insert_with(Vec::new)
+//             .push(triple.into());
+//     }
+
+//     map.into_iter()
+//         .map(|(entity, triples)| Attributes { attributes: triples })
+//         .collect()
+// }
+
+pub struct InsertOneQuery<T> {
+    neo4j: neo4rs::Graph,
+    block: BlockMetadata,
+    entity_id: String,
+    space_id: String,
+    space_version: String,
+    attributes: T,
+}
+
+impl<T> InsertOneQuery<T> {
+    pub fn new(
+        neo4j: &neo4rs::Graph,
+        block: &BlockMetadata,
+        entity_id: String,
+        space_id: String,
+        space_version: String,
+        attributes: T,
+    ) -> Self {
+        Self {
+            neo4j: neo4j.clone(),
+            block: block.clone(),
+            entity_id,
+            space_id,
+            space_version,
+            attributes,
+        }
+    }
+}
+
+impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
+    async fn send(self) -> Result<(), DatabaseError> {
+        const QUERY: &str = const_format::formatcp!(
+            r#"
+            MERGE (e:Entity {{id: $entity_id}})
+            ON CREATE SET e += {{
+                `{CREATED_AT}`: datetime($block_timestamp),
+                `{CREATED_AT_BLOCK}`: $block_number
+            }}
+            SET e += {{
+                `{UPDATED_AT}`: datetime($block_timestamp),
+                `{UPDATED_AT_BLOCK}`: $block_number
+            }}
+            WITH e
+            UNWIND $attributes AS attribute
+            CALL (e, attribute) {{
+                MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> (:Attribute {{id: attribute.id}})
+                WHERE r.max_version IS null AND r.min_version <> $space_version
+                SET r.max_version = $space_version
+            }}
+            CALL (e, attribute) {{
+                MERGE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m:Attribute {{id: attribute.id}})
+                SET m += attribute
+            }}
+            "#,
+            CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
+            CREATED_AT_BLOCK = indexer_ids::CREATED_AT_BLOCK,
+            UPDATED_AT = indexer_ids::UPDATED_AT_TIMESTAMP,
+            UPDATED_AT_BLOCK = indexer_ids::UPDATED_AT_BLOCK,
+        );
+
+        let query = neo4rs::query(QUERY)
+            .param("entity_id", self.entity_id)
+            .param("space_id", self.space_id)
+            .param("space_version", self.space_version)
+            .param("attributes", self.attributes.into_attributes()?)
+            .param("block_number", self.block.block_number.to_string())
+            .param("block_timestamp", self.block.timestamp.to_rfc3339());
+
+        self.neo4j.run(query).await?;
+
+        Ok(())
+    }
+}
+
+pub struct InsertManyQuery {
+    neo4j: neo4rs::Graph,
+    block: BlockMetadata,
+    space_id: String,
+    space_version: String,
+    attributes: Vec<(String, Attributes)>,
+}
+
+impl InsertManyQuery {
+    pub fn new(
+        neo4j: &neo4rs::Graph,
+        block: &BlockMetadata,
+        space_id: String,
+        space_version: String,
+    ) -> Self {
+        Self {
+            neo4j: neo4j.clone(),
+            block: block.clone(),
+            space_id,
+            space_version,
+            attributes: vec![],
+        }
+    }
+
+    pub fn attributes(mut self, entity_id: String, attributes: Attributes) -> Self {
+        self.attributes.push((entity_id, attributes));
+        self
+    }
+
+    pub fn attributes_mut(&mut self, entity_id: String, attributes: Attributes) {
+        self.attributes.push((entity_id, attributes));
+    }
+}
+
+impl Query<()> for InsertManyQuery {
+    async fn send(self) -> Result<(), DatabaseError> {
+        const QUERY: &str = const_format::formatcp!(
+            r#"
+            UNWIND $attributes AS attributes
+            MERGE (e:Entity {{id: attributes.entity}})
+            ON CREATE SET e += {{
+                `{CREATED_AT}`: datetime($block_timestamp),
+                `{CREATED_AT_BLOCK}`: $block_number
+            }}
+            SET e += {{
+                `{UPDATED_AT}`: datetime($block_timestamp),
+                `{UPDATED_AT_BLOCK}`: $block_number
+            }}
+            WITH e
+            UNWIND attributes.attributes AS attribute
+            CALL (e, attribute) {{
+                MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> (:Attribute {{id: attribute.id}})
+                WHERE r.max_version IS null AND r.min_version <> $space_version
+                SET r.max_version = $space_version
+            }}
+            CALL (e, attribute) {{
+                MERGE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m:Attribute {{id: attribute.id}})
+                SET m += attribute
+            }}
+            "#,
+            CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
+            CREATED_AT_BLOCK = indexer_ids::CREATED_AT_BLOCK,
+            UPDATED_AT = indexer_ids::UPDATED_AT_TIMESTAMP,
+            UPDATED_AT_BLOCK = indexer_ids::UPDATED_AT_BLOCK,
+        );
+
+        let query = neo4rs::query(QUERY)
+            .param("space_id", self.space_id)
+            .param("space_version", self.space_version)
+            .param(
+                "attributes",
+                self.attributes
+                    .into_iter()
+                    .map(|(entity, attrs)| {
+                        BoltType::Map(BoltMap {
+                            value: HashMap::from([
+                                (
+                                    neo4rs::BoltString {
+                                        value: "entity".into(),
+                                    },
+                                    entity.into(),
+                                ),
+                                (
+                                    neo4rs::BoltString {
+                                        value: "attributes".into(),
+                                    },
+                                    attrs.into(),
+                                ),
+                            ]),
+                        })
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .param("block_number", self.block.block_number.to_string())
+            .param("block_timestamp", self.block.timestamp.to_rfc3339());
+
+        self.neo4j.run(query).await?;
+
+        Ok(())
+    }
+}
+
+pub struct FindOneQuery {
+    neo4j: neo4rs::Graph,
+    entity_id: String,
+    space_id: String,
+    space_version: VersionFilter,
+}
+
+impl FindOneQuery {
+    pub fn new(
+        neo4j: &neo4rs::Graph,
+        entity_id: String,
+        space_id: String,
+        space_version: Option<String>,
+    ) -> Self {
+        Self {
+            neo4j: neo4j.clone(),
+            entity_id,
+            space_id,
+            space_version: VersionFilter::new(space_version),
+        }
+    }
+
+    fn into_query_part(self) -> QueryPart {
+        QueryPart::default()
+            .match_clause(
+                "(:Entity {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute)",
+            )
+            .merge(self.space_version.into_query_part("r"))
+            .with_clause("collect(n{.*}) AS attrs")
+            .return_clause("attrs")
+            .params("entity_id", self.entity_id)
+            .params("space_id", self.space_id)
+    }
+}
+
+impl<T> Query<Option<T>> for FindOneQuery
+where
+    T: FromAttributes,
+{
+    async fn send(self) -> Result<Option<T>, DatabaseError> {
+        let neo4j = self.neo4j.clone();
+        let query = self.into_query_part().build();
+
+        #[derive(Debug, Deserialize)]
+        struct RowResult {
+            attrs: Vec<AttributeNode>,
+        }
+
+        let result = neo4j
+            .execute(query)
+            .await?
+            .next()
+            .await?
+            .map(|row| {
+                let row = row.to::<RowResult>()?;
+                Result::<_, DatabaseError>::Ok(row.attrs)
+            })
+            .transpose()?;
+
+        Ok(result
+            .map(|attrs| T::from_attributes(attrs.into()))
+            .transpose()?)
+    }
+}
+
+pub trait FromAttributes: Sized {
+    fn from_attributes(attributes: Attributes) -> Result<Self, TriplesConversionError>;
+}
+
+impl FromAttributes for Attributes {
+    fn from_attributes(attributes: Attributes) -> Result<Self, TriplesConversionError> {
+        Ok(attributes)
+    }
+}
+
+/// Trait to convert a type into Triples
+pub trait IntoAttributes {
+    fn into_attributes(self) -> Result<Attributes, TriplesConversionError>;
+}
+
+impl IntoAttributes for Attributes {
+    fn into_attributes(self) -> Result<Attributes, TriplesConversionError> {
+        Ok(self)
+    }
+}
+
+// impl<T> IntoAttributes for T
+// where
+//     T: Serialize,
+// {
+//     fn into_attributes(self) -> Result<Attributes, TriplesConversionError> {
+//         if let serde_json::Value::Object(map) = serde_json::to_value(self)? {
+//             map.into_iter()
+//                 .try_fold(Attributes::default(), |acc, (key, value)| match value {
+//                     serde_json::Value::Bool(value) => Ok(acc.attribute((key, value))),
+//                     serde_json::Value::Number(value) => {
+//                         Ok(acc.attribute((key, Value::number(value.to_string()))))
+//                     }
+//                     serde_json::Value::String(value) => Ok(acc.attribute((key, value))),
+//                     serde_json::Value::Array(_) => {
+//                         Err(TriplesConversionError::InvalidValue("Array".into()))
+//                     }
+//                     serde_json::Value::Object(_) => {
+//                         Err(TriplesConversionError::InvalidValue("Object".into()))
+//                     }
+//                     serde_json::Value::Null => {
+//                         Err(TriplesConversionError::InvalidValue("null".into()))
+//                     }
+//                 })
+//         } else {
+//             Err(TriplesConversionError::InvalidValue(
+//                 "must serialize to serde_json::Map of (String, Scalar) values".into(),
+//             ))
+//         }
+//     }
+// }
+
+// impl<T> FromAttributes for T
+// where
+//     T: for<'a> Deserialize<'a>,
+// {
+//     fn from_attributes(attributes: Attributes) -> Result<Self, TriplesConversionError> {
+//         let obj = attributes
+//             .0
+//             .into_iter()
+//             .map(|(_, attr)| -> (_, serde_json::Value) {
+//                 match attr.value {
+//                     Value {
+//                         value,
+//                         value_type: ValueType::Checkbox,
+//                         ..
+//                     } => (
+//                         attr.id,
+//                         serde_json::Value::Bool(value.parse().expect("bool should parse")),
+//                     ),
+//                     Value {
+//                         value,
+//                         value_type: ValueType::Number,
+//                         ..
+//                     } => (
+//                         attr.id,
+//                         serde_json::Value::Number(value.parse().expect("number should parse")),
+//                     ),
+//                     Value {
+//                         value,
+//                         value_type: ValueType::Point,
+//                         ..
+//                     } => (attr.id, serde_json::Value::String(value)),
+//                     Value {
+//                         value,
+//                         value_type: ValueType::Text,
+//                         ..
+//                     } => (attr.id, serde_json::Value::String(value)),
+//                     Value {
+//                         value,
+//                         value_type: ValueType::Time,
+//                         ..
+//                     } => (attr.id, serde_json::Value::String(value)),
+//                     Value {
+//                         value,
+//                         value_type: ValueType::Url,
+//                         ..
+//                     } => (attr.id, serde_json::Value::String(value)),
+//                 }
+//             })
+//             .collect();
+
+//         Ok(serde_json::from_value(obj)?)
+//     }
+// }
+
+pub struct Iter<'a> {
+    items: hash_map::Iter<'a, String, Triple>,
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = (&'a String, &'a Triple);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.items.next()
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use crate::mapping::{self, entity, Entity};
 
     use super::*;
-    use crate::{
-        mapping::triple::{Options, Triple, Triples, ValueType},
-        models::BlockMetadata,
+
+    use testcontainers::{
+        core::{IntoContainerPort, WaitFor},
+        runners::AsyncRunner,
+        GenericImage, ImageExt,
     };
-    use serde_with::with_prefix;
 
-    #[test]
-    fn test_attributes_struct() {
-        with_prefix!(foo_prefix "foo");
-        #[derive(Debug, Deserialize, Serialize, PartialEq)]
-        struct Foo {
-            #[serde(flatten, with = "foo_prefix")]
-            foo: Triple,
-        }
+    const BOLT_PORT: u16 = 7687;
+    const HTTP_PORT: u16 = 7474;
 
-        let block = BlockMetadata::default();
-
-        let attributes = Attributes {
-            id: "id".to_string(),
-            system_properties: SystemProperties {
-                space_id: "space_id".to_string(),
-                created_at: block.timestamp,
-                created_at_block: block.block_number.to_string(),
-                updated_at: block.timestamp,
-                updated_at_block: block.block_number.to_string(),
-            },
-            attributes: Foo {
-                foo: Triple {
-                    value: "Hello, World!".to_string(),
-                    value_type: ValueType::Text,
-                    options: Options {
-                        format: Some("text".to_string()),
-                        unit: Some("unit".to_string()),
-                        ..Default::default()
-                    },
-                },
-            },
-        };
-
-        let serialized = serde_json::to_value(&attributes).unwrap();
-
-        assert_eq!(
-            serialized,
-            serde_json::json!({
-                "id": "id",
-                "space_id": "space_id",
-                "82nP7aFmHJLbaPFszj2nbx": "1970-01-01T00:00:00Z",
-                "59HTYnd2e4gBx2aA98JfNx": "0",
-                "5Ms1pYq8v8G1RXC3wWb9ix": "1970-01-01T00:00:00Z",
-                "7pXCVQDV9C7ozrXkpVg8RJ": "0",
-                "foo": "Hello, World!",
-                "foo.type": "TEXT",
-                "foo.options.format": "text",
-                "foo.options.unit": "unit",
-            })
-        );
-
-        let deserialized: Attributes<Foo> = serde_json::from_value(serialized).unwrap();
-
-        assert_eq!(attributes, deserialized);
+    #[derive(Clone, Debug, PartialEq)]
+    struct Foo {
+        foo: String,
+        bar: u64,
     }
 
-    #[test]
-    fn test_attributes_multiple_fields() {
-        with_prefix!(foo_prefix "foo");
-        with_prefix!(bar_prefix "bar");
-        #[derive(Debug, Deserialize, Serialize, PartialEq)]
-        struct Foo {
-            #[serde(flatten, with = "foo_prefix")]
-            foo: Triple,
-
-            #[serde(flatten, with = "bar_prefix")]
-            bar: Triple,
-
-            other_field: String,
+    impl mapping::IntoAttributes for Foo {
+        fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
+            Ok(mapping::Attributes::default()
+                .attribute(("foo", self.foo))
+                .attribute(("bar", self.bar)))
         }
-
-        let block = BlockMetadata::default();
-
-        let attributes = Attributes {
-            id: "id".to_string(),
-            system_properties: SystemProperties {
-                space_id: "space_id".to_string(),
-                created_at: block.timestamp,
-                created_at_block: block.block_number.to_string(),
-                updated_at: block.timestamp,
-                updated_at_block: block.block_number.to_string(),
-            },
-            attributes: Foo {
-                foo: Triple {
-                    value: "Hello, World!".to_string(),
-                    value_type: ValueType::Text,
-                    options: Options {
-                        format: Some("text".to_string()),
-                        ..Default::default()
-                    },
-                },
-                bar: Triple {
-                    value: "123".to_string(),
-                    value_type: ValueType::Number,
-                    options: Options {
-                        unit: Some("int".to_string()),
-                        ..Default::default()
-                    },
-                },
-                other_field: "other".to_string(),
-            },
-        };
-
-        let serialized = serde_json::to_value(&attributes).unwrap();
-
-        assert_eq!(
-            serialized,
-            serde_json::json!({
-                "id": "id",
-                "space_id": "space_id",
-                "82nP7aFmHJLbaPFszj2nbx": "1970-01-01T00:00:00Z",
-                "59HTYnd2e4gBx2aA98JfNx": "0",
-                "5Ms1pYq8v8G1RXC3wWb9ix": "1970-01-01T00:00:00Z",
-                "7pXCVQDV9C7ozrXkpVg8RJ": "0",
-                "foo": "Hello, World!",
-                "foo.type": "TEXT",
-                "foo.options.format": "text",
-                "bar": "123",
-                "bar.type": "NUMBER",
-                "bar.options.unit": "int",
-                "other_field": "other",
-            })
-        );
-
-        let deserialized: Attributes<Foo> = serde_json::from_value(serialized).unwrap();
-
-        assert_eq!(attributes, deserialized);
     }
 
-    #[test]
-    fn test_attribtes_triples() {
-        let block = BlockMetadata::default();
+    impl mapping::FromAttributes for Foo {
+        fn from_attributes(
+            mut attributes: mapping::Attributes,
+        ) -> Result<Self, mapping::TriplesConversionError> {
+            Ok(Self {
+                foo: attributes.pop("foo")?,
+                bar: attributes.pop("bar")?,
+            })
+        }
+    }
 
-        let attributes = Attributes {
-            id: "id".to_string(),
-            system_properties: SystemProperties {
-                space_id: "space_id".to_string(),
-                created_at: block.timestamp,
-                created_at_block: block.block_number.to_string(),
-                updated_at: block.timestamp,
-                updated_at_block: block.block_number.to_string(),
+    #[tokio::test]
+    async fn test_attributes_insert_find_one() {
+        // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
+        let container = GenericImage::new("neo4j", "2025.01.0-community")
+            .with_wait_for(WaitFor::Duration {
+                length: std::time::Duration::from_secs(5),
+            })
+            .with_exposed_port(BOLT_PORT.tcp())
+            .with_exposed_port(HTTP_PORT.tcp())
+            .with_env_var("NEO4J_AUTH", "none")
+            .start()
+            .await
+            .expect("Failed to start Neo 4J container");
+
+        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
+        let host = container.get_host().await.unwrap().to_string();
+
+        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
+            .await
+            .unwrap();
+
+        let attributes = Attributes::from(vec![
+            AttributeNode {
+                id: "bar".to_string(),
+                value: 123u64.into(),
             },
-            attributes: Triples(HashMap::from([
-                (
-                    "foo".to_string(),
-                    Triple {
-                        value: "Hello, World!".to_string(),
-                        value_type: ValueType::Text,
-                        options: Options {
-                            format: Some("text".to_string()),
-                            ..Default::default()
-                        },
-                    },
-                ),
-                (
-                    "bar".to_string(),
-                    Triple {
-                        value: "123".to_string(),
-                        value_type: ValueType::Number,
-                        options: Options {
-                            unit: Some("int".to_string()),
-                            ..Default::default()
-                        },
-                    },
-                ),
-            ])),
+            AttributeNode {
+                id: "foo".to_string(),
+                value: "hello".into(),
+            },
+        ]);
+
+        attributes
+            .clone()
+            .insert(
+                &neo4j,
+                &BlockMetadata::default(),
+                "abc".to_string(),
+                "space_id".to_string(),
+                "0",
+            )
+            .send()
+            .await
+            .expect("Failed to insert triple set");
+
+        let result: Attributes = find_one(&neo4j, "abc".to_string(), "space_id".to_string(), None)
+            .send()
+            .await
+            .expect("Failed to find triple set")
+            .expect("Triple set not found");
+
+        assert_eq!(attributes, result);
+    }
+
+    #[tokio::test]
+    async fn test_attributes_insert_find_one_parse() {
+        // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
+        let container = GenericImage::new("neo4j", "2025.01.0-community")
+            .with_wait_for(WaitFor::Duration {
+                length: std::time::Duration::from_secs(5),
+            })
+            .with_exposed_port(BOLT_PORT.tcp())
+            .with_exposed_port(HTTP_PORT.tcp())
+            .with_env_var("NEO4J_AUTH", "none")
+            .start()
+            .await
+            .expect("Failed to start Neo 4J container");
+
+        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
+        let host = container.get_host().await.unwrap().to_string();
+
+        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
+            .await
+            .unwrap();
+
+        let foo = Foo {
+            foo: "abc".into(),
+            bar: 123,
         };
 
-        let serialized = serde_json::to_value(&attributes).expect("Failed to serialize Value");
+        insert_one(
+            &neo4j,
+            &BlockMetadata::default(),
+            "abc".to_string(),
+            "space_id".to_string(),
+            "0",
+            foo.clone(),
+        )
+        .send()
+        .await
+        .expect("Insert failed");
+
+        let result = find_one(&neo4j, "abc".to_string(), "space_id".to_string(), None)
+            .send()
+            .await
+            .expect("Failed to find triple set")
+            .expect("Triple set not found");
+
+        assert_eq!(foo, result);
+    }
+
+    #[tokio::test]
+    async fn test_versioning() {
+        // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
+        let container = GenericImage::new("neo4j", "2025.01.0-community")
+            .with_wait_for(WaitFor::Duration {
+                length: std::time::Duration::from_secs(5),
+            })
+            .with_exposed_port(BOLT_PORT.tcp())
+            .with_exposed_port(HTTP_PORT.tcp())
+            .with_env_var("NEO4J_AUTH", "none")
+            .start()
+            .await
+            .expect("Failed to start Neo 4J container");
+
+        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
+        let host = container.get_host().await.unwrap().to_string();
+
+        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
+            .await
+            .unwrap();
+
+        let foo = Foo {
+            foo: "hello".into(),
+            bar: 123,
+        };
+
+        insert_one(
+            &neo4j,
+            &BlockMetadata::default(),
+            "abc".to_string(),
+            "space_id".to_string(),
+            "0",
+            foo,
+        )
+        .send()
+        .await
+        .expect("Insert failed");
+
+        Triple {
+            entity: "abc".to_string(),
+            attribute: "bar".to_string(),
+            value: 456u64.into(),
+        }
+        .insert(&neo4j, &BlockMetadata::default(), "space_id", "1")
+        .send()
+        .await
+        .expect("Failed to insert triple");
+
+        let foo_v2 = entity::find_one(&neo4j, "abc", "space_id", None)
+            .send()
+            .await
+            .expect("Failed to find entity")
+            .expect("Entity not found");
 
         assert_eq!(
-            serialized,
-            serde_json::json!({
-                "id": "id",
-                "space_id": "space_id",
-                "82nP7aFmHJLbaPFszj2nbx": "1970-01-01T00:00:00Z",
-                "59HTYnd2e4gBx2aA98JfNx": "0",
-                "5Ms1pYq8v8G1RXC3wWb9ix": "1970-01-01T00:00:00Z",
-                "7pXCVQDV9C7ozrXkpVg8RJ": "0",
-                "foo": "Hello, World!",
-                "foo.type": "TEXT",
-                "foo.options.format": "text",
-                "bar": "123",
-                "bar.type": "NUMBER",
-                "bar.options.unit": "int",
-            })
+            foo_v2,
+            Entity::new(
+                "abc",
+                Foo {
+                    foo: "hello".into(),
+                    bar: 456,
+                }
+            )
         );
 
-        let deserialized: Attributes<Triples> =
-            serde_json::from_value(serialized).expect("Failed to deserialize Value");
+        let foo_v1 = entity::find_one(&neo4j, "abc", "space_id", Some("0".into()))
+            .send()
+            .await
+            .expect("Failed to find entity")
+            .expect("Entity not found");
 
-        assert_eq!(deserialized, attributes);
+        assert_eq!(
+            foo_v1,
+            Entity::new(
+                "abc",
+                Foo {
+                    foo: "hello".into(),
+                    bar: 123,
+                }
+            )
+        );
     }
 }

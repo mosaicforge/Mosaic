@@ -306,6 +306,22 @@ impl substreams_utils::Sink for EventHandler {
             })
             .await?;
 
+        if !value.edits.is_empty() {
+            tracing::info!(
+                "Block #{} ({}): Processing {} publish edit proposal created events",
+                block.block_number,
+                block.timestamp,
+                value.edits.len()
+            );
+        }
+        stream::iter(&value.edits)
+            .map(Ok)
+            .try_for_each(|event| async {
+                self.handle_publish_edit_proposal_created(event, &block)
+                    .await
+            })
+            .await?;
+
         if !value.votes_cast.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} vote cast events",
@@ -339,8 +355,12 @@ impl substreams_utils::Sink for EventHandler {
             );
         }
         stream::iter(&value.executed_proposals)
+            .enumerate()
             .map(Ok)
-            .try_for_each(|event| async { self.handle_proposal_executed(event, &block).await })
+            .try_for_each(|(idx, event)| {
+                let block = block.clone();
+                async move { self.handle_proposal_executed(event, &block, idx).await }
+            })
             .await?;
 
         Ok(())

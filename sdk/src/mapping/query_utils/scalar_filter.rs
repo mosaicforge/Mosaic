@@ -11,7 +11,7 @@ pub struct ScalarFieldFilter {
     field_name: String,
 
     /// Value to use for equality predicate (e.g. `n.name = "test"`)
-    value: Option<String>,
+    pub(crate) value: Option<String>,
 
     /// Value to use for inequality predicate (e.g. `n.name <> "test"`)
     value_not: Option<String>,
@@ -96,36 +96,35 @@ impl IntoQueryPart for ScalarFieldFilter {
         let mut query_part = QueryPart::default();
 
         if let Some(value) = self.value {
-            query_part = query_part.where_clause(&format!(
+            query_part = query_part.where_clause(format!(
                 "{}.`{}` = $value_{}",
                 self.node_var, self.field_name, self.id,
             ));
-            query_part = query_part.params(format!("value_{}", self.id), value.into());
+            query_part = query_part.params(format!("value_{}", self.id), value);
         }
 
         if let Some(value_not) = self.value_not {
-            query_part = query_part.where_clause(&format!(
+            query_part = query_part.where_clause(format!(
                 "{}.`{}` <> $value_not_{}",
                 self.node_var, self.field_name, self.id,
             ));
-            query_part = query_part.params(format!("value_not_{}", self.id), value_not.into());
+            query_part = query_part.params(format!("value_not_{}", self.id), value_not);
         }
 
         if let Some(value_in) = self.value_in {
-            query_part = query_part.where_clause(&format!(
+            query_part = query_part.where_clause(format!(
                 "{}.`{}` IN $value_in_{}",
                 self.node_var, self.field_name, self.id,
             ));
-            query_part = query_part.params(format!("value_in_{}", self.id), value_in.into());
+            query_part = query_part.params(format!("value_in_{}", self.id), value_in);
         }
 
         if let Some(value_not_in) = self.value_not_in {
-            query_part = query_part.where_clause(&format!(
+            query_part = query_part.where_clause(format!(
                 "{}.`{}` NOT IN $value_not_in_{}",
                 self.node_var, self.field_name, self.id,
             ));
-            query_part =
-                query_part.params(format!("value_not_in_{}", self.id), value_not_in.into());
+            query_part = query_part.params(format!("value_not_in_{}", self.id), value_not_in);
         }
 
         query_part
@@ -172,6 +171,7 @@ mod tests {
                         vec!["test5".to_owned(), "test6".to_owned()].into()
                     ),
                 ]),
+                ..Default::default()
             },
         )
     }
