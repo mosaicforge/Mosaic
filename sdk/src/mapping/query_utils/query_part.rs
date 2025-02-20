@@ -261,7 +261,7 @@ mod tests {
 
         assert_eq!(
             query_part.query(),
-            "MATCH (n)\nWHERE n.foo = $foo\nRETURN n\nORDER BY n.foo"
+            "MATCH (n)\nWHERE n.foo = $foo\nORDER BY n.foo\nRETURN n\n"
         );
     }
 
@@ -305,7 +305,7 @@ mod tests {
 
         let merged = query_part1.merge(query_part2);
 
-        assert_eq!(merged.query(), "MATCH (n)\nMATCH (m)\nWHERE n.foo = $foo\nAND m.bar = $bar\nRETURN n, m\nORDER BY n.foo, m.bar DESC");
+        assert_eq!(merged.query(), "MATCH (n)\nMATCH (m)\nWHERE n.foo = $foo\nAND m.bar = $bar\nORDER BY n.foo, m.bar DESC\nRETURN n, m\n");
     }
 
     #[test]
@@ -335,7 +335,7 @@ mod tests {
 
         let merged = query_part1.merge(query_part2);
 
-        assert_eq!(merged.query(), "MATCH (n)\nMATCH (m)\nWHERE n.foo = $foo\nAND m.bar = $bar\nRETURN n, m\nORDER BY n.foo, m.bar DESC");
+        assert_eq!(merged.query(), "MATCH (n)\nMATCH (m)\nWHERE n.foo = $foo\nAND m.bar = $bar\nORDER BY n.foo, m.bar DESC\nRETURN n, m\n");
 
         assert_eq!(merged.params.len(), 2);
         assert_eq!(merged.params.get("foo").unwrap(), &123.into());
@@ -354,7 +354,6 @@ mod tests {
                     ..Default::default()
                 }),
             )),
-            return_clauses: vec!["n".to_owned()],
             order_by_clauses: vec!["n.foo".to_owned()],
             params: std::collections::HashMap::new(),
             ..Default::default()
@@ -362,7 +361,7 @@ mod tests {
 
         assert_eq!(
             query_part.query(),
-            "MATCH (n)\nWHERE n.foo = $foo\nORDER BY n.foo\nWITH n AS node\nRETURN node"
+            "MATCH (n)\nWHERE n.foo = $foo\nORDER BY n.foo\nWITH n AS node\nRETURN node\n\n"
         );
     }
 }
