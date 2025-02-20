@@ -6,7 +6,7 @@ use serde::Deserialize;
 use crate::{error::DatabaseError, indexer_ids, models::BlockMetadata};
 
 use super::{
-    query_utils::{Query, QueryPart, VersionFilter},
+    query_utils::{query_part, Query, QueryPart, VersionFilter},
     AttributeNode, Triple, TriplesConversionError, Value,
 };
 
@@ -401,8 +401,7 @@ impl FindOneQuery {
                 "(:Entity {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute)",
             )
             .merge(self.space_version.into_query_part("r"))
-            .with_clause("collect(n{.*}) AS attrs")
-            .return_clause("attrs")
+            .with_clause("collect(n{.*}) AS attrs", query_part::return_query("attrs"))
             .params("entity_id", self.entity_id)
             .params("space_id", self.space_id)
     }

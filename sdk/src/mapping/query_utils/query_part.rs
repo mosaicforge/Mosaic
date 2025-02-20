@@ -2,6 +2,9 @@ use std::collections::HashMap;
 
 #[derive(Clone, Default, Debug, PartialEq)]
 pub struct QueryPart {
+    /// Unwind clauses, e.g.: "$foo AS bar"
+    pub(crate) unwind_clauses: Vec<String>,
+
     /// Match clauses, e.g.: "(n {id: "123"})", "(n:Foo)", "(n)-[:REL]->(m)"
     pub(crate) match_clauses: Vec<String>,
 
@@ -9,7 +12,7 @@ pub struct QueryPart {
     pub(crate) where_clauses: Vec<String>,
 
     /// With clauses, e.g.: "n", "n.bar", "m"
-    pub(crate) with_clauses: Vec<String>,
+    pub(crate) with_clauses: Option<(String, Box<Self>)>,
 
     /// Return clauses, e.g.: "n", "n.bar", "m"
     pub(crate) return_clauses: Vec<String>,
@@ -17,11 +20,48 @@ pub struct QueryPart {
     /// Order by clauses, e.g.: "n.foo", "n.bar DESC"
     pub(crate) order_by_clauses: Vec<String>,
 
+    pub(crate) limit: Option<usize>,
+
+    pub(crate) skip: Option<usize>,
+
     /// Parameters to be passed to the query
     pub(crate) params: HashMap<String, neo4rs::BoltType>,
 }
 
+pub fn match_query(query: impl Into<String>) -> QueryPart {
+    QueryPart {
+        match_clauses: vec![query.into()],
+        ..Default::default()
+    }
+}
+
+pub fn where_query(query: impl Into<String>) -> QueryPart {
+    QueryPart {
+        where_clauses: vec![query.into()],
+        ..Default::default()
+    }
+}
+
+pub fn return_query(query: impl Into<String>) -> QueryPart {
+    QueryPart {
+        return_clauses: vec![query.into()],
+        ..Default::default()
+    }
+}
+
+pub fn order_by_query(query: impl Into<String>) -> QueryPart {
+    QueryPart {
+        order_by_clauses: vec![query.into()],
+        ..Default::default()
+    }
+}
+
 impl QueryPart {
+    pub fn unwind_clause(mut self, clause: impl Into<String>) -> Self {
+        self.unwind_clauses.push(clause.into());
+        self
+    }
+
     // Builder methods
     pub fn match_clause(mut self, clause: impl Into<String>) -> Self {
         self.match_clauses.push(clause.into());
@@ -42,12 +82,8 @@ impl QueryPart {
         self
     }
 
-    pub fn with_clause(mut self, clause: impl Into<String>) -> Self {
-        // Not the most efficient but important to keep the return clauses unique
-        let clause = clause.into();
-        if !self.with_clauses.iter().any(|x| *x == clause) {
-            self.with_clauses.push(clause);
-        }
+    pub fn with_clause(mut self, clause: impl Into<String>, other: QueryPart) -> Self {
+        self.with_clauses = Some((clause.into(), Box::new(other)));
         self
     }
 
@@ -65,11 +101,21 @@ impl QueryPart {
         self
     }
 
+    pub fn limit(mut self, limit: usize) -> Self {
+        self.limit = Some(limit);
+        self
+    }
+
+    pub fn skip(mut self, skip: usize) -> Self {
+        self.skip = Some(skip);
+        self
+    }
+
     pub fn is_empty(&self) -> bool {
         self.match_clauses.is_empty()
             && self.where_clauses.is_empty()
             && self.return_clauses.is_empty()
-            && self.with_clauses.is_empty()
+            && self.with_clauses.is_none()
             && self.order_by_clauses.is_empty()
     }
 
@@ -77,7 +123,9 @@ impl QueryPart {
         self.match_clauses.extend(other.match_clauses);
         self.where_clauses.extend(other.where_clauses);
         self.return_clauses.extend(other.return_clauses);
-        self.with_clauses.extend(other.with_clauses);
+        if self.with_clauses.is_none() {
+            self.with_clauses = other.with_clauses;
+        }
         self.order_by_clauses.extend(other.order_by_clauses);
         self.params.extend(other.params);
     }
@@ -96,6 +144,10 @@ impl QueryPart {
     pub fn query(&self) -> String {
         let mut query = String::new();
 
+        self.unwind_clauses.iter().for_each(|clause| {
+            query.push_str(&format!("UNWIND {clause}\n"));
+        });
+
         self.match_clauses.iter().for_each(|clause| {
             query.push_str(&format!("MATCH {clause}\n"));
         });
@@ -103,32 +155,6 @@ impl QueryPart {
         if !self.where_clauses.is_empty() {
             query.push_str("WHERE ");
             query.push_str(&self.where_clauses.join("\nAND "));
-            query.push('\n');
-        }
-
-        if !self.with_clauses.is_empty() {
-            query.push_str("WITH ");
-            query.push_str(
-                &self
-                    .with_clauses
-                    .iter()
-                    .map(ToOwned::to_owned)
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            );
-            query.push('\n');
-        }
-
-        if !self.return_clauses.is_empty() {
-            query.push_str("RETURN ");
-            query.push_str(
-                &self
-                    .return_clauses
-                    .iter()
-                    .map(ToOwned::to_owned)
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            );
             query.push('\n');
         }
 
@@ -142,6 +168,34 @@ impl QueryPart {
                     .collect::<Vec<_>>()
                     .join(", "),
             );
+            query.push('\n');
+        }
+
+        if let Some((clause, other)) = &self.with_clauses {
+            query.push_str(&format!("WITH {clause}\n"));
+            query.push_str(&other.query());
+            query.push('\n');
+        }
+
+        if let Some(limit) = self.limit {
+            query.push_str(&format!("LIMIT {}\n", limit));
+        }
+
+        if let Some(skip) = self.skip {
+            query.push_str(&format!("SKIP {}\n", skip));
+        }
+
+        if !self.return_clauses.is_empty() {
+            query.push_str("RETURN ");
+            query.push_str(
+                &self
+                    .return_clauses
+                    .iter()
+                    .map(ToOwned::to_owned)
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            );
+            query.push('\n');
         }
 
         query
@@ -198,15 +252,16 @@ mod tests {
         let query_part = super::QueryPart {
             match_clauses: vec!["(n)".to_owned()],
             where_clauses: vec!["n.foo = $foo".to_owned()],
-            with_clauses: vec!["n".to_owned()],
+            with_clauses: None,
             return_clauses: vec!["n".to_owned()],
             order_by_clauses: vec!["n.foo".to_owned()],
             params: std::collections::HashMap::new(),
+            ..Default::default()
         };
 
         assert_eq!(
             query_part.query(),
-            "MATCH (n)\nWHERE n.foo = $foo\nWITH n\nRETURN n\nORDER BY n.foo"
+            "MATCH (n)\nWHERE n.foo = $foo\nORDER BY n.foo\nRETURN n\n"
         );
     }
 
@@ -215,10 +270,11 @@ mod tests {
         let query_part = super::QueryPart {
             match_clauses: vec!["(n)".to_owned()],
             where_clauses: vec!["n.foo = $foo".to_owned()],
-            with_clauses: vec![],
+            with_clauses: None,
             return_clauses: vec!["n".to_owned()],
             order_by_clauses: vec!["n.foo".to_owned()],
             params: HashMap::from([("foo".to_owned(), 123.into())]),
+            ..Default::default()
         };
 
         assert_eq!(query_part.params.len(), 1);
@@ -230,24 +286,26 @@ mod tests {
         let query_part1 = super::QueryPart {
             match_clauses: vec!["(n)".to_owned()],
             where_clauses: vec!["n.foo = $foo".to_owned()],
-            with_clauses: vec!["n".to_owned()],
+            with_clauses: None,
             return_clauses: vec!["n".to_owned()],
             order_by_clauses: vec!["n.foo".to_owned()],
             params: std::collections::HashMap::new(),
+            ..Default::default()
         };
 
         let query_part2 = super::QueryPart {
             match_clauses: vec!["(m)".to_owned()],
             where_clauses: vec!["m.bar = $bar".to_owned()],
-            with_clauses: vec!["m".to_owned()],
+            with_clauses: None,
             return_clauses: vec!["m".to_owned()],
             order_by_clauses: vec!["m.bar DESC".to_owned()],
             params: std::collections::HashMap::new(),
+            ..Default::default()
         };
 
         let merged = query_part1.merge(query_part2);
 
-        assert_eq!(merged.query(), "MATCH (n)\nMATCH (m)\nWHERE n.foo = $foo\nAND m.bar = $bar\nWITH n, m\nRETURN n, m\nORDER BY n.foo, m.bar DESC");
+        assert_eq!(merged.query(), "MATCH (n)\nMATCH (m)\nWHERE n.foo = $foo\nAND m.bar = $bar\nORDER BY n.foo, m.bar DESC\nRETURN n, m\n");
     }
 
     #[test]
@@ -255,30 +313,55 @@ mod tests {
         let query_part1 = super::QueryPart {
             match_clauses: vec!["(n)".to_owned()],
             where_clauses: vec!["n.foo = $foo".to_owned()],
-            with_clauses: vec![],
+            with_clauses: None,
             return_clauses: vec!["n".to_owned()],
             order_by_clauses: vec!["n.foo".to_owned()],
             params: HashMap::from([("foo".to_owned(), 123.into())]),
+            ..Default::default()
         };
 
         let query_part2 = super::QueryPart {
             match_clauses: vec!["(m)".to_owned()],
             where_clauses: vec!["m.bar = $bar".to_owned()],
-            with_clauses: vec![],
+            with_clauses: None,
             return_clauses: vec!["m".to_owned()],
             order_by_clauses: vec!["m.bar DESC".to_owned()],
             params: HashMap::from([
                 ("foo".to_owned(), 123.into()),
                 ("bar".to_owned(), 456.into()),
             ]),
+            ..Default::default()
         };
 
         let merged = query_part1.merge(query_part2);
 
-        assert_eq!(merged.query(), "MATCH (n)\nMATCH (m)\nWHERE n.foo = $foo\nAND m.bar = $bar\nRETURN n, m\nORDER BY n.foo, m.bar DESC");
+        assert_eq!(merged.query(), "MATCH (n)\nMATCH (m)\nWHERE n.foo = $foo\nAND m.bar = $bar\nORDER BY n.foo, m.bar DESC\nRETURN n, m\n");
 
         assert_eq!(merged.params.len(), 2);
         assert_eq!(merged.params.get("foo").unwrap(), &123.into());
         assert_eq!(merged.params.get("bar").unwrap(), &456.into());
+    }
+
+    #[test]
+    fn test_query_part_with() {
+        let query_part = super::QueryPart {
+            match_clauses: vec!["(n)".to_owned()],
+            where_clauses: vec!["n.foo = $foo".to_owned()],
+            with_clauses: Some((
+                "n AS node".to_owned(),
+                Box::new(QueryPart {
+                    return_clauses: vec!["node".to_owned()],
+                    ..Default::default()
+                }),
+            )),
+            order_by_clauses: vec!["n.foo".to_owned()],
+            params: std::collections::HashMap::new(),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            query_part.query(),
+            "MATCH (n)\nWHERE n.foo = $foo\nORDER BY n.foo\nWITH n AS node\nRETURN node\n\n"
+        );
     }
 }

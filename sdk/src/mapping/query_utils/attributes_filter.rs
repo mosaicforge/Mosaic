@@ -25,6 +25,11 @@ impl AttributeFilter {
         self
     }
 
+    pub fn space_id_mut(&mut self, space_id: PropFilter<String>) -> &mut Self {
+        self.space_id = Some(space_id);
+        self
+    }
+
     pub fn value(mut self, value: PropFilter<String>) -> Self {
         self.value = Some(value);
         self

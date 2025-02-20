@@ -23,18 +23,16 @@ impl Query {
         space_id: String,
         version_id: Option<String>,
     ) -> FieldResult<Option<Entity>> {
-        tracing::info!("version_id: {:?}", version_id);
         let version_index = if let Some(version_id) = version_id {
             mapping::get_version_index(&executor.context().0, version_id).await?
         } else {
             None
         };
-        tracing::info!("version_index: {:?}", version_index);
 
         Entity::load(&executor.context().0, id, space_id, version_index).await
     }
 
-    // TODO: Add order_by and order_direction
+    #[allow(clippy::too_many_arguments)]
     /// Returns multiple entities according to the provided space ID and filter
     async fn entities<'a, S: ScalarValue>(
         &'a self,
@@ -43,11 +41,15 @@ impl Query {
         order_by: Option<String>,
         order_direction: Option<OrderDirection>,
         r#where: Option<EntityFilter>,
-    ) -> Vec<Entity> {
+        first: Option<i32>,
+        skip: Option<i32>,
+    ) -> FieldResult<Vec<Entity>> {
         let mut query = entity_node::find_many(&executor.context().0);
 
         if let Some(r#where) = r#where {
-            query = query.with_filter(r#where.into());
+            let filter = entity_node::EntityFilter::from(r#where).with_space_id(&space_id);
+
+            query = query.with_filter(filter);
         }
 
         match (order_by, order_direction) {
@@ -60,21 +62,23 @@ impl Query {
             _ => {}
         }
 
-        // if let Some(order_by) = order_by {
-        //     query = query.order_by(&order_by);
-        // }
+        if let Some(first) = first {
+            if first > 1000 {
+                return Err("Cannot query more than 1000 entities at once".into());
+            }
+            query = query.limit(first as usize);
+        }
 
-        // if let Some(order_direction) = order_direction {
-        //     query = query.order_direction(order_direction.into());
-        // }
+        if let Some(skip) = skip {
+            query = query.skip(skip as usize);
+        }
 
-        query
+        Ok(query
             .send()
-            .await
-            .expect("Failed to find entities")
+            .await?
             .into_iter()
             .map(|entity| Entity::new(entity, space_id.clone(), None))
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>())
     }
 
     /// Returns a single relation identified by its ID and space ID
@@ -95,6 +99,7 @@ impl Query {
     }
 
     // TODO: Add order_by and order_direction
+    #[allow(clippy::too_many_arguments)]
     /// Returns multiple relations according to the provided space ID and filter
     async fn relations<'a, S: ScalarValue>(
         &'a self,
@@ -103,19 +108,31 @@ impl Query {
         _order_by: Option<String>,
         _order_direction: Option<OrderDirection>,
         r#where: Option<RelationFilter>,
-    ) -> Vec<Relation> {
+        first: Option<i32>,
+        skip: Option<i32>,
+    ) -> FieldResult<Vec<Relation>> {
         let mut query = relation_node::find_many(&executor.context().0);
 
         if let Some(r#where) = r#where {
             query = r#where.apply_filter(query);
         }
 
-        query
+        if let Some(first) = first {
+            if first > 1000 {
+                return Err("Cannot query more than 1000 relations at once".into());
+            }
+            query = query.limit(first as usize);
+        }
+
+        if let Some(skip) = skip {
+            query = query.skip(skip as usize);
+        }
+
+        Ok(query
             .send()
-            .await
-            .expect("Failed to find relations")
+            .await?
             .into_iter()
             .map(|relation| Relation::new(relation, space_id.clone(), None))
-            .collect()
+            .collect())
     }
 }

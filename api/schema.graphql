@@ -15,11 +15,14 @@ type Entity {
   """Entity description (if available)"""
   description: String
 
-  """Entity name (if available)"""
+  """Entity cover (if available)"""
   cover: String
 
-  """Entity name (if available)"""
+  """Entity blocks (if available)"""
   blocks: [Entity!]!
+
+  """Types of the entity (which are entities themselves)"""
+  types: [Entity!]!
 
   """
   The space ID of the entity (note: the same entity can exist in multiple spaces)
@@ -30,14 +33,14 @@ type Entity {
   updatedAt: String!
   updatedAtBlock: String!
 
-  """Types of the entity (which are entities themselves)"""
-  types: [Entity!]!
-
   """Attributes of the entity"""
   attributes(filter: AttributeFilter): [Triple!]!
 
   """Relations outgoing from the entity"""
   relations(where: EntityRelationFilter): [Relation!]!
+
+  """Versions of the entity, ordered chronologically"""
+  versions: [EntityVersion!]!
 }
 
 """Filter the entities by attributes and their values and value types"""
@@ -75,8 +78,6 @@ input EntityFilter {
   idNotIn: [String!]
 
   """Exact match for the entity types"""
-  types: [String!]
-  typesNot: [String!]
   typesContains: [String!]
   typesNotContains: [String!]
   attributes: [EntityAttributeFilter!]
@@ -99,7 +100,13 @@ input EntityRelationFilter {
 
   """Filter the relations by the entity they point to"""
   to: EntityFilter
-  attributes: [EntityAttributeFilter!]
+}
+
+type EntityVersion {
+  id: String!
+
+  """Attributes of the entity"""
+  attributes(filter: AttributeFilter): [Triple!]!
 }
 
 type Options {
@@ -115,7 +122,7 @@ enum OrderDirection {
 
 type Query {
   """Returns a single entity identified by its ID and space ID"""
-  entity(id: String!, spaceId: String!): Entity
+  entity(id: String!, spaceId: String!, versionId: String): Entity
 
   """
   Returns multiple entities according to the provided space ID and filter
@@ -123,7 +130,7 @@ type Query {
   entities(spaceId: String!, orderBy: String, orderDirection: OrderDirection, where: EntityFilter): [Entity!]!
 
   """Returns a single relation identified by its ID and space ID"""
-  relation(id: String!, spaceId: String!): Relation
+  relation(id: String!, spaceId: String!, versionId: String): Relation
 
   """
   Returns multiple relations according to the provided space ID and filter
@@ -131,38 +138,22 @@ type Query {
   relations(spaceId: String!, orderBy: String, orderDirection: OrderDirection, where: RelationFilter): [Relation!]!
 }
 
-"""
-Relation object
-
-Note: Relations are also entities, but they have a different structure in the database.
-In other words, the Relation object is a "view" on a relation entity. All relations
-can also be queried as entities.
-"""
+"""Relation object"""
 type Relation {
   """Relation ID"""
   id: String!
 
-  """Relation name (if available)"""
-  name: String
-  createdAt: String!
-  createdAtBlock: String!
-  updatedAt: String!
-  updatedAtBlock: String!
-
-  """Attributes of the relation"""
-  attributes: [Triple!]!
+  """Entity of the relation"""
+  entity: Entity!
 
   """Relation type of the relation"""
-  relationType: [Entity!]!
+  relationType: Entity!
 
   """Entity from which the relation originates"""
   from: Entity!
 
   """Entity to which the relation points"""
   to: Entity!
-
-  """Relations outgoing from the relation"""
-  relations(spaceId: String!, where: EntityRelationFilter): [Relation!]!
 }
 
 """Relation filter input object"""
@@ -201,6 +192,9 @@ type Triple {
 
   """Options of the triple (if any)"""
   options: Options!
+
+  """Space ID of the triple"""
+  spaceId: String!
 
   """Name of the attribute (if available)"""
   name: String

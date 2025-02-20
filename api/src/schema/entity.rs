@@ -248,7 +248,9 @@ impl Entity {
     ) -> FieldResult<Vec<EntityVersion>> {
         Ok(self
             .node
-            .versions(&executor.context().0, self.space_id.clone())
+            .versions(&executor.context().0)
+            .space_id(prop_filter::value(&self.space_id))
+            .send()
             .await?
             .into_iter()
             .map(|version| {

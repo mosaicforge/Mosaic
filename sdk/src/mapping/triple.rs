@@ -98,7 +98,7 @@ pub fn find_one(
     )
 }
 
-pub fn find_many<T>(neo4j: &neo4rs::Graph) -> FindManyQuery<T> {
+pub fn find_many(neo4j: &neo4rs::Graph) -> FindManyQuery {
     FindManyQuery::new(neo4j)
 }
 
@@ -330,14 +330,18 @@ impl FindOneQuery {
 
 impl Query<Option<Triple>> for FindOneQuery {
     async fn send(self) -> Result<Option<Triple>, DatabaseError> {
-        let query = QueryPart::default()
+        let query_part = QueryPart::default()
             .match_clause("(e:Entity {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute {id: $attribute_id})")
             .merge(self.space_version.into_query_part("r"))
             .return_clause("n{.*, entity: e.id} AS triple")
             .params("attribute_id", self.attribute_id)
             .params("entity_id", self.entity_id)
-            .params("space_id", self.space_id)
-            .build();
+            .params("space_id", self.space_id);
+
+        if cfg!(debug_assertions) {
+            tracing::info!("triple::FindOneQuery:\n{}", query_part.query());
+        }
+        let query = query_part.build();
 
         self.neo4j
             .execute(query)
@@ -356,7 +360,7 @@ impl Query<Option<Triple>> for FindOneQuery {
     }
 }
 
-pub struct FindManyQuery<T> {
+pub struct FindManyQuery {
     neo4j: neo4rs::Graph,
     attribute_id: Option<PropFilter<String>>,
     value: Option<PropFilter<String>>,
@@ -364,10 +368,9 @@ pub struct FindManyQuery<T> {
     entity_id: Option<PropFilter<String>>,
     space_id: Option<PropFilter<String>>,
     space_version: VersionFilter,
-    _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T> FindManyQuery<T> {
+impl FindManyQuery {
     pub fn new(neo4j: &neo4rs::Graph) -> Self {
         Self {
             neo4j: neo4j.clone(),
@@ -377,7 +380,6 @@ impl<T> FindManyQuery<T> {
             entity_id: None,
             space_id: None,
             space_version: VersionFilter::default(),
-            _phantom: std::marker::PhantomData,
         }
     }
 
@@ -441,10 +443,17 @@ impl<T> FindManyQuery<T> {
     }
 }
 
-impl Query<Vec<Triple>> for FindManyQuery<Vec<Triple>> {
+impl Query<Vec<Triple>> for FindManyQuery {
     async fn send(self) -> Result<Vec<Triple>, DatabaseError> {
         let neo4j = self.neo4j.clone();
-        let query = self.into_query_part().build();
+
+        let query = if cfg!(debug_assertions) {
+            let query_part = self.into_query_part();
+            tracing::info!("triple::FindManyQuery:\n{}", query_part.query());
+            query_part.build()
+        } else {
+            self.into_query_part().build()
+        };
 
         neo4j
             .execute(query)
@@ -749,7 +758,7 @@ mod tests {
             .await
             .expect("Failed to insert triples");
 
-        let found_triples = FindManyQuery::<Vec<Triple>>::new(&neo4j)
+        let found_triples = FindManyQuery::new(&neo4j)
             .attribute_id(PropFilter::default().value("name"))
             .value(PropFilter::default().value("Alice"))
             .value_type(PropFilter::default().value("TEXT"))
@@ -810,7 +819,7 @@ mod tests {
             .await
             .expect("Failed to insert triple");
 
-        let found_triples = FindManyQuery::<Vec<Triple>>::new(&neo4j)
+        let found_triples = FindManyQuery::new(&neo4j)
             .attribute_id(PropFilter::default().value("name"))
             .value(PropFilter::default().value("Alice"))
             .value_type(PropFilter::default().value("TEXT"))

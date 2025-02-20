@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{error::DatabaseError, indexer_ids, models::BlockMetadata, system_ids};
 
 use super::{
-    attributes,
+    attributes, entity_version,
     query_utils::{
         edge_filter::EdgeFilter, order_by::FieldOrderBy, prop_filter, AttributeFilter, PropFilter,
         Query, QueryPart,
@@ -108,33 +108,8 @@ impl EntityNode {
     }
 
     /// Get all the versions that have been applied to this entity
-    pub async fn versions(
-        &self,
-        neo4j: &neo4rs::Graph,
-        space_id: impl Into<String>,
-    ) -> Result<Vec<EntityVersion>, DatabaseError> {
-        const QUERY: &str = r#"
-            MATCH (:Entity {id: $id}) -[r:ATTRIBUTE]-> (:Attribute)
-            WHERE r.space_id = $space_id
-            WITH COLLECT(DISTINCT r.min_version) AS versions
-            UNWIND versions AS version
-            MATCH (e:Entity) -[:ATTRIBUTE]-> ({id: $EDIT_INDEX_ATTR, value: version})
-            RETURN {entity_id: $id, id: e.id, index: version}
-        "#;
-
-        let query = neo4rs::query(QUERY)
-            .param("id", self.id.clone())
-            .param("space_id", space_id.into())
-            .param("EDIT_INDEX_ATTR", indexer_ids::EDIT_INDEX_ATTRIBUTE);
-
-        neo4j
-            .execute(query)
-            .await?
-            .into_stream_as::<EntityVersion>()
-            .map_err(DatabaseError::from)
-            .and_then(|row| async move { Ok(row) })
-            .try_collect::<Vec<_>>()
-            .await
+    pub fn versions(&self, neo4j: &neo4rs::Graph) -> entity_version::FindManyQuery {
+        entity_version::FindManyQuery::new(neo4j.clone(), self.id.clone())
     }
 }
 
@@ -172,13 +147,6 @@ pub struct SystemProperties {
     pub updated_at: DateTime<Utc>,
     #[serde(rename = "7pXCVQDV9C7ozrXkpVg8RJ")] // UPDATED_AT_BLOCK
     pub updated_at_block: String,
-}
-
-#[derive(Debug, Deserialize, PartialEq)]
-pub struct EntityVersion {
-    pub entity_id: String,
-    pub id: String,
-    pub index: String,
 }
 
 impl Default for SystemProperties {
@@ -237,6 +205,8 @@ pub struct FindManyQuery {
     neo4j: neo4rs::Graph,
     filter: EntityFilter,
     order_by: Option<FieldOrderBy>,
+    limit: usize,
+    skip: Option<usize>,
 }
 
 impl FindManyQuery {
@@ -245,6 +215,8 @@ impl FindManyQuery {
             neo4j: neo4j.clone(),
             filter: EntityFilter::default(),
             order_by: None,
+            limit: 100,
+            skip: None,
         }
     }
 
@@ -271,6 +243,16 @@ impl FindManyQuery {
         self.filter.attributes.extend(attributes);
     }
 
+    pub fn limit(mut self, limit: usize) -> Self {
+        self.limit = limit;
+        self
+    }
+
+    pub fn skip(mut self, skip: usize) -> Self {
+        self.skip = Some(skip);
+        self
+    }
+
     /// Overwrite the current filter with a new one
     pub fn with_filter(mut self, filter: EntityFilter) -> Self {
         self.filter = filter;
@@ -289,12 +271,17 @@ impl FindManyQuery {
     fn into_query_part(self) -> QueryPart {
         let mut query_part = QueryPart::default()
             .match_clause("(e:Entity)")
-            .return_clause("e");
+            .return_clause("e")
+            .limit(self.limit);
 
         query_part.merge_mut(self.filter.into_query_part("e"));
 
         if let Some(order_by) = self.order_by {
             query_part.merge_mut(order_by.into_query_part("e"));
+        }
+
+        if let Some(skip) = self.skip {
+            query_part = query_part.skip(skip);
         }
 
         query_part
@@ -304,11 +291,14 @@ impl FindManyQuery {
 impl Query<Vec<EntityNode>> for FindManyQuery {
     async fn send(self) -> Result<Vec<EntityNode>, DatabaseError> {
         let neo4j = self.neo4j.clone();
-        let query = self.into_query_part().build();
 
-        // let part = self.into_query_part();
-        // println!("FindManyQuery: {}", part.query());
-        // let query = part.build();
+        let query = if cfg!(debug_assertions) {
+            let query_part = self.into_query_part();
+            tracing::info!("entity_node::FindManyQuery:\n{}", query_part.query());
+            query_part.build()
+        } else {
+            self.into_query_part().build()
+        };
 
         #[derive(Debug, Deserialize)]
         struct RowResult {
@@ -326,7 +316,6 @@ impl Query<Vec<EntityNode>> for FindManyQuery {
     }
 }
 
-// TODO: Add types filter
 #[derive(Clone, Debug, Default)]
 pub struct EntityFilter {
     id: Option<PropFilter<String>>,
@@ -360,6 +349,21 @@ impl EntityFilter {
 
     pub fn relations(mut self, relations: EntityRelationFilter) -> Self {
         self.relations = Some(relations);
+        self
+    }
+
+    /// Applies a global space_id to all sub-filters (i.e.: attribute and relation filters).
+    /// If a space_id is already set in a sub-filter, it will be overwritten.
+    pub fn with_space_id(mut self, space_id: impl Into<String>) -> Self {
+        let space_id = space_id.into();
+        for attribute in &mut self.attributes {
+            attribute.space_id_mut(prop_filter::value(&space_id));
+        }
+
+        if let Some(relations) = self.relations {
+            self.relations = Some(relations.with_space_id(space_id));
+        }
+
         self
     }
 
@@ -411,6 +415,21 @@ impl EntityRelationFilter {
 
     pub fn is_empty(&self) -> bool {
         self.relation_type.is_none() && self.to_id.is_none()
+    }
+
+    /// Applies a global space_id to all sub-filters (i.e.: relation_type and to_id filters).
+    /// If a space_id is already set in a sub-filter, it will be overwritten.
+    pub fn with_space_id(mut self, space_id: impl Into<String>) -> Self {
+        let space_id = space_id.into();
+        self.relation_type = self
+            .relation_type
+            .map(|filter| filter.space_id(prop_filter::value(&space_id)));
+
+        self.to_id = self
+            .to_id
+            .map(|filter| filter.space_id(prop_filter::value(&space_id)));
+
+        self
     }
 
     pub(crate) fn into_query_part(self, node_var: impl Into<String>) -> QueryPart {

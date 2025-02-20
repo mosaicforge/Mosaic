@@ -17,13 +17,16 @@ use super::triple::ValueType;
 ///
 /// ```graphql
 /// query {
-///     entities(where: {
-///         space_id: "BJqiLPcSgfF8FRxkFr76Uy",
-///         types_contain: ["XG26vy98XAA6cR6DosTALk", "XG26vy98XAA6cR6DosTALk"],
-///         attributes_contain: [
-///             {id: "XG26vy98XAA6cR6DosTALk", value: "value", value_type: TEXT},
-///         ]
-///     })
+///   entities(
+///     where: {
+///       typesContains: ["XG26vy98XAA6cR6DosTALk", "XG26vy98XAA6cR6DosTALk"],
+///       attributes: [
+///           {attribute: "LuBWqZAu6pz54eiJS5mLv8", value: "Bob", valueType: TEXT},
+///       ]
+///     }
+///   ) {
+///     id
+///   }
 /// }
 /// ```
 #[derive(Debug, GraphQLInputObject)]
