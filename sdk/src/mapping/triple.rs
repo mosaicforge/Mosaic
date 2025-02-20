@@ -338,7 +338,9 @@ impl Query<Option<Triple>> for FindOneQuery {
             .params("entity_id", self.entity_id)
             .params("space_id", self.space_id);
 
-        tracing::info!("triple::FindOneQuery:\n{}", query_part.query());
+        if cfg!(debug_assertions) {
+            tracing::info!("triple::FindOneQuery:\n{}", query_part.query());
+        }
         let query = query_part.build();
 
         self.neo4j
@@ -444,12 +446,14 @@ impl FindManyQuery {
 impl Query<Vec<Triple>> for FindManyQuery {
     async fn send(self) -> Result<Vec<Triple>, DatabaseError> {
         let neo4j = self.neo4j.clone();
-        // println!("FindManyQuery::send");
-        // let query = self.into_query_part().build();
 
-        let qpart = self.into_query_part();
-        tracing::info!("triple::FindManyQuery:\n{}", qpart.query());
-        let query = qpart.build();
+        let query = if cfg!(debug_assertions) {
+            let query_part = self.into_query_part();
+            tracing::info!("triple::FindManyQuery:\n{}", query_part.query());
+            query_part.build()
+        } else {
+            self.into_query_part().build()
+        };
 
         neo4j
             .execute(query)

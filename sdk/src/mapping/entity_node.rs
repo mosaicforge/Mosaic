@@ -3,7 +3,7 @@ use futures::stream::TryStreamExt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{error::DatabaseError, indexer_ids, models::{space, BlockMetadata}, system_ids};
+use crate::{error::DatabaseError, indexer_ids, models::BlockMetadata, system_ids};
 
 use super::{
     attributes, entity_version, query_utils::{
@@ -292,11 +292,14 @@ impl FindManyQuery {
 impl Query<Vec<EntityNode>> for FindManyQuery {
     async fn send(self) -> Result<Vec<EntityNode>, DatabaseError> {
         let neo4j = self.neo4j.clone();
-        // let query = self.into_query_part().build();
 
-        let query_part = self.into_query_part();
-        tracing::info!("eneity_node::FindManyQuery:\n{}", query_part.query());
-        let query = query_part.build();
+        let query = if cfg!(debug_assertions) {
+            let query_part = self.into_query_part();
+            tracing::info!("entity_node::FindManyQuery:\n{}", query_part.query());
+            query_part.build()
+        } else {
+            self.into_query_part().build()
+        };
 
         #[derive(Debug, Deserialize)]
         struct RowResult {

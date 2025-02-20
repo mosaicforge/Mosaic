@@ -168,12 +168,21 @@ impl QueryPart {
                     .collect::<Vec<_>>()
                     .join(", "),
             );
+            query.push('\n');
         }
 
         if let Some((clause, other)) = &self.with_clauses {
             query.push_str(&format!("WITH {clause}"));
             query.push_str(&other.query());
             query.push('\n');
+        }
+
+        if let Some(limit) = self.limit {
+            query.push_str(&format!("LIMIT {}\n", limit));
+        }
+
+        if let Some(skip) = self.skip {
+            query.push_str(&format!("SKIP {}\n", skip));
         }
 
         if !self.return_clauses.is_empty() {
@@ -187,14 +196,6 @@ impl QueryPart {
                     .join(", "),
             );
             query.push('\n');
-        }
-
-        if let Some(limit) = self.limit {
-            query.push_str(&format!("LIMIT {}\n", limit));
-        }
-
-        if let Some(skip) = self.skip {
-            query.push_str(&format!("SKIP {}\n", skip));
         }
 
         query
