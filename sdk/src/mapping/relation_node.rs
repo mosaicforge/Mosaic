@@ -664,6 +664,9 @@ pub struct FindManyQuery {
 
     space_id: Option<PropFilter<String>>,
     space_version: VersionFilter,
+
+    limit: usize,
+    skip: Option<usize>,
 }
 
 impl FindManyQuery {
@@ -678,6 +681,8 @@ impl FindManyQuery {
             to_: None,
             space_id: None,
             space_version: VersionFilter::default(),
+            limit: 100,
+            skip: None,
         }
     }
 
@@ -723,6 +728,16 @@ impl FindManyQuery {
         self
     }
 
+    pub fn limit(mut self, limit: usize) -> Self {
+        self.limit = limit;
+        self
+    }
+
+    pub fn skip(mut self, skip: usize) -> Self {
+        self.skip = Some(skip);
+        self
+    }
+
     fn into_query_part(self) -> QueryPart {
         let mut query_part = QueryPart::default()
             .match_clause("(e:Entity:Relation)")
@@ -744,7 +759,8 @@ impl FindManyQuery {
             ))
             .merge(self.space_version.clone().into_query_part("r_index"))
             .return_clause("e{.id, from: from.id, to: to.id, relation_type: rt.id, index: index}")
-            .order_by_clause("index.value");
+            .order_by_clause("index.value")
+            .limit(self.limit);
 
         if let Some(id_filter) = self.id {
             query_part.merge_mut(id_filter.into_query_part("e", "id"));
@@ -782,6 +798,10 @@ impl FindManyQuery {
                 .merge(space_id.clone().into_query_part("r_to", "space_id"))
                 .merge(space_id.clone().into_query_part("r_rt", "space_id"))
                 .merge(space_id.into_query_part("r_index", "space_id"));
+        }
+
+        if let Some(skip) = self.skip {
+            query_part = query_part.skip(skip);
         }
 
         query_part

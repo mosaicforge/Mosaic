@@ -206,6 +206,8 @@ pub struct FindManyQuery {
     neo4j: neo4rs::Graph,
     filter: EntityFilter,
     order_by: Option<FieldOrderBy>,
+    limit: usize,
+    skip: Option<usize>,
 }
 
 impl FindManyQuery {
@@ -214,6 +216,8 @@ impl FindManyQuery {
             neo4j: neo4j.clone(),
             filter: EntityFilter::default(),
             order_by: None,
+            limit: 100,
+            skip: None,
         }
     }
 
@@ -240,6 +244,16 @@ impl FindManyQuery {
         self.filter.attributes.extend(attributes);
     }
 
+    pub fn limit(mut self, limit: usize) -> Self {
+        self.limit = limit;
+        self
+    }
+
+    pub fn skip(mut self, skip: usize) -> Self {
+        self.skip = Some(skip);
+        self
+    }
+
     /// Overwrite the current filter with a new one
     pub fn with_filter(mut self, filter: EntityFilter) -> Self {
         self.filter = filter;
@@ -258,12 +272,17 @@ impl FindManyQuery {
     fn into_query_part(self) -> QueryPart {
         let mut query_part = QueryPart::default()
             .match_clause("(e:Entity)")
-            .return_clause("e");
+            .return_clause("e")
+            .limit(self.limit);
 
         query_part.merge_mut(self.filter.into_query_part("e"));
 
         if let Some(order_by) = self.order_by {
             query_part.merge_mut(order_by.into_query_part("e"));
+        }
+
+        if let Some(skip) = self.skip {
+            query_part = query_part.skip(skip);
         }
 
         query_part
@@ -295,7 +314,6 @@ impl Query<Vec<EntityNode>> for FindManyQuery {
     }
 }
 
-// TODO: Add types filter
 #[derive(Clone, Debug, Default)]
 pub struct EntityFilter {
     id: Option<PropFilter<String>>,

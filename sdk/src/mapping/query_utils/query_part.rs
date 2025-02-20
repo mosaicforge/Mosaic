@@ -20,6 +20,10 @@ pub struct QueryPart {
     /// Order by clauses, e.g.: "n.foo", "n.bar DESC"
     pub(crate) order_by_clauses: Vec<String>,
 
+    pub(crate) limit: Option<usize>,
+
+    pub(crate) skip: Option<usize>,
+
     /// Parameters to be passed to the query
     pub(crate) params: HashMap<String, neo4rs::BoltType>,
 }
@@ -94,6 +98,16 @@ impl QueryPart {
 
     pub fn params(mut self, key: impl Into<String>, value: impl Into<neo4rs::BoltType>) -> Self {
         self.params.insert(key.into(), value.into());
+        self
+    }
+
+    pub fn limit(mut self, limit: usize) -> Self {
+        self.limit = Some(limit);
+        self
+    }
+
+    pub fn skip(mut self, skip: usize) -> Self {
+        self.skip = Some(skip);
         self
     }
 
@@ -173,6 +187,14 @@ impl QueryPart {
                     .join(", "),
             );
             query.push('\n');
+        }
+
+        if let Some(limit) = self.limit {
+            query.push_str(&format!("LIMIT {}\n", limit));
+        }
+
+        if let Some(skip) = self.skip {
+            query.push_str(&format!("SKIP {}\n", skip));
         }
 
         query

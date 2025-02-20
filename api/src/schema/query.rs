@@ -1,6 +1,6 @@
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
-use sdk::{mapping::{self, entity_node, relation_node, Query as _}, models::space};
+use sdk::mapping::{self, entity_node, relation_node, Query as _};
 
 use crate::{
     context::KnowledgeGraph,
@@ -40,7 +40,9 @@ impl Query {
         order_by: Option<String>,
         order_direction: Option<OrderDirection>,
         r#where: Option<EntityFilter>,
-    ) -> Vec<Entity> {
+        first: Option<i32>,
+        skip: Option<i32>,
+    ) -> FieldResult<Vec<Entity>> {
         let mut query = entity_node::find_many(&executor.context().0);
 
         if let Some(r#where) = r#where {
@@ -60,13 +62,23 @@ impl Query {
             _ => {}
         }
 
-        query
+        if let Some(first) = first {
+            if first > 1000 {
+                return Err("Cannot query more than 1000 entities at once".into());
+            }
+            query = query.limit(first as usize);
+        }
+
+        if let Some(skip) = skip {
+            query = query.skip(skip as usize);
+        }
+
+        Ok(query
             .send()
-            .await
-            .expect("Failed to find entities")
+            .await?
             .into_iter()
             .map(|entity| Entity::new(entity, space_id.clone(), None))
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>())
     }
 
     /// Returns a single relation identified by its ID and space ID
@@ -95,19 +107,31 @@ impl Query {
         _order_by: Option<String>,
         _order_direction: Option<OrderDirection>,
         r#where: Option<RelationFilter>,
-    ) -> Vec<Relation> {
+        first: Option<i32>,
+        skip: Option<i32>,
+    ) -> FieldResult<Vec<Relation>> {
         let mut query = relation_node::find_many(&executor.context().0);
 
         if let Some(r#where) = r#where {
             query = r#where.apply_filter(query);
         }
 
-        query
+        if let Some(first) = first {
+            if first > 1000 {
+                return Err("Cannot query more than 1000 relations at once".into());
+            }
+            query = query.limit(first as usize);
+        }
+
+        if let Some(skip) = skip {
+            query = query.skip(skip as usize);
+        }
+        
+        Ok(query
             .send()
-            .await
-            .expect("Failed to find relations")
+            .await?
             .into_iter()
             .map(|relation| Relation::new(relation, space_id.clone(), None))
-            .collect()
+            .collect())
     }
 }
