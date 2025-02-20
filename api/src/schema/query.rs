@@ -1,6 +1,6 @@
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
-use sdk::mapping::{self, entity_node, relation_node, Query as _};
+use sdk::{mapping::{self, entity_node, relation_node, Query as _}, models::space};
 
 use crate::{
     context::KnowledgeGraph,
@@ -23,18 +23,15 @@ impl Query {
         space_id: String,
         version_id: Option<String>,
     ) -> FieldResult<Option<Entity>> {
-        tracing::info!("version_id: {:?}", version_id);
         let version_index = if let Some(version_id) = version_id {
             mapping::get_version_index(&executor.context().0, version_id).await?
         } else {
             None
         };
-        tracing::info!("version_index: {:?}", version_index);
 
         Entity::load(&executor.context().0, id, space_id, version_index).await
     }
 
-    // TODO: Add order_by and order_direction
     /// Returns multiple entities according to the provided space ID and filter
     async fn entities<'a, S: ScalarValue>(
         &'a self,
@@ -47,7 +44,10 @@ impl Query {
         let mut query = entity_node::find_many(&executor.context().0);
 
         if let Some(r#where) = r#where {
-            query = query.with_filter(r#where.into());
+            let filter = entity_node::EntityFilter::from(r#where)
+                .with_space_id(&space_id);
+
+            query = query.with_filter(filter);
         }
 
         match (order_by, order_direction) {
@@ -59,14 +59,6 @@ impl Query {
             }
             _ => {}
         }
-
-        // if let Some(order_by) = order_by {
-        //     query = query.order_by(&order_by);
-        // }
-
-        // if let Some(order_direction) = order_direction {
-        //     query = query.order_direction(order_direction.into());
-        // }
 
         query
             .send()

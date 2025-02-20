@@ -35,17 +35,6 @@ impl FindManyQuery {
         self.space_id = Some(space_id);
         self
     }
-
-    pub fn into_query_part(self) -> QueryPart {
-        let mut query = QueryPart::default()
-            .match_clause("(:Entity {id: $id}) -[r:ATTRIBUTE]-> (:Attribute)");
-
-        if let Some(space_id) = self.space_id {
-            query.merge_mut(space_id.into_query_part("r", "space_id"));
-        }
-
-        query
-    }
 }
 
 impl Query<Vec<EntityVersion>> for FindManyQuery {

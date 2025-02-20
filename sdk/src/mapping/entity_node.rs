@@ -3,7 +3,7 @@ use futures::stream::TryStreamExt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{error::DatabaseError, indexer_ids, models::BlockMetadata, system_ids};
+use crate::{error::DatabaseError, indexer_ids, models::{space, BlockMetadata}, system_ids};
 
 use super::{
     attributes, entity_version, query_utils::{
@@ -273,11 +273,11 @@ impl FindManyQuery {
 impl Query<Vec<EntityNode>> for FindManyQuery {
     async fn send(self) -> Result<Vec<EntityNode>, DatabaseError> {
         let neo4j = self.neo4j.clone();
-        let query = self.into_query_part().build();
+        // let query = self.into_query_part().build();
 
-        // let part = self.into_query_part();
-        // println!("FindManyQuery: {}", part.query());
-        // let query = part.build();
+        let query_part = self.into_query_part();
+        tracing::info!("eneity_node::FindManyQuery:\n{}", query_part.query());
+        let query = query_part.build();
 
         #[derive(Debug, Deserialize)]
         struct RowResult {
@@ -332,6 +332,21 @@ impl EntityFilter {
         self
     }
 
+    /// Applies a global space_id to all sub-filters (i.e.: attribute and relation filters).
+    /// If a space_id is already set in a sub-filter, it will be overwritten. 
+    pub fn with_space_id(mut self, space_id: impl Into<String>) -> Self {
+        let space_id = space_id.into();
+        for attribute in &mut self.attributes {
+            attribute.space_id_mut(prop_filter::value(&space_id));
+        }
+
+        if let Some(relations) = self.relations {
+            self.relations = Some(relations.with_space_id(space_id));
+        }
+
+        self
+    }
+
     pub(crate) fn into_query_part(self, node_var: impl Into<String>) -> QueryPart {
         let node_var = node_var.into();
         let mut query_part = QueryPart::default();
@@ -380,6 +395,19 @@ impl EntityRelationFilter {
 
     pub fn is_empty(&self) -> bool {
         self.relation_type.is_none() && self.to_id.is_none()
+    }
+
+    /// Applies a global space_id to all sub-filters (i.e.: relation_type and to_id filters).
+    /// If a space_id is already set in a sub-filter, it will be overwritten.
+    pub fn with_space_id(mut self, space_id: impl Into<String>) -> Self {
+        let space_id = space_id.into();
+        self.relation_type = self
+            .relation_type
+            .map(|filter| filter.space_id(prop_filter::value(&space_id)));
+
+        self.to_id = self.to_id.map(|filter| filter.space_id(prop_filter::value(&space_id)));
+
+        self
     }
 
     pub(crate) fn into_query_part(self, node_var: impl Into<String>) -> QueryPart {
