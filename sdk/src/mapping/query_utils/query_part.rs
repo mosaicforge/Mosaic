@@ -347,10 +347,13 @@ mod tests {
         let query_part = super::QueryPart {
             match_clauses: vec!["(n)".to_owned()],
             where_clauses: vec!["n.foo = $foo".to_owned()],
-            with_clauses: Some(("n AS node".to_owned(), Box::new(QueryPart {
-                return_clauses: vec!["node".to_owned()],
-                ..Default::default()
-            }))),
+            with_clauses: Some((
+                "n AS node".to_owned(),
+                Box::new(QueryPart {
+                    return_clauses: vec!["node".to_owned()],
+                    ..Default::default()
+                }),
+            )),
             return_clauses: vec!["n".to_owned()],
             order_by_clauses: vec!["n.foo".to_owned()],
             params: std::collections::HashMap::new(),

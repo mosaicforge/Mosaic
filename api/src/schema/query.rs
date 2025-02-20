@@ -32,6 +32,7 @@ impl Query {
         Entity::load(&executor.context().0, id, space_id, version_index).await
     }
 
+    #[allow(clippy::too_many_arguments)]
     /// Returns multiple entities according to the provided space ID and filter
     async fn entities<'a, S: ScalarValue>(
         &'a self,
@@ -46,8 +47,7 @@ impl Query {
         let mut query = entity_node::find_many(&executor.context().0);
 
         if let Some(r#where) = r#where {
-            let filter = entity_node::EntityFilter::from(r#where)
-                .with_space_id(&space_id);
+            let filter = entity_node::EntityFilter::from(r#where).with_space_id(&space_id);
 
             query = query.with_filter(filter);
         }
@@ -99,6 +99,7 @@ impl Query {
     }
 
     // TODO: Add order_by and order_direction
+    #[allow(clippy::too_many_arguments)]
     /// Returns multiple relations according to the provided space ID and filter
     async fn relations<'a, S: ScalarValue>(
         &'a self,
@@ -126,7 +127,7 @@ impl Query {
         if let Some(skip) = skip {
             query = query.skip(skip as usize);
         }
-        
+
         Ok(query
             .send()
             .await?

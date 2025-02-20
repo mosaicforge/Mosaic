@@ -6,10 +6,12 @@ use serde::{Deserialize, Serialize};
 use crate::{error::DatabaseError, indexer_ids, models::BlockMetadata, system_ids};
 
 use super::{
-    attributes, entity_version, query_utils::{
+    attributes, entity_version,
+    query_utils::{
         edge_filter::EdgeFilter, order_by::FieldOrderBy, prop_filter, AttributeFilter, PropFilter,
         Query, QueryPart,
-    }, relation_node, triple, AttributeNode, Triple
+    },
+    relation_node, triple, AttributeNode, Triple,
 };
 
 /// Neo4j model of an Entity
@@ -106,10 +108,7 @@ impl EntityNode {
     }
 
     /// Get all the versions that have been applied to this entity
-    pub fn versions(
-        &self,
-        neo4j: &neo4rs::Graph,
-    ) -> entity_version::FindManyQuery {
+    pub fn versions(&self, neo4j: &neo4rs::Graph) -> entity_version::FindManyQuery {
         entity_version::FindManyQuery::new(neo4j.clone(), self.id.clone())
     }
 }
@@ -354,7 +353,7 @@ impl EntityFilter {
     }
 
     /// Applies a global space_id to all sub-filters (i.e.: attribute and relation filters).
-    /// If a space_id is already set in a sub-filter, it will be overwritten. 
+    /// If a space_id is already set in a sub-filter, it will be overwritten.
     pub fn with_space_id(mut self, space_id: impl Into<String>) -> Self {
         let space_id = space_id.into();
         for attribute in &mut self.attributes {
@@ -426,7 +425,9 @@ impl EntityRelationFilter {
             .relation_type
             .map(|filter| filter.space_id(prop_filter::value(&space_id)));
 
-        self.to_id = self.to_id.map(|filter| filter.space_id(prop_filter::value(&space_id)));
+        self.to_id = self
+            .to_id
+            .map(|filter| filter.space_id(prop_filter::value(&space_id)));
 
         self
     }

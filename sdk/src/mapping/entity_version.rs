@@ -49,18 +49,23 @@ impl Query<Vec<EntityVersion>> for FindManyQuery {
         // "#;
         let mut query = QueryPart::default()
             .match_clause("(:Entity {id: $id}) -[r:ATTRIBUTE]-> (:Attribute)")
-            .with_clause("COLLECT(DISTINCT r.min_version) AS versions", QueryPart::default()
-                .unwind_clause("versions AS version")
-                .match_clause("(e:Entity) -[:ATTRIBUTE]-> ({id: $EDIT_INDEX_ATTR, value: version})")
-                .return_clause("{entity_id: $id, id: e.id, index: version}"))
-                .params("id", self.entity_id.clone())
-                .params("EDIT_INDEX_ATTR", indexer_ids::EDIT_INDEX_ATTRIBUTE);
+            .with_clause(
+                "COLLECT(DISTINCT r.min_version) AS versions",
+                QueryPart::default()
+                    .unwind_clause("versions AS version")
+                    .match_clause(
+                        "(e:Entity) -[:ATTRIBUTE]-> ({id: $EDIT_INDEX_ATTR, value: version})",
+                    )
+                    .return_clause("{entity_id: $id, id: e.id, index: version}"),
+            )
+            .params("id", self.entity_id.clone())
+            .params("EDIT_INDEX_ATTR", indexer_ids::EDIT_INDEX_ATTRIBUTE);
 
         if let Some(space_id) = self.space_id {
             query.merge_mut(space_id.into_query_part("r", "space_id"))
         }
 
-        let query= query.build();
+        let query = query.build();
 
         self.neo4j
             .execute(query)
