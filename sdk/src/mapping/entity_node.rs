@@ -6,12 +6,10 @@ use serde::{Deserialize, Serialize};
 use crate::{error::DatabaseError, indexer_ids, models::BlockMetadata, system_ids};
 
 use super::{
-    attributes,
-    query_utils::{
+    attributes, entity_version, query_utils::{
         edge_filter::EdgeFilter, order_by::FieldOrderBy, prop_filter, AttributeFilter, PropFilter,
         Query, QueryPart,
-    },
-    relation_node, triple, AttributeNode, Triple,
+    }, relation_node, triple, AttributeNode, Triple
 };
 
 /// Neo4j model of an Entity
@@ -108,33 +106,11 @@ impl EntityNode {
     }
 
     /// Get all the versions that have been applied to this entity
-    pub async fn versions(
+    pub fn versions(
         &self,
         neo4j: &neo4rs::Graph,
-        space_id: impl Into<String>,
-    ) -> Result<Vec<EntityVersion>, DatabaseError> {
-        const QUERY: &str = r#"
-            MATCH (:Entity {id: $id}) -[r:ATTRIBUTE]-> (:Attribute)
-            WHERE r.space_id = $space_id
-            WITH COLLECT(DISTINCT r.min_version) AS versions
-            UNWIND versions AS version
-            MATCH (e:Entity) -[:ATTRIBUTE]-> ({id: $EDIT_INDEX_ATTR, value: version})
-            RETURN {entity_id: $id, id: e.id, index: version}
-        "#;
-
-        let query = neo4rs::query(QUERY)
-            .param("id", self.id.clone())
-            .param("space_id", space_id.into())
-            .param("EDIT_INDEX_ATTR", indexer_ids::EDIT_INDEX_ATTRIBUTE);
-
-        neo4j
-            .execute(query)
-            .await?
-            .into_stream_as::<EntityVersion>()
-            .map_err(DatabaseError::from)
-            .and_then(|row| async move { Ok(row) })
-            .try_collect::<Vec<_>>()
-            .await
+    ) -> entity_version::FindManyQuery {
+        entity_version::FindManyQuery::new(neo4j.clone(), self.id.clone())
     }
 }
 
@@ -172,13 +148,6 @@ pub struct SystemProperties {
     pub updated_at: DateTime<Utc>,
     #[serde(rename = "7pXCVQDV9C7ozrXkpVg8RJ")] // UPDATED_AT_BLOCK
     pub updated_at_block: String,
-}
-
-#[derive(Debug, Deserialize, PartialEq)]
-pub struct EntityVersion {
-    pub entity_id: String,
-    pub id: String,
-    pub index: String,
 }
 
 impl Default for SystemProperties {
