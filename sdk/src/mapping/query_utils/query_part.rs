@@ -172,7 +172,7 @@ impl QueryPart {
         }
 
         if let Some((clause, other)) = &self.with_clauses {
-            query.push_str(&format!("WITH {clause}"));
+            query.push_str(&format!("WITH {clause}\n"));
             query.push_str(&other.query());
             query.push('\n');
         }
