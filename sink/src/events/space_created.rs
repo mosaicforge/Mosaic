@@ -39,13 +39,13 @@ impl EventHandler {
                                 block.block_number,
                                 block.timestamp,
                                 checksum_address(&space_created.space_address),
-                                Space::generate_id(
+                                Space::gen_id(
                                     &import.previous_network,
                                     &import.previous_contract_address,
                                 )
                             );
 
-                            Some(Space::generate_id(
+                            Some(Space::gen_id(
                                 &import.previous_network,
                                 &import.previous_contract_address,
                             ))
@@ -60,7 +60,7 @@ impl EventHandler {
         };
 
         let space_id = maybe_existing_space_id
-            .unwrap_or_else(|| Space::generate_id(network_ids::GEO, &space_created.dao_address));
+            .unwrap_or_else(|| Space::gen_id(network_ids::GEO, &space_created.dao_address));
 
         tracing::info!(
             "Block #{} ({}): Creating space {}",

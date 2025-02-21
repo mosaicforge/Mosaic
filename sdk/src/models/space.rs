@@ -34,7 +34,7 @@ pub struct Space {
 }
 
 impl Space {
-    pub fn generate_id(network: &str, address: &str) -> String {
+    pub fn gen_id(network: &str, address: &str) -> String {
         ids::create_id_from_unique_string(format!("{network}:{}", checksum_address(address)))
     }
 
@@ -49,7 +49,7 @@ impl Space {
     ) -> Result<Option<Entity<Self>>, DatabaseError> {
         entity::find_one(
             neo4j,
-            Space::generate_id(network_ids::GEO, dao_contract_address),
+            Space::gen_id(network_ids::GEO, dao_contract_address),
             indexer_ids::INDEXER_SPACE_ID,
             None,
         )
@@ -61,12 +61,9 @@ impl Space {
         neo4j: &neo4rs::Graph,
         dao_contract_address: &str,
     ) -> Result<Option<EntityNode>, DatabaseError> {
-        entity_node::find_one(
-            neo4j,
-            Space::generate_id(network_ids::GEO, dao_contract_address),
-        )
-        .send()
-        .await
+        entity_node::find_one(neo4j, Space::gen_id(network_ids::GEO, dao_contract_address))
+            .send()
+            .await
     }
 
     /// Find a space by its space plugin address.
@@ -79,6 +76,7 @@ impl Space {
                 AttributeFilter::new(indexer_ids::SPACE_PLUGIN_ADDRESS)
                     .value(PropFilter::default().value(checksum_address(space_plugin_address))),
             )
+            .limit(1)
             .send()
             .await?;
 
@@ -97,6 +95,7 @@ impl Space {
                     .space_id(prop_filter::value(indexer_ids::INDEXER_SPACE_ID))
                     .value(prop_filter::value(checksum_address(space_plugin_address))),
             )
+            .limit(1)
             .send()
             .await?;
 
@@ -115,6 +114,7 @@ impl Space {
                 AttributeFilter::new(indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS)
                     .value(PropFilter::default().value(checksum_address(voting_plugin_address))),
             )
+            .limit(1)
             .send()
             .await?;
 
@@ -133,6 +133,7 @@ impl Space {
                     .space_id(prop_filter::value(indexer_ids::INDEXER_SPACE_ID))
                     .value(prop_filter::value(checksum_address(voting_plugin_address))),
             )
+            .limit(1)
             .send()
             .await?;
 
@@ -151,6 +152,7 @@ impl Space {
                 AttributeFilter::new(indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS)
                     .value(PropFilter::default().value(checksum_address(member_access_plugin))),
             )
+            .limit(1)
             .send()
             .await?;
 
@@ -170,6 +172,7 @@ impl Space {
                     PropFilter::default().value(checksum_address(personal_space_admin_plugin)),
                 ),
             )
+            .limit(1)
             .send()
             .await?;
 

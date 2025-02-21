@@ -202,6 +202,8 @@ pub struct FindManyQuery {
     neo4j: neo4rs::Graph,
     id: Option<PropFilter<String>>,
     attributes: Vec<AttributeFilter>,
+    limit: usize,
+    skip: Option<usize>,
 
     space_id: PropFilter<String>,
     version: VersionFilter,
@@ -211,10 +213,12 @@ impl FindManyQuery {
     fn new(neo4j: neo4rs::Graph, space_id: String, version: Option<String>) -> Self {
         FindManyQuery {
             neo4j,
-            space_id: prop_filter::value(space_id),
-            version: VersionFilter::new(version),
             id: None,
             attributes: vec![],
+            limit: 100,
+            skip: None,
+            space_id: prop_filter::value(space_id),
+            version: VersionFilter::new(version),
         }
     }
 
@@ -228,11 +232,27 @@ impl FindManyQuery {
         self
     }
 
+    pub fn limit(mut self, limit: usize) -> Self {
+        self.limit = limit;
+        self
+    }
+
+    pub fn skip(mut self, skip: usize) -> Self {
+        self.skip = Some(skip);
+        self
+    }
+
     fn into_query_part(self) -> QueryPart {
-        let mut query_part = QueryPart::default().match_clause("(e:Entity)");
+        let mut query_part = QueryPart::default()
+            .match_clause("(e:Entity)")
+            .limit(self.limit);
 
         if let Some(id) = self.id {
             query_part.merge_mut(id.into_query_part("e", "id"));
+        }
+
+        if let Some(skip) = self.skip {
+            query_part = query_part.skip(skip);
         }
 
         for attribute in self.attributes {
@@ -286,8 +306,6 @@ impl<T: FromAttributes> QueryStream<Entity<T>> for FindManyQuery {
             });
 
         Ok(stream)
-
-        // todo!()
     }
 }
 
@@ -431,6 +449,7 @@ mod tests {
 
         let stream = find_many(&neo4j, "ROOT", None)
             .attribute(AttributeFilter::new("name").value(prop_filter::value("Alice")))
+            .limit(1)
             .send()
             .await
             .expect("Failed to find entity");
