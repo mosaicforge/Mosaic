@@ -456,7 +456,7 @@ mod tests {
 
         pin_mut!(stream);
 
-        let found_entity = stream
+        let found_entity: Entity<Foo> = stream
             .next()
             .await
             .expect("Failed to get next entity")
