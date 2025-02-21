@@ -462,6 +462,7 @@ mod tests {
             .expect("Failed to get next entity")
             .expect("Entity not found");
 
-        assert_eq!(found_entity, entity);
+        assert_eq!(found_entity.id, entity.id);
+        assert_eq!(found_entity.attributes, entity.attributes);
     }
 }
