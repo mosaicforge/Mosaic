@@ -12,7 +12,7 @@ impl EventHandler {
         subspace_removed: &geo::SubspaceRemoved,
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space = models::Space::find_by_space_plugin_address(
+        let space = models::Space::find_entity_by_space_plugin_address(
             &self.neo4j,
             &subspace_removed.plugin_address,
         )

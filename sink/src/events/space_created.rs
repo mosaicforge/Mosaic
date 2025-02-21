@@ -1,6 +1,6 @@
 use sdk::{
     indexer_ids,
-    mapping::query_utils::Query,
+    mapping::{query_utils::Query, Attributes},
     models::{self, Account, Space, SpaceGovernanceType},
     network_ids,
     pb::{self, geo},
@@ -77,20 +77,6 @@ impl EventHandler {
             .send()
             .await?;
 
-        // Create the spaces
-        // let created_ids: Vec<_> = stream::iter(spaces_created)
-        //     .then(|event| async {
-        //         let space_id = space_ids
-        //             .get(&event.space_address)
-        //             .cloned()
-        //             .unwrap_or(Space::new_id(network_ids::GEO, &event.dao_address));
-
-        //         anyhow::Ok(space_id)
-        //     })
-        //     .try_collect()
-        //     .await
-        //     .map_err(|err| HandlerError::Other(format!("{err:?}").into()))?;
-
         Ok(space_id)
     }
 
@@ -100,14 +86,26 @@ impl EventHandler {
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space =
-            Space::find_by_dao_address(&self.neo4j, &personal_space_created.dao_address).await?;
+            Space::find_entity_by_dao_address(&self.neo4j, &personal_space_created.dao_address)
+                .await?;
 
         if let Some(space) = &space {
-            Space::builder(&space.id, &space.attributes.dao_contract_address)
-                .governance_type(SpaceGovernanceType::Personal)
-                .personal_space_admin_plugin(&personal_space_created.personal_admin_address)
-                .build()
-                .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
+            space
+                .set_attributes(
+                    &self.neo4j,
+                    block,
+                    indexer_ids::INDEXER_SPACE_ID,
+                    "0",
+                    Attributes::default()
+                        .attribute((
+                            indexer_ids::SPACE_GOVERNANCE_TYPE,
+                            SpaceGovernanceType::Personal,
+                        ))
+                        .attribute((
+                            indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS,
+                            personal_space_created.personal_admin_address.clone(),
+                        )),
+                )
                 .send()
                 .await?;
 
@@ -144,7 +142,8 @@ impl EventHandler {
         block: &models::BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space =
-            Space::find_by_dao_address(&self.neo4j, &governance_plugin_created.dao_address).await?;
+            Space::find_entity_by_dao_address(&self.neo4j, &governance_plugin_created.dao_address)
+                .await?;
 
         if let Some(space) = space {
             tracing::info!(
@@ -154,11 +153,22 @@ impl EventHandler {
                 space.id
             );
 
-            Space::builder(&space.id, &space.attributes.dao_contract_address)
-                .voting_plugin_address(&governance_plugin_created.main_voting_address)
-                .member_access_plugin(&governance_plugin_created.member_access_address)
-                .build()
-                .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
+            space
+                .set_attributes(
+                    &self.neo4j,
+                    block,
+                    indexer_ids::INDEXER_SPACE_ID,
+                    "0",
+                    Attributes::default()
+                        .attribute((
+                            indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS,
+                            governance_plugin_created.main_voting_address.clone(),
+                        ))
+                        .attribute((
+                            indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS,
+                            governance_plugin_created.member_access_address.clone(),
+                        )),
+                )
                 .send()
                 .await?;
         } else {
