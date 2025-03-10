@@ -2,7 +2,7 @@ use sdk::neo4rs;
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub struct KnowledgeGraph(pub(crate) Arc<neo4rs::Graph>);
+pub struct KnowledgeGraph(pub Arc<neo4rs::Graph>);
 
 impl juniper::Context for KnowledgeGraph {}
 

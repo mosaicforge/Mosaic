@@ -11,7 +11,7 @@ use axum::{
 use clap::{Args, Parser};
 use juniper::{EmptyMutation, EmptySubscription, RootNode};
 use juniper_axum::{extract::JuniperRequest, graphiql, playground, response::JuniperResponse};
-use sdk::neo4rs;
+use sdk::{indexer_ids, mapping::Query as _, neo4rs};
 use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -20,31 +20,6 @@ use api::{context::KnowledgeGraph, schema::Query};
 
 type Schema =
     RootNode<'static, Query, EmptyMutation<KnowledgeGraph>, EmptySubscription<KnowledgeGraph>>;
-
-async fn homepage() -> Html<&'static str> {
-    "<html><h1>KG API</h1>\
-           <div>visit <a href=\"/graphiql\">GraphiQL</a></div>\
-           <div>visit <a href=\"/playground\">GraphQL Playground</a></div>\
-    </html>"
-        .into()
-}
-
-async fn health() -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "component": "api",
-        "status": "ok",
-    }))
-}
-
-async fn version() -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "version": env!("CARGO_PKG_VERSION"),
-        "git": {
-            "tag": env!("GIT_TAG"),
-            "commit": env!("GIT_COMMIT"),
-        },
-    }))
-}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -82,6 +57,7 @@ async fn main() -> anyhow::Result<()> {
         // )
         .route("/health", get(health))
         .route("/version", get(version))
+        .route("/cursor", get(cursor))
         .route("/graphiql", get(graphiql("/graphql", "/subscriptions")))
         .route("/playground", get(playground("/graphql", "/subscriptions")))
         .route("/", get(homepage))
@@ -99,14 +75,6 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or_else(|e| panic!("failed to run `axum::serve`: {e}"));
 
     Ok(())
-}
-
-async fn custom_graphql(
-    Extension(schema): Extension<Arc<Schema>>,
-    Extension(kg): Extension<KnowledgeGraph>,
-    JuniperRequest(request): JuniperRequest,
-) -> JuniperResponse {
-    JuniperResponse(request.execute(&*schema, &kg).await)
 }
 
 #[derive(Debug, Parser)]
@@ -145,4 +113,69 @@ fn set_log_level() {
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "info");
     }
+}
+
+async fn custom_graphql(
+    Extension(schema): Extension<Arc<Schema>>,
+    Extension(kg): Extension<KnowledgeGraph>,
+    JuniperRequest(request): JuniperRequest,
+) -> JuniperResponse {
+    JuniperResponse(request.execute(&*schema, &kg).await)
+}
+
+async fn homepage() -> Html<&'static str> {
+    "<html><h1>KG API</h1>\
+           <div>visit <a href=\"/graphiql\">GraphiQL</a></div>\
+           <div>visit <a href=\"/playground\">GraphQL Playground</a></div>\
+    </html>"
+        .into()
+}
+
+async fn health() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "component": "api",
+        "status": "ok",
+    }))
+}
+
+async fn version() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "git": {
+            "tag": env!("GIT_TAG"),
+            "commit": env!("GIT_COMMIT"),
+        },
+    }))
+}
+
+async fn cursor(
+    Extension(kg): Extension<KnowledgeGraph>,
+) -> Json<Option<sdk::models::Cursor>> {
+    // let cursor = sdk::mapping::triple::find_one(
+    //     &kg.0, 
+    //     indexer_ids::CURSOR_ATTRIBUTE,
+    //     indexer_ids::CURSOR_ID, 
+    //     indexer_ids::INDEXER_SPACE_ID, 
+    //     Some("0".to_string()),
+    // )
+    // .send()
+    // .await
+    // .unwrap();
+
+    // let block_number = sdk::mapping::triple::find_one(
+    //     &kg.0, 
+    //     indexer_ids::BLOCK_NUMBER_ATTRIBUTE,
+    //     indexer_ids::CURSOR_ID, 
+    //     indexer_ids::INDEXER_SPACE_ID, 
+    //     Some("0".to_string()),
+    // )
+    // .send()
+    // .await
+    // .unwrap();
+    let cursor = sdk::models::Cursor::load(&kg.0)
+        .await
+        .unwrap()
+        .map(|cursor| cursor.attributes);
+
+    Json(cursor)
 }
