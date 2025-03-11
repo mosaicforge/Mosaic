@@ -11,7 +11,7 @@ use axum::{
 use clap::{Args, Parser};
 use juniper::{EmptyMutation, EmptySubscription, RootNode};
 use juniper_axum::{extract::JuniperRequest, graphiql, playground, response::JuniperResponse};
-use sdk::{indexer_ids, mapping::Query as _, neo4rs};
+use sdk::neo4rs;
 use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -148,14 +148,12 @@ async fn version() -> Json<serde_json::Value> {
     }))
 }
 
-async fn cursor(
-    Extension(kg): Extension<KnowledgeGraph>,
-) -> Json<Option<sdk::models::Cursor>> {
+async fn cursor(Extension(kg): Extension<KnowledgeGraph>) -> Json<Option<sdk::models::Cursor>> {
     // let cursor = sdk::mapping::triple::find_one(
-    //     &kg.0, 
+    //     &kg.0,
     //     indexer_ids::CURSOR_ATTRIBUTE,
-    //     indexer_ids::CURSOR_ID, 
-    //     indexer_ids::INDEXER_SPACE_ID, 
+    //     indexer_ids::CURSOR_ID,
+    //     indexer_ids::INDEXER_SPACE_ID,
     //     Some("0".to_string()),
     // )
     // .send()
@@ -163,10 +161,10 @@ async fn cursor(
     // .unwrap();
 
     // let block_number = sdk::mapping::triple::find_one(
-    //     &kg.0, 
+    //     &kg.0,
     //     indexer_ids::BLOCK_NUMBER_ATTRIBUTE,
-    //     indexer_ids::CURSOR_ID, 
-    //     indexer_ids::INDEXER_SPACE_ID, 
+    //     indexer_ids::CURSOR_ID,
+    //     indexer_ids::INDEXER_SPACE_ID,
     //     Some("0".to_string()),
     // )
     // .send()

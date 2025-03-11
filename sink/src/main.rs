@@ -115,12 +115,24 @@ pub async fn reset_db(neo4j: &neo4rs::Graph) -> anyhow::Result<()> {
         .await?;
 
     // Delete indexes
-    neo4j.run(neo4rs::query("DROP INDEX entity_id_index IF EXISTS")).await?;
-    neo4j.run(neo4rs::query("DROP INDEX relation_id_index IF EXISTS")).await?;
+    neo4j
+        .run(neo4rs::query("DROP INDEX entity_id_index IF EXISTS"))
+        .await?;
+    neo4j
+        .run(neo4rs::query("DROP INDEX relation_id_index IF EXISTS"))
+        .await?;
 
     // Create indexes
-    neo4j.run(neo4rs::query("CREATE INDEX entity_id_index FOR (e:Entity) ON (e.id)")).await?;
-    neo4j.run(neo4rs::query("CREATE INDEX relation_id_index FOR (r:Relation) ON (r.id)")).await?;
+    neo4j
+        .run(neo4rs::query(
+            "CREATE INDEX entity_id_index FOR (e:Entity) ON (e.id)",
+        ))
+        .await?;
+    neo4j
+        .run(neo4rs::query(
+            "CREATE INDEX relation_id_index FOR (r:Relation) ON (r.id)",
+        ))
+        .await?;
 
     // Bootstrap indexer entities
     mapping::triple::insert_many(

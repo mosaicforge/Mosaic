@@ -1,7 +1,11 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{error::DatabaseError, indexer_ids, mapping::{self, entity, Entity, Query}};
+use crate::{
+    error::DatabaseError,
+    indexer_ids,
+    mapping::{self, entity, Entity, Query},
+};
 
 #[derive(Clone, Default, Deserialize, Serialize)]
 pub struct Cursor {

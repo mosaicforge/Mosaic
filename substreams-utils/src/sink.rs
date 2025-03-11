@@ -31,7 +31,10 @@ pub trait Sink: Send + Sync {
         unimplemented!("you must implement some kind of block undo handling, or request only final blocks (tweak substreams_stream.rs)")
     }
 
-    fn persist_cursor(&self, _cursor: String) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send {
+    fn persist_cursor(
+        &self,
+        _cursor: String,
+    ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send {
         // FIXME: Handling of the cursor is missing here. It should be saved each time
         // a full block has been correctly processed/persisted. The saving location
         // is your responsibility.
@@ -40,14 +43,16 @@ pub trait Sink: Send + Sync {
         // going to read it back from database and start back our SubstreamsStream
         // with it ensuring we are continuously streaming without ever losing a single
         // element.
-        async {Ok(())}
+        async { Ok(()) }
     }
 
-    fn load_persisted_cursor(&self) -> impl std::future::Future<Output = Result<Option<String>, Self::Error>> + Send {
+    fn load_persisted_cursor(
+        &self,
+    ) -> impl std::future::Future<Output = Result<Option<String>, Self::Error>> + Send {
         // FIXME: Handling of the cursor is missing here. It should be loaded from
         // somewhere (local file, database, cloud storage) and then `SubstreamStream` will
         // be able correctly resume from the right block.
-        async {Ok(None)}
+        async { Ok(None) }
     }
 
     fn run(
