@@ -69,7 +69,7 @@ impl EventHandler {
         Ok(())
     }
 
-    async fn fetch_edit(
+    pub async fn fetch_edit(
         &self,
         edit_published: &geo::EditPublished,
     ) -> Result<Vec<Edit>, HandlerError> {

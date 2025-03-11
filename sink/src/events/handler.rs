@@ -2,7 +2,10 @@ use chrono::DateTime;
 use futures::{stream, StreamExt, TryStreamExt};
 use ipfs::IpfsClient;
 use prost::Message;
-use sdk::{error::DatabaseError, ids::create_geo_id, models::BlockMetadata, pb::geo::GeoOutput};
+use sdk::{
+    error::DatabaseError, ids::create_geo_id, indexer_ids, mapping::Query, models::BlockMetadata,
+    pb::geo::GeoOutput,
+};
 use substreams_utils::pb::sf::substreams::rpc::v2::BlockScopedData;
 
 use crate::metrics;
@@ -362,6 +365,58 @@ impl substreams_utils::Sink for EventHandler {
                 async move { self.handle_proposal_executed(event, &block, idx).await }
             })
             .await?;
+
+        // Persist block number and timestamp
+        sdk::mapping::triple::insert_many(
+            &self.neo4j,
+            &BlockMetadata::default(),
+            indexer_ids::INDEXER_SPACE_ID,
+            "0",
+        )
+        .triple(sdk::mapping::triple::Triple::new(
+            indexer_ids::CURSOR_ID,
+            indexer_ids::BLOCK_NUMBER_ATTRIBUTE,
+            block.block_number,
+        ))
+        .triple(sdk::mapping::triple::Triple::new(
+            indexer_ids::CURSOR_ID,
+            indexer_ids::BLOCK_TIMESTAMP_ATTRIBUTE,
+            block.timestamp,
+        ))
+        .send()
+        .await?;
+
+        Ok(())
+    }
+
+    async fn load_persisted_cursor(&self) -> Result<Option<String>, Self::Error> {
+        let cursor = sdk::mapping::triple::find_one(
+            &self.neo4j,
+            indexer_ids::CURSOR_ATTRIBUTE,
+            indexer_ids::CURSOR_ID,
+            indexer_ids::INDEXER_SPACE_ID,
+            Some("0".to_string()),
+        )
+        .send()
+        .await?;
+
+        Ok(cursor.map(|c| c.value.value))
+    }
+
+    async fn persist_cursor(&self, cursor: String) -> Result<(), Self::Error> {
+        sdk::mapping::triple::Triple::new(
+            indexer_ids::CURSOR_ID,
+            indexer_ids::CURSOR_ATTRIBUTE,
+            cursor,
+        )
+        .insert(
+            &self.neo4j,
+            &BlockMetadata::default(),
+            indexer_ids::INDEXER_SPACE_ID,
+            "0",
+        )
+        .send()
+        .await?;
 
         Ok(())
     }

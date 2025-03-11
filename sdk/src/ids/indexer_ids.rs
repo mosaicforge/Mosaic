@@ -63,3 +63,12 @@ pub const EDIT_CONTENT_URI_ATTRIBUTE: &str = "content_uri";
 pub const PROPOSED_EDIT: &str = "8NPzSYo8fXBeFHs7WvGtif";
 /// Space > EDITS > Edit
 pub const EDITS: &str = "QRkn8QWyKjo1sKmpVKsoUJ";
+
+// Cursor
+/// Cursor type ID
+pub const CURSOR_TYPE: &str = "CURSOR_TYPE"; // TODO: Replace by GRC20 ID
+/// Cursor ID
+pub const CURSOR_ID: &str = "grc20-cursor"; // TODO: Replace by GRC20 ID
+pub const CURSOR_ATTRIBUTE: &str = "cursor-attribute";
+pub const BLOCK_NUMBER_ATTRIBUTE: &str = "block-number-attribute";
+pub const BLOCK_TIMESTAMP_ATTRIBUTE: &str = "block-timestamp-attribute";

@@ -31,7 +31,10 @@ pub trait Sink: Send + Sync {
         unimplemented!("you must implement some kind of block undo handling, or request only final blocks (tweak substreams_stream.rs)")
     }
 
-    fn persist_cursor(&self, _cursor: String) -> Result<(), Self::Error> {
+    fn persist_cursor(
+        &self,
+        _cursor: String,
+    ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send {
         // FIXME: Handling of the cursor is missing here. It should be saved each time
         // a full block has been correctly processed/persisted. The saving location
         // is your responsibility.
@@ -40,14 +43,16 @@ pub trait Sink: Send + Sync {
         // going to read it back from database and start back our SubstreamsStream
         // with it ensuring we are continuously streaming without ever losing a single
         // element.
-        Ok(())
+        async { Ok(()) }
     }
 
-    fn load_persisted_cursor(&self) -> Result<Option<String>, Self::Error> {
+    fn load_persisted_cursor(
+        &self,
+    ) -> impl std::future::Future<Output = Result<Option<String>, Self::Error>> + Send {
         // FIXME: Handling of the cursor is missing here. It should be loaded from
         // somewhere (local file, database, cloud storage) and then `SubstreamStream` will
         // be able correctly resume from the right block.
-        Ok(None)
+        async { Ok(None) }
     }
 
     fn run(
@@ -65,7 +70,7 @@ pub trait Sink: Send + Sync {
                 token = Some(token_env);
             }
 
-            let cursor: Option<String> = self.load_persisted_cursor()?;
+            let cursor: Option<String> = self.load_persisted_cursor().await?;
 
             let package = read_package(spkg_file).await?;
 
@@ -88,11 +93,11 @@ pub trait Sink: Send + Sync {
                     }
                     Some(Ok(BlockResponse::New(data))) => {
                         self.process_block_scoped_data(&data).await?;
-                        self.persist_cursor(data.cursor)?;
+                        self.persist_cursor(data.cursor).await?;
                     }
                     Some(Ok(BlockResponse::Undo(undo_signal))) => {
                         self.process_block_undo_signal(&undo_signal)?;
-                        self.persist_cursor(undo_signal.last_valid_cursor)?;
+                        self.persist_cursor(undo_signal.last_valid_cursor).await?;
                     }
                     Some(Err(err)) => {
                         println!();

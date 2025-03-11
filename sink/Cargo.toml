@@ -33,3 +33,4 @@ tracing-appender = "0.2.3"
 
 [dev-dependencies]
 serde_path_to_error = "0.1.16"
+testcontainers = "0.23.3"
