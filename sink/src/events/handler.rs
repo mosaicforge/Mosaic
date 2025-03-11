@@ -363,15 +363,20 @@ impl substreams_utils::Sink for EventHandler {
             })
             .await?;
 
-        // Persist block number
-        sdk::mapping::triple::Triple::new(
-            indexer_ids::CURSOR_ID,
-            indexer_ids::BLOCK_NUMBER_ATTRIBUTE,
-            block.block_number,
-        )
-        .insert(&self.neo4j, &BlockMetadata::default(), indexer_ids::INDEXER_SPACE_ID, "0")
-        .send()
-        .await?;
+        // Persist block number and timestamp
+        sdk::mapping::triple::insert_many(&self.neo4j, &BlockMetadata::default(), indexer_ids::INDEXER_SPACE_ID, "0")
+            .triple(sdk::mapping::triple::Triple::new(
+                indexer_ids::CURSOR_ID,
+                indexer_ids::BLOCK_NUMBER_ATTRIBUTE,
+                block.block_number,
+            ))
+            .triple(sdk::mapping::triple::Triple::new(
+                indexer_ids::CURSOR_ID,
+                indexer_ids::BLOCK_TIMESTAMP_ATTRIBUTE,
+                block.timestamp,
+            ))
+            .send()
+            .await?;
 
         Ok(())
     }
