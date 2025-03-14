@@ -72,3 +72,4 @@ pub const CURSOR_ID: &str = "grc20-cursor"; // TODO: Replace by GRC20 ID
 pub const CURSOR_ATTRIBUTE: &str = "cursor-attribute";
 pub const BLOCK_NUMBER_ATTRIBUTE: &str = "block-number-attribute";
 pub const BLOCK_TIMESTAMP_ATTRIBUTE: &str = "block-timestamp-attribute";
+pub const VERSION_ATTRIBUTE: &str = "version-attribute";

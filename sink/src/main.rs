@@ -4,6 +4,7 @@ use anyhow::Error;
 use axum::{response::Json, routing::get, Router};
 use clap::{Args, Parser};
 use sdk::mapping::query_utils::Query;
+use sdk::mapping::triple;
 use sdk::models::BlockMetadata;
 use sdk::{indexer_ids, mapping};
 use sink::bootstrap;
@@ -52,7 +53,9 @@ async fn main() -> Result<(), Error> {
 
     if args.reset_db {
         reset_db(&neo4j).await?;
-    };
+    } else {
+        migration_check(&neo4j).await?;
+    }
 
     let sink = EventHandler::new(neo4j);
 
@@ -144,6 +147,39 @@ pub async fn reset_db(neo4j: &neo4rs::Graph) -> anyhow::Result<()> {
     .triples(bootstrap::boostrap_indexer::triples())
     .send()
     .await?;
+
+    Ok(())
+}
+
+async fn migration_check(neo4j: &neo4rs::Graph) -> Result<(), Error> {
+    let version = triple::find_one(
+        neo4j,
+        indexer_ids::VERSION_ATTRIBUTE,
+        indexer_ids::CURSOR_ID,
+        indexer_ids::INDEXER_SPACE_ID,
+        Some("0".to_string()),
+    )
+    .send()
+    .await?;
+
+    if let Some(version) = version {
+        if version.value.value != env!("GIT_TAG") {
+            tracing::info!(
+                "Version mismatch. Resetting the database. Old version: {}, New version: {}",
+                version.value.value,
+                env!("GIT_TAG")
+            );
+            reset_db(neo4j).await?;
+        } else {
+            tracing::info!(
+                "Version match: {}. No migration needed.",
+                version.value.value
+            );
+        }
+    } else {
+        tracing::info!("No version found in the database. Resetting the database.");
+        reset_db(neo4j).await?;
+    }
 
     Ok(())
 }
