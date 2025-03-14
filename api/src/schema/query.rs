@@ -47,11 +47,12 @@ impl Query {
     ) -> FieldResult<Vec<Entity>> {
         let mut query = entity_node::find_many(&executor.context().0);
 
-        if let Some(r#where) = r#where {
-            let filter = entity_node::EntityFilter::from(r#where).with_space_id(&space_id);
-
-            query = query.with_filter(filter);
-        }
+        let entity_filter = if let Some(r#where) = r#where {
+            entity_node::EntityFilter::from(r#where).space_id(&space_id)
+        } else {
+            entity_node::EntityFilter::default().space_id(&space_id)
+        };
+        query = query.with_filter(entity_filter);
 
         match (order_by, order_direction) {
             (Some(order_by), Some(OrderDirection::Asc) | None) => {

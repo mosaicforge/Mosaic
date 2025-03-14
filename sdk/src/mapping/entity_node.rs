@@ -321,6 +321,7 @@ pub struct EntityFilter {
     id: Option<PropFilter<String>>,
     attributes: Vec<AttributeFilter>,
     relations: Option<EntityRelationFilter>,
+    space_id: Option<PropFilter<String>>,
 }
 
 impl EntityFilter {
@@ -354,8 +355,10 @@ impl EntityFilter {
 
     /// Applies a global space_id to all sub-filters (i.e.: attribute and relation filters).
     /// If a space_id is already set in a sub-filter, it will be overwritten.
-    pub fn with_space_id(mut self, space_id: impl Into<String>) -> Self {
+    pub fn space_id(mut self, space_id: impl Into<String>) -> Self {
         let space_id = space_id.into();
+        self.space_id = Some(prop_filter::value(space_id.clone()));
+
         for attribute in &mut self.attributes {
             attribute.space_id_mut(prop_filter::value(&space_id));
         }
@@ -375,8 +378,16 @@ impl EntityFilter {
             query_part.merge_mut(id.into_query_part(&node_var, "id"));
         }
 
-        for attribute in self.attributes {
-            query_part.merge_mut(attribute.into_query_part(&node_var));
+        if self.attributes.is_empty() {
+            if let Some(space_id) = self.space_id {
+                query_part = query_part
+                    .match_clause(format!("({node_var}) -[attribute:ATTRIBUTE]- (:Attribute)",))
+                    .merge(space_id.into_query_part("attribute", "space_id"));
+            }
+        } else {
+            for attribute in self.attributes {
+                query_part.merge_mut(attribute.into_query_part(&node_var));
+            }
         }
 
         if let Some(relations) = self.relations {
