@@ -17,8 +17,8 @@ pub struct Cursor {
 
 impl Cursor {
     pub fn new(
-        cursor: &str, 
-        block_number: u64, 
+        cursor: &str,
+        block_number: u64,
         block_timestamp: DateTime<Utc>,
         version: String,
     ) -> Entity<Self> {

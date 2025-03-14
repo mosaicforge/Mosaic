@@ -152,6 +152,6 @@ pub fn triples() -> Vec<Triple> {
             indexer_ids::CURSOR_ID,
             indexer_ids::VERSION_ATTRIBUTE,
             env!("GIT_TAG"),
-        )
+        ),
     ]
 }

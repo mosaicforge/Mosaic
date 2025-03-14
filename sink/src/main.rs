@@ -171,7 +171,10 @@ async fn migration_check(neo4j: &neo4rs::Graph) -> Result<(), Error> {
             );
             reset_db(neo4j).await?;
         } else {
-            tracing::info!("Version match: {}. No migration needed.", version.value.value);
+            tracing::info!(
+                "Version match: {}. No migration needed.",
+                version.value.value
+            );
         }
     } else {
         tracing::info!("No version found in the database. Resetting the database.");

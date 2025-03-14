@@ -42,15 +42,15 @@ impl EventHandler {
                 Ok(Some(blacklist)) => {
                     tracing::info!("Blacklisting spaces: {}", blacklist.spaces.join(", "));
                     blacklist.spaces
-                },
+                }
                 Ok(None) => {
                     tracing::info!("No blacklist found");
                     vec![]
-                },
+                }
                 Err(e) => {
                     tracing::warn!("Error loading blacklist, skipping: {:?}", e);
                     vec![]
-                },
+                }
             },
         }
     }
