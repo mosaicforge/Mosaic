@@ -147,5 +147,11 @@ pub fn triples() -> Vec<Triple> {
             system_ids::NAME_ATTRIBUTE,
             "Proposals",
         ),
+        // Indexer version
+        Triple::new(
+            indexer_ids::CURSOR_ID,
+            indexer_ids::VERSION_ATTRIBUTE,
+            env!("GIT_TAG"),
+        )
     ]
 }
