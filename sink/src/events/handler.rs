@@ -8,7 +8,7 @@ use sdk::{
 };
 use substreams_utils::pb::sf::substreams::rpc::v2::BlockScopedData;
 
-use crate::metrics;
+use crate::{blacklist, metrics};
 
 #[derive(thiserror::Error, Debug)]
 pub enum HandlerError {
@@ -30,6 +30,7 @@ pub enum HandlerError {
 pub struct EventHandler {
     pub(crate) ipfs: IpfsClient,
     pub(crate) neo4j: neo4rs::Graph,
+    pub(crate) spaces_blacklist: Vec<String>,
 }
 
 impl EventHandler {
@@ -37,6 +38,20 @@ impl EventHandler {
         Self {
             ipfs: IpfsClient::from_url("https://gateway.lighthouse.storage/ipfs/"),
             neo4j,
+            spaces_blacklist: match blacklist::load() {
+                Ok(Some(blacklist)) => {
+                    tracing::info!("Blacklisting spaces: {}", blacklist.spaces.join(", "));
+                    blacklist.spaces
+                },
+                Ok(None) => {
+                    tracing::info!("No blacklist found");
+                    vec![]
+                },
+                Err(e) => {
+                    tracing::warn!("Error loading blacklist, skipping: {:?}", e);
+                    vec![]
+                },
+            },
         }
     }
 }

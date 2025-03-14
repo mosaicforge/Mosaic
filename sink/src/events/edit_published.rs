@@ -169,6 +169,16 @@ impl EventHandler {
         // 2. If exists, update edit metadata
         // 3. If not, create edit metadata
 
+        if self.spaces_blacklist.contains(&edit.space_id) {
+            tracing::warn!(
+                "Block #{} ({}): Space {} is blacklisted, skipping edit",
+                block.block_number,
+                block.timestamp,
+                edit.space_id
+            );
+            return Ok(());
+        }
+
         let version_index = mapping::new_version_index(block.block_number, index);
         let edit_medatata =
             models::Edit::new(edit.name, edit.content_uri, Some(version_index.clone()));
