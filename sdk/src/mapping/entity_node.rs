@@ -358,7 +358,7 @@ impl EntityFilter {
     pub fn space_id(mut self, space_id: impl Into<String>) -> Self {
         let space_id = space_id.into();
         self.space_id = Some(prop_filter::value(space_id.clone()));
-        
+
         for attribute in &mut self.attributes {
             attribute.space_id_mut(prop_filter::value(&space_id));
         }
@@ -379,12 +379,9 @@ impl EntityFilter {
         }
 
         if self.attributes.is_empty() {
-            // TODO: Add generic space id filter
             if let Some(space_id) = self.space_id {
                 query_part = query_part
-                    .match_clause(format!(
-                        "({node_var}) -[attribute:ATTRIBUTE]- (:Attribute)",
-                    ))
+                    .match_clause(format!("({node_var}) -[attribute:ATTRIBUTE]- (:Attribute)",))
                     .merge(space_id.into_query_part("attribute", "space_id"));
             }
         } else {
