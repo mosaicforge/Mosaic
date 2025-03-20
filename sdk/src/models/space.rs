@@ -205,6 +205,55 @@ impl Space {
         //     .await
         todo!()
     }
+
+    /// Walks the space hierarchy to find all subspaces of a space.
+    /// In case of circular references, the function will only return the spaces once. 
+    pub async fn subspaces(
+        &self,
+        neo4j: &neo4rs::Graph,
+    ) -> Result<Vec<Self>, DatabaseError> {
+        todo!()
+    }
+
+    /// Walks the space hierarchy to find all parent spaces of a space.
+    /// In case of circular references, the function will only return the spaces once.
+    pub async fn parent_spaces(
+        &self,
+        neo4j: &neo4rs::Graph,
+    ) -> Result<Vec<Self>, DatabaseError> {
+        todo!()
+    }
+
+    /// Returns all types that exist from the perspective of that space.
+    pub async fn types(&self, neo4j: &neo4rs::Graph) -> Result<Vec<String>, DatabaseError> {
+        todo!()
+    }
+}
+
+/// Walks the space hierarchy to find all subspaces of a space.
+/// In case of circular references, the function will only return the spaces once. 
+pub async fn subspaces(
+    space_id: impl Into<String>,
+    neo4j: &neo4rs::Graph,
+) -> Result<Vec<String>, DatabaseError> {
+    todo!()
+}
+
+/// Walks the space hierarchy to find all parent spaces of a space.
+/// In case of circular references, the function will only return the spaces once.
+pub async fn parent_spaces(
+    space_id: impl Into<String>,
+    neo4j: &neo4rs::Graph,
+) -> Result<Vec<String>, DatabaseError> {
+    todo!()
+}
+
+/// Returns all types that exist from the perspective of that space.
+pub async fn types(
+    space_id: impl Into<String>, 
+    neo4j: &neo4rs::Graph,
+) -> Result<Vec<String>, DatabaseError> {
+    todo!()
 }
 
 impl IntoAttributes for Space {

@@ -1,3 +1,4 @@
+pub mod aggregations;
 pub mod error;
 pub mod graph_uri;
 pub mod ids;
