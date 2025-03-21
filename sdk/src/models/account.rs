@@ -5,9 +5,7 @@ use crate::{
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
-        self, entity,
-        query_utils::{AttributeFilter, PropFilter, Query, QueryStream},
-        Entity,
+        self, entity, entity_node::EntityFilter, query_utils::{AttributeFilter, PropFilter, Query, QueryStream, TypesFilter}, Entity
     },
     system_ids,
 };
@@ -125,7 +123,11 @@ impl QueryStream<Entity<Account>> for FindManyQuery {
         self,
     ) -> Result<impl Stream<Item = Result<Entity<Account>, DatabaseError>>, DatabaseError> {
         let mut query =
-            entity::find_many(&self.neo4j, indexer_ids::INDEXER_SPACE_ID, None).limit(self.limit);
+            entity::find_many(&self.neo4j, indexer_ids::INDEXER_SPACE_ID, None)
+                .limit(self.limit)
+                .with_filter(EntityFilter::default().relations(TypesFilter::default().r#type(
+                    system_ids::ACCOUNT_TYPE.to_string(),
+                )));
 
         if let Some(address) = self.address {
             query =

@@ -8,8 +8,8 @@ use crate::{
     mapping::{
         self,
         attributes::{FromAttributes, IntoAttributes},
-        entity, entity_node, prop_filter,
-        query_utils::{AttributeFilter, PropFilter, Query, QueryStream},
+        entity, entity_node::{self, EntityFilter}, prop_filter,
+        query_utils::{AttributeFilter, PropFilter, Query, QueryStream, TypesFilter},
         relation, relation_node, Attributes, Entity, EntityNode, Relation, TriplesConversionError,
         Value,
     },
@@ -332,7 +332,11 @@ impl QueryStream<Entity<Space>> for FindManyQuery {
         self,
     ) -> Result<impl Stream<Item = Result<Entity<Space>, DatabaseError>>, DatabaseError> {
         let mut query =
-            entity::find_many(&self.neo4j, indexer_ids::INDEXER_SPACE_ID, None).limit(self.limit);
+            entity::find_many(&self.neo4j, indexer_ids::INDEXER_SPACE_ID, None)
+                .limit(self.limit)
+                .with_filter(EntityFilter::default().relations(TypesFilter::default().r#type(
+                    system_ids::SPACE_TYPE.to_string(),
+                )));
 
         if let Some(network) = self.network {
             query =

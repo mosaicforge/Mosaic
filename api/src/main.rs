@@ -16,10 +16,10 @@ use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use api::{context::KnowledgeGraph, schema::Query};
+use api::{context::KnowledgeGraph, schema::RootQuery};
 
 type Schema =
-    RootNode<'static, Query, EmptyMutation<KnowledgeGraph>, EmptySubscription<KnowledgeGraph>>;
+    RootNode<'static, RootQuery, EmptyMutation<KnowledgeGraph>, EmptySubscription<KnowledgeGraph>>;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
     .await?;
 
     let schema = Schema::new(
-        Query,
+        RootQuery,
         EmptyMutation::<KnowledgeGraph>::new(),
         EmptySubscription::<KnowledgeGraph>::new(),
     );

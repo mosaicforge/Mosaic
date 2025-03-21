@@ -318,10 +318,10 @@ impl QueryStream<EntityNode> for FindManyQuery {
 
 #[derive(Clone, Debug, Default)]
 pub struct EntityFilter {
-    id: Option<PropFilter<String>>,
-    attributes: Vec<AttributeFilter>,
-    relations: Option<EntityRelationFilter>,
-    space_id: Option<PropFilter<String>>,
+    pub(crate) id: Option<PropFilter<String>>,
+    pub(crate) attributes: Vec<AttributeFilter>,
+    pub(crate) relations: Option<EntityRelationFilter>,
+    pub(crate) space_id: Option<PropFilter<String>>,
 }
 
 impl EntityFilter {
@@ -348,8 +348,8 @@ impl EntityFilter {
         self.attributes.extend(attributes);
     }
 
-    pub fn relations(mut self, relations: EntityRelationFilter) -> Self {
-        self.relations = Some(relations);
+    pub fn relations(mut self, relations: impl Into<EntityRelationFilter>) -> Self {
+        self.relations = Some(relations.into());
         self
     }
 

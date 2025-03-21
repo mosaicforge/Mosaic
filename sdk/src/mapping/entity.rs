@@ -3,12 +3,9 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use crate::{error::DatabaseError, ids, mapping::AttributeNode, models::BlockMetadata, system_ids};
 
 use super::{
-    attributes::{self, FromAttributes, IntoAttributes},
-    prop_filter,
-    query_utils::{
+    attributes::{self, FromAttributes, IntoAttributes}, entity_node::EntityFilter, order_by::FieldOrderBy, prop_filter, query_utils::{
         query_part, AttributeFilter, PropFilter, Query, QueryPart, QueryStream, VersionFilter,
-    },
-    relation_node, RelationNode,
+    }, relation_node, RelationNode
 };
 
 /// High level model encapsulating an entity and its attributes.
@@ -200,10 +197,10 @@ impl<T: FromAttributes> Query<Option<Entity<T>>> for FindOneQuery {
 
 pub struct FindManyQuery {
     neo4j: neo4rs::Graph,
-    id: Option<PropFilter<String>>,
-    attributes: Vec<AttributeFilter>,
+    filter: EntityFilter,
     limit: usize,
     skip: Option<usize>,
+    order_by: Option<FieldOrderBy>,
 
     space_id: PropFilter<String>,
     version: VersionFilter,
@@ -213,23 +210,36 @@ impl FindManyQuery {
     fn new(neo4j: neo4rs::Graph, space_id: String, version: Option<String>) -> Self {
         FindManyQuery {
             neo4j,
-            id: None,
-            attributes: vec![],
+            filter: EntityFilter::default(),
             limit: 100,
             skip: None,
+            order_by: None,
             space_id: prop_filter::value(space_id),
             version: VersionFilter::new(version),
         }
     }
 
     pub fn id(mut self, id: PropFilter<String>) -> Self {
-        self.id = Some(id);
+        self.filter.id = Some(id);
         self
     }
 
     pub fn attribute(mut self, attribute: AttributeFilter) -> Self {
-        self.attributes.push(attribute);
+        self.filter.attributes.push(attribute);
         self
+    }
+
+    pub fn attribute_mut(&mut self, attribute: AttributeFilter) {
+        self.filter.attributes.push(attribute);
+    }
+
+    pub fn attributes(mut self, attributes: impl IntoIterator<Item = AttributeFilter>) -> Self {
+        self.filter.attributes.extend(attributes);
+        self
+    }
+
+    pub fn attributes_mut(&mut self, attributes: impl IntoIterator<Item = AttributeFilter>) {
+        self.filter.attributes.extend(attributes);
     }
 
     pub fn limit(mut self, limit: usize) -> Self {
@@ -242,21 +252,34 @@ impl FindManyQuery {
         self
     }
 
+    pub fn order_by(mut self, order_by: FieldOrderBy) -> Self {
+        self.order_by = Some(order_by);
+        self
+    }
+
+    pub fn order_by_mut(&mut self, order_by: FieldOrderBy) {
+        self.order_by = Some(order_by);
+    }
+
+    /// Overwrite the current filter with a new one
+    pub fn with_filter(mut self, filter: EntityFilter) -> Self {
+        self.filter = filter;
+        self
+    }
+
     fn into_query_part(self) -> QueryPart {
         let mut query_part = QueryPart::default()
             .match_clause("(e:Entity)")
             .limit(self.limit);
 
-        if let Some(id) = self.id {
-            query_part.merge_mut(id.into_query_part("e", "id"));
+        query_part.merge_mut(self.filter.into_query_part("e"));
+
+        if let Some(order_by) = self.order_by {
+            query_part.merge_mut(order_by.into_query_part("e"));
         }
 
         if let Some(skip) = self.skip {
             query_part = query_part.skip(skip);
-        }
-
-        for attribute in self.attributes {
-            query_part.merge_mut(attribute.into_query_part("e"));
         }
 
         query_part.with_clause("e", {
