@@ -14,4 +14,6 @@ pub enum DatabaseError {
     TripleError(#[from] mapping::TriplesConversionError),
     #[error("Infaillible")]
     Infaillible(#[from] std::convert::Infallible),
+    #[error("Not found: {0}")]
+    NotFound(String),
 }
