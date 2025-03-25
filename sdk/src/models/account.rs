@@ -1,5 +1,6 @@
 use futures::Stream;
 use web3_utils::checksum_address;
+use grc20_macros::entity;
 
 use crate::{
     error::DatabaseError,

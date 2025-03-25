@@ -11,3 +11,6 @@ pub use ids::network_ids;
 pub use ids::system_ids;
 
 pub use neo4rs;
+
+// Re-export the grc20 entity macro
+pub use grc20_macros::entity;

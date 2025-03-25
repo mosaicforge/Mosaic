@@ -20,6 +20,7 @@ tracing = "0.1.40"
 uuid = { version = "1.11.0", features = ["v4"] }
 
 web3-utils = { version = "0.1.0", path = "../web3-utils" }
+grc20-macros = { version = "0.1.0", path = "../grc20-macros" }
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
