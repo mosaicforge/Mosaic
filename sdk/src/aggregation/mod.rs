@@ -22,7 +22,7 @@ pub async fn hierarchy_aggregation(
     space_id: &str,
 ) -> Result<Vec<TypeAggregation>, AggregationError> {
     // First, all types visible in the space
-    let types = space::types(space_id, neo4j).await?;
+    // let types = space::types(space_id, neo4j).await?;
 
     todo!()
 }
