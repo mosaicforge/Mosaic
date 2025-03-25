@@ -2,12 +2,17 @@ use futures::TryStreamExt;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use sdk::{
-    mapping::{query_utils::{Query, QueryStream}, Entity},
+    mapping::{
+        query_utils::{Query, QueryStream},
+        Entity,
+    },
     models::Space as SdkSpace,
     neo4rs,
 };
 
 use crate::context::KnowledgeGraph;
+
+use super::Account;
 
 pub struct Space {
     entity: Entity<SdkSpace>,
@@ -18,16 +23,10 @@ impl Space {
         Self { entity }
     }
 
-    pub async fn load(
-        neo4j: &neo4rs::Graph,
-        id: impl Into<String>,
-    ) -> FieldResult<Option<Self>> {
+    pub async fn load(neo4j: &neo4rs::Graph, id: impl Into<String>) -> FieldResult<Option<Self>> {
         let id = id.into();
 
-        Ok(SdkSpace::find_one(neo4j, &id)
-            .send()
-            .await?
-            .map(Space::new))
+        Ok(SdkSpace::find_one(neo4j, &id).send().await?.map(Space::new))
     }
 }
 
@@ -66,7 +65,10 @@ impl Space {
     }
 
     fn personal_space_admin_plugin(&self) -> Option<&str> {
-        self.entity.attributes.personal_space_admin_plugin.as_deref()
+        self.entity
+            .attributes
+            .personal_space_admin_plugin
+            .as_deref()
     }
 
     // fn updated_at(&self) -> &str {
@@ -107,7 +109,7 @@ impl Space {
         Ok(query
             .send()
             .await?
-            .map_ok(|entity| super::Account::new(entity))
+            .map_ok(Account::new)
             .try_collect::<Vec<_>>()
             .await?)
     }
@@ -134,7 +136,7 @@ impl Space {
         Ok(query
             .send()
             .await?
-            .map_ok(|entity| super::Account::new(entity))
+            .map_ok(Account::new)
             .try_collect::<Vec<_>>()
             .await?)
     }
@@ -161,7 +163,7 @@ impl Space {
         Ok(query
             .send()
             .await?
-            .map_ok(|entity| Space::new(entity))
+            .map_ok(Space::new)
             .try_collect::<Vec<_>>()
             .await?)
     }
@@ -188,7 +190,7 @@ impl Space {
         Ok(query
             .send()
             .await?
-            .map_ok(|entity| Space::new(entity))
+            .map_ok(Space::new)
             .try_collect::<Vec<_>>()
             .await?)
     }

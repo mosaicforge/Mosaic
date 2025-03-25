@@ -1,7 +1,7 @@
-use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
+use juniper::{graphql_object, FieldResult, ScalarValue};
 
 use sdk::{
-    mapping::{Entity, query_utils::Query},
+    mapping::{query_utils::Query, Entity},
     models::Account as SdkAccount,
     neo4rs,
 };
@@ -17,10 +17,7 @@ impl Account {
         Self { entity }
     }
 
-    pub async fn load(
-        neo4j: &neo4rs::Graph,
-        id: impl Into<String>,
-    ) -> FieldResult<Option<Self>> {
+    pub async fn load(neo4j: &neo4rs::Graph, id: impl Into<String>) -> FieldResult<Option<Self>> {
         let id = id.into();
 
         Ok(SdkAccount::find_one(neo4j, &id)

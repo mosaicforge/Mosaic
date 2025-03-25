@@ -3,9 +3,14 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use crate::{error::DatabaseError, ids, mapping::AttributeNode, models::BlockMetadata, system_ids};
 
 use super::{
-    attributes::{self, FromAttributes, IntoAttributes}, entity_node::EntityFilter, order_by::FieldOrderBy, prop_filter, query_utils::{
+    attributes::{self, FromAttributes, IntoAttributes},
+    entity_node::EntityFilter,
+    order_by::FieldOrderBy,
+    prop_filter,
+    query_utils::{
         query_part, AttributeFilter, PropFilter, Query, QueryPart, QueryStream, VersionFilter,
-    }, relation_node, RelationNode
+    },
+    relation_node, RelationNode,
 };
 
 /// High level model encapsulating an entity and its attributes.

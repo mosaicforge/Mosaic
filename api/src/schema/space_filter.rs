@@ -7,37 +7,37 @@ pub struct SpaceFilter {
     pub id_not: Option<String>,
     pub id_in: Option<Vec<String>>,
     pub id_not_in: Option<Vec<String>>,
-    
+
     pub network: Option<String>,
     pub network_not: Option<String>,
     pub network_in: Option<Vec<String>>,
     pub network_not_in: Option<Vec<String>>,
-    
+
     pub governance_type: Option<String>,
     pub governance_type_not: Option<String>,
     pub governance_type_in: Option<Vec<String>>,
     pub governance_type_not_in: Option<Vec<String>>,
-    
+
     pub dao_contract_address: Option<String>,
     pub dao_contract_address_not: Option<String>,
     pub dao_contract_address_in: Option<Vec<String>>,
     pub dao_contract_address_not_in: Option<Vec<String>>,
-    
+
     pub space_plugin_address: Option<String>,
     pub space_plugin_address_not: Option<String>,
     pub space_plugin_address_in: Option<Vec<String>>,
     pub space_plugin_address_not_in: Option<Vec<String>>,
-    
+
     pub voting_plugin_address: Option<String>,
     pub voting_plugin_address_not: Option<String>,
     pub voting_plugin_address_in: Option<Vec<String>>,
     pub voting_plugin_address_not_in: Option<Vec<String>>,
-    
+
     pub member_access_plugin: Option<String>,
     pub member_access_plugin_not: Option<String>,
     pub member_access_plugin_in: Option<Vec<String>>,
     pub member_access_plugin_not_in: Option<Vec<String>>,
-    
+
     pub personal_space_admin_plugin: Option<String>,
     pub personal_space_admin_plugin_not: Option<String>,
     pub personal_space_admin_plugin_in: Option<Vec<String>>,
@@ -68,8 +68,11 @@ impl SpaceFilter {
     }
 
     pub fn network_filter(&self) -> Option<PropFilter<String>> {
-        if self.network.is_none() && self.network_not.is_none() && 
-           self.network_in.is_none() && self.network_not_in.is_none() {
+        if self.network.is_none()
+            && self.network_not.is_none()
+            && self.network_in.is_none()
+            && self.network_not_in.is_none()
+        {
             return None;
         }
 
@@ -95,8 +98,11 @@ impl SpaceFilter {
     }
 
     pub fn governance_type_filter(&self) -> Option<PropFilter<String>> {
-        if self.governance_type.is_none() && self.governance_type_not.is_none() && 
-           self.governance_type_in.is_none() && self.governance_type_not_in.is_none() {
+        if self.governance_type.is_none()
+            && self.governance_type_not.is_none()
+            && self.governance_type_in.is_none()
+            && self.governance_type_not_in.is_none()
+        {
             return None;
         }
 
@@ -122,8 +128,11 @@ impl SpaceFilter {
     }
 
     pub fn dao_contract_address_filter(&self) -> Option<PropFilter<String>> {
-        if self.dao_contract_address.is_none() && self.dao_contract_address_not.is_none() && 
-           self.dao_contract_address_in.is_none() && self.dao_contract_address_not_in.is_none() {
+        if self.dao_contract_address.is_none()
+            && self.dao_contract_address_not.is_none()
+            && self.dao_contract_address_in.is_none()
+            && self.dao_contract_address_not_in.is_none()
+        {
             return None;
         }
 
@@ -149,8 +158,11 @@ impl SpaceFilter {
     }
 
     pub fn space_plugin_address_filter(&self) -> Option<PropFilter<String>> {
-        if self.space_plugin_address.is_none() && self.space_plugin_address_not.is_none() && 
-           self.space_plugin_address_in.is_none() && self.space_plugin_address_not_in.is_none() {
+        if self.space_plugin_address.is_none()
+            && self.space_plugin_address_not.is_none()
+            && self.space_plugin_address_in.is_none()
+            && self.space_plugin_address_not_in.is_none()
+        {
             return None;
         }
 
@@ -176,8 +188,11 @@ impl SpaceFilter {
     }
 
     pub fn voting_plugin_address_filter(&self) -> Option<PropFilter<String>> {
-        if self.voting_plugin_address.is_none() && self.voting_plugin_address_not.is_none() && 
-           self.voting_plugin_address_in.is_none() && self.voting_plugin_address_not_in.is_none() {
+        if self.voting_plugin_address.is_none()
+            && self.voting_plugin_address_not.is_none()
+            && self.voting_plugin_address_in.is_none()
+            && self.voting_plugin_address_not_in.is_none()
+        {
             return None;
         }
 
@@ -203,8 +218,11 @@ impl SpaceFilter {
     }
 
     pub fn member_access_plugin_filter(&self) -> Option<PropFilter<String>> {
-        if self.member_access_plugin.is_none() && self.member_access_plugin_not.is_none() && 
-           self.member_access_plugin_in.is_none() && self.member_access_plugin_not_in.is_none() {
+        if self.member_access_plugin.is_none()
+            && self.member_access_plugin_not.is_none()
+            && self.member_access_plugin_in.is_none()
+            && self.member_access_plugin_not_in.is_none()
+        {
             return None;
         }
 
@@ -230,8 +248,11 @@ impl SpaceFilter {
     }
 
     pub fn personal_space_admin_plugin_filter(&self) -> Option<PropFilter<String>> {
-        if self.personal_space_admin_plugin.is_none() && self.personal_space_admin_plugin_not.is_none() && 
-           self.personal_space_admin_plugin_in.is_none() && self.personal_space_admin_plugin_not_in.is_none() {
+        if self.personal_space_admin_plugin.is_none()
+            && self.personal_space_admin_plugin_not.is_none()
+            && self.personal_space_admin_plugin_in.is_none()
+            && self.personal_space_admin_plugin_not_in.is_none()
+        {
             return None;
         }
 

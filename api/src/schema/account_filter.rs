@@ -7,7 +7,7 @@ pub struct AccountFilter {
     pub id_not: Option<String>,
     pub id_in: Option<Vec<String>>,
     pub id_not_in: Option<Vec<String>>,
-    
+
     pub address: Option<String>,
     pub address_not: Option<String>,
     pub address_in: Option<Vec<String>>,
@@ -38,8 +38,11 @@ impl AccountFilter {
     }
 
     pub fn address_filter(&self) -> Option<PropFilter<String>> {
-        if self.address.is_none() && self.address_not.is_none() && 
-           self.address_in.is_none() && self.address_not_in.is_none() {
+        if self.address.is_none()
+            && self.address_not.is_none()
+            && self.address_in.is_none()
+            && self.address_not_in.is_none()
+        {
             return None;
         }
 

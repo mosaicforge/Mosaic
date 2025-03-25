@@ -2,7 +2,11 @@ use futures::TryStreamExt;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use sdk::{
-    mapping::{self, entity_node, query_utils::{Query, QueryStream}, relation_node},
+    mapping::{
+        self, entity_node,
+        query_utils::{Query, QueryStream},
+        relation_node,
+    },
     models::{Account as SdkAccount, Space as SdkSpace},
 };
 
@@ -27,7 +31,7 @@ impl RootQuery {
     ) -> FieldResult<Option<Space>> {
         Space::load(&executor.context().0, id).await
     }
-    
+
     /// Returns multiple spaces according to the provided filter
     #[allow(clippy::too_many_arguments)]
     async fn spaces<'a, S: ScalarValue>(
@@ -38,64 +42,66 @@ impl RootQuery {
         skip: Option<i32>,
     ) -> FieldResult<Vec<Space>> {
         let mut query = SdkSpace::find_many(&executor.context().0);
-        
+
         // Apply filters if provided
         if let Some(where_) = &where_ {
             // Network filter
             if let Some(network_filter) = where_.network_filter() {
                 query = query.network(network_filter);
             }
-            
+
             // Governance type filter
             if let Some(governance_type_filter) = where_.governance_type_filter() {
                 query = query.governance_type(governance_type_filter);
             }
-            
+
             // DAO contract address filter
             if let Some(dao_contract_address_filter) = where_.dao_contract_address_filter() {
                 query = query.dao_contract_address(dao_contract_address_filter);
             }
-            
+
             // Space plugin address filter
             if let Some(space_plugin_address_filter) = where_.space_plugin_address_filter() {
                 query = query.space_plugin_address(space_plugin_address_filter);
             }
-            
+
             // Voting plugin address filter
             if let Some(voting_plugin_address_filter) = where_.voting_plugin_address_filter() {
                 query = query.voting_plugin_address(voting_plugin_address_filter);
             }
-            
+
             // Member access plugin filter
             if let Some(member_access_plugin_filter) = where_.member_access_plugin_filter() {
                 query = query.member_access_plugin(member_access_plugin_filter);
             }
-            
+
             // Personal space admin plugin filter
-            if let Some(personal_space_admin_plugin_filter) = where_.personal_space_admin_plugin_filter() {
+            if let Some(personal_space_admin_plugin_filter) =
+                where_.personal_space_admin_plugin_filter()
+            {
                 query = query.personal_space_admin_plugin(personal_space_admin_plugin_filter);
             }
         }
-        
+
         if let Some(first) = first {
             if first > 1000 {
                 return Err("Cannot query more than 1000 spaces at once".into());
             }
             query = query.limit(first as usize);
         }
-        
+
         if let Some(skip) = skip {
             query = query.skip(skip as usize);
         }
-        
+
         Ok(query
             .send()
             .await?
-            .map_ok(|entity| Space::new(entity))
+            .map_ok(Space::new)
             .try_collect::<Vec<_>>()
             .await?)
     }
-    
+
     /// Returns a single account by ID
     async fn account<'a, S: ScalarValue>(
         &'a self,
@@ -104,7 +110,7 @@ impl RootQuery {
     ) -> FieldResult<Option<Account>> {
         Account::load(&executor.context().0, id).await
     }
-    
+
     /// Returns a single account by address
     async fn account_by_address<'a, S: ScalarValue>(
         &'a self,
@@ -114,7 +120,7 @@ impl RootQuery {
         let query = SdkAccount::find_one(&executor.context().0, &address);
         Ok(query.send().await?.map(Account::new))
     }
-    
+
     /// Returns multiple accounts according to the provided filter
     #[allow(clippy::too_many_arguments)]
     async fn accounts<'a, S: ScalarValue>(
@@ -125,7 +131,7 @@ impl RootQuery {
         skip: Option<i32>,
     ) -> FieldResult<Vec<Account>> {
         let mut query = SdkAccount::find_many(&executor.context().0);
-        
+
         // Apply filters if provided
         if let Some(where_) = &where_ {
             // Address filter
@@ -133,22 +139,22 @@ impl RootQuery {
                 query = query.address(address_filter);
             }
         }
-        
+
         if let Some(first) = first {
             if first > 1000 {
                 return Err("Cannot query more than 1000 accounts at once".into());
             }
             query = query.limit(first as usize);
         }
-        
+
         if let Some(skip) = skip {
             query = query.skip(skip as usize);
         }
-        
+
         Ok(query
             .send()
             .await?
-            .map_ok(|entity| Account::new(entity))
+            .map_ok(Account::new)
             .try_collect::<Vec<_>>()
             .await?)
     }
