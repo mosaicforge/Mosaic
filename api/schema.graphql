@@ -1,4 +1,27 @@
+schema {
+  query: RootQuery
+}
+
 directive @specifiedBy(url: String!) on SCALAR
+
+type Account {
+  """Account ID"""
+  id: String!
+
+  """Ethereum address of the account"""
+  address: String!
+}
+
+input AccountFilter {
+  id: String
+  idNot: String
+  idIn: [String!]
+  idNotIn: [String!]
+  address: String
+  addressNot: String
+  addressIn: [String!]
+  addressNotIn: [String!]
+}
 
 input AttributeFilter {
   valueType: ValueType
@@ -120,24 +143,6 @@ enum OrderDirection {
   DESC
 }
 
-type Query {
-  """Returns a single entity identified by its ID and space ID"""
-  entity(id: String!, spaceId: String!, versionId: String): Entity
-
-  """
-  Returns multiple entities according to the provided space ID and filter
-  """
-  entities(spaceId: String!, orderBy: String, orderDirection: OrderDirection, where: EntityFilter): [Entity!]!
-
-  """Returns a single relation identified by its ID and space ID"""
-  relation(id: String!, spaceId: String!, versionId: String): Relation
-
-  """
-  Returns multiple relations according to the provided space ID and filter
-  """
-  relations(spaceId: String!, orderBy: String, orderDirection: OrderDirection, where: RelationFilter): [Relation!]!
-}
-
 """Relation object"""
 type Relation {
   """Relation ID"""
@@ -178,6 +183,112 @@ input RelationFilter {
 
   """Filter the relations by their attributes"""
   attributes: [EntityAttributeFilter!]
+}
+
+type RootQuery {
+  """Returns a single space by ID"""
+  space(id: String!): Space
+
+  """Returns multiple spaces according to the provided filter"""
+  spaces(where: SpaceFilter, first: Int, skip: Int): [Space!]!
+
+  """Returns a single account by ID"""
+  account(id: String!): Account
+
+  """Returns a single account by address"""
+  accountByAddress(address: String!): Account
+
+  """Returns multiple accounts according to the provided filter"""
+  accounts(where: AccountFilter, first: Int, skip: Int): [Account!]!
+
+  """Returns a single entity identified by its ID and space ID"""
+  entity(id: String!, spaceId: String!, versionId: String): Entity
+
+  """
+  Returns multiple entities according to the provided space ID and filter
+  """
+  entities(spaceId: String!, orderBy: String, orderDirection: OrderDirection, where: EntityFilter, first: Int, skip: Int): [Entity!]!
+
+  """Returns a single relation identified by its ID and space ID"""
+  relation(id: String!, spaceId: String!, versionId: String): Relation
+
+  """
+  Returns multiple relations according to the provided space ID and filter
+  """
+  relations(spaceId: String!, orderBy: String, orderDirection: OrderDirection, where: RelationFilter, first: Int, skip: Int): [Relation!]!
+}
+
+type Space {
+  """Space ID"""
+  id: String!
+
+  """Network of the space"""
+  network: String!
+
+  """Governance type of the space (Public or Personal)"""
+  governanceType: String!
+
+  """DAO contract address of the space"""
+  daoContractAddress: String!
+
+  """Space plugin address (if available)"""
+  spacePluginAddress: String
+
+  """Voting plugin address (if available)"""
+  votingPluginAddress: String
+
+  """Member access plugin address (if available)"""
+  memberAccessPlugin: String
+
+  """Personal space admin plugin address (if available)"""
+  personalSpaceAdminPlugin: String
+
+  """Members of the space"""
+  members(first: Int, skip: Int): [Account!]!
+
+  """Editors of the space"""
+  editors(first: Int, skip: Int): [Account!]!
+
+  """Parent spaces of this space"""
+  parentSpaces(first: Int, skip: Int): [Space!]!
+
+  """Subspaces of this space"""
+  subspaces(first: Int, skip: Int): [Space!]!
+}
+
+input SpaceFilter {
+  id: String
+  idNot: String
+  idIn: [String!]
+  idNotIn: [String!]
+  network: String
+  networkNot: String
+  networkIn: [String!]
+  networkNotIn: [String!]
+  governanceType: String
+  governanceTypeNot: String
+  governanceTypeIn: [String!]
+  governanceTypeNotIn: [String!]
+  daoContractAddress: String
+  daoContractAddressNot: String
+  daoContractAddressIn: [String!]
+  daoContractAddressNotIn: [String!]
+  spacePluginAddress: String
+  spacePluginAddressNot: String
+  spacePluginAddressIn: [String!]
+  spacePluginAddressNotIn: [String!]
+  votingPluginAddress: String
+  votingPluginAddressNot: String
+  votingPluginAddressIn: [String!]
+  votingPluginAddressNotIn: [String!]
+  memberAccessPlugin: String
+  memberAccessPluginNot: String
+  memberAccessPluginIn: [String!]
+  memberAccessPluginNotIn: [String!]
+  personalSpaceAdminPlugin: String
+  personalSpaceAdminPluginNot: String
+  personalSpaceAdminPluginIn: [String!]
+  personalSpaceAdminPluginNotIn: [String!]
 }
 
 type Triple {
