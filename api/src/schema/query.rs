@@ -1,21 +1,163 @@
 use futures::TryStreamExt;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
-use sdk::mapping::{self, entity_node, query_utils::QueryStream, relation_node};
+use sdk::{
+    mapping::{
+        self, entity_node,
+        query_utils::{Query, QueryStream},
+        relation_node,
+    },
+    models::{Account as SdkAccount, Space as SdkSpace},
+};
 
 use crate::{
     context::KnowledgeGraph,
-    schema::{Entity, Relation, RelationFilter},
+    schema::{Account, AccountFilter, Entity, Relation, RelationFilter, Space, SpaceFilter},
 };
 
 use super::{entity_order_by::OrderDirection, EntityFilter};
 
 #[derive(Clone)]
-pub struct Query;
+pub struct RootQuery;
 
 #[graphql_object]
 #[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
-impl Query {
+impl RootQuery {
+    /// Returns a single space by ID
+    async fn space<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        id: String,
+    ) -> FieldResult<Option<Space>> {
+        Space::load(&executor.context().0, id).await
+    }
+
+    /// Returns multiple spaces according to the provided filter
+    #[allow(clippy::too_many_arguments)]
+    async fn spaces<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        where_: Option<SpaceFilter>,
+        first: Option<i32>,
+        skip: Option<i32>,
+    ) -> FieldResult<Vec<Space>> {
+        let mut query = SdkSpace::find_many(&executor.context().0);
+
+        // Apply filters if provided
+        if let Some(where_) = &where_ {
+            // Network filter
+            if let Some(network_filter) = where_.network_filter() {
+                query = query.network(network_filter);
+            }
+
+            // Governance type filter
+            if let Some(governance_type_filter) = where_.governance_type_filter() {
+                query = query.governance_type(governance_type_filter);
+            }
+
+            // DAO contract address filter
+            if let Some(dao_contract_address_filter) = where_.dao_contract_address_filter() {
+                query = query.dao_contract_address(dao_contract_address_filter);
+            }
+
+            // Space plugin address filter
+            if let Some(space_plugin_address_filter) = where_.space_plugin_address_filter() {
+                query = query.space_plugin_address(space_plugin_address_filter);
+            }
+
+            // Voting plugin address filter
+            if let Some(voting_plugin_address_filter) = where_.voting_plugin_address_filter() {
+                query = query.voting_plugin_address(voting_plugin_address_filter);
+            }
+
+            // Member access plugin filter
+            if let Some(member_access_plugin_filter) = where_.member_access_plugin_filter() {
+                query = query.member_access_plugin(member_access_plugin_filter);
+            }
+
+            // Personal space admin plugin filter
+            if let Some(personal_space_admin_plugin_filter) =
+                where_.personal_space_admin_plugin_filter()
+            {
+                query = query.personal_space_admin_plugin(personal_space_admin_plugin_filter);
+            }
+        }
+
+        if let Some(first) = first {
+            if first > 1000 {
+                return Err("Cannot query more than 1000 spaces at once".into());
+            }
+            query = query.limit(first as usize);
+        }
+
+        if let Some(skip) = skip {
+            query = query.skip(skip as usize);
+        }
+
+        Ok(query
+            .send()
+            .await?
+            .map_ok(Space::new)
+            .try_collect::<Vec<_>>()
+            .await?)
+    }
+
+    /// Returns a single account by ID
+    async fn account<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        id: String,
+    ) -> FieldResult<Option<Account>> {
+        Account::load(&executor.context().0, id).await
+    }
+
+    /// Returns a single account by address
+    async fn account_by_address<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        address: String,
+    ) -> FieldResult<Option<Account>> {
+        let query = SdkAccount::find_one(&executor.context().0, &address);
+        Ok(query.send().await?.map(Account::new))
+    }
+
+    /// Returns multiple accounts according to the provided filter
+    #[allow(clippy::too_many_arguments)]
+    async fn accounts<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        where_: Option<AccountFilter>,
+        first: Option<i32>,
+        skip: Option<i32>,
+    ) -> FieldResult<Vec<Account>> {
+        let mut query = SdkAccount::find_many(&executor.context().0);
+
+        // Apply filters if provided
+        if let Some(where_) = &where_ {
+            // Address filter
+            if let Some(address_filter) = where_.address_filter() {
+                query = query.address(address_filter);
+            }
+        }
+
+        if let Some(first) = first {
+            if first > 1000 {
+                return Err("Cannot query more than 1000 accounts at once".into());
+            }
+            query = query.limit(first as usize);
+        }
+
+        if let Some(skip) = skip {
+            query = query.skip(skip as usize);
+        }
+
+        Ok(query
+            .send()
+            .await?
+            .map_ok(Account::new)
+            .try_collect::<Vec<_>>()
+            .await?)
+    }
     /// Returns a single entity identified by its ID and space ID
     async fn entity<'a, S: ScalarValue>(
         &'a self,
