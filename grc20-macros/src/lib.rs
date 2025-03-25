@@ -6,7 +6,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
-use entity::{generate_from_attributes_impl, generate_into_attributes_impl, EntityOpts};
+use entity::{generate_from_attributes_impl, generate_into_attributes_impl, generate_builder_impl, EntityOpts};
 
 /// Implements the `FromAttributes` and `IntoAttributes` traits for a struct.
 ///
@@ -49,12 +49,15 @@ pub fn entity(_args: TokenStream, input: TokenStream) -> TokenStream {
     }
     
 
+    let impl_builder = generate_builder_impl(&opts);
+
     quote! {
         #[derive(Debug)]
         #input
 
         #impl_from_attributes
         #impl_into_attributes
+        #impl_builder
     }
     .into()
 }

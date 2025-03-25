@@ -2,7 +2,7 @@
 //! 
 //! This crate provides macros for automatically implementing traits from the GRC20 SDK.
 
-use darling::{FromDeriveInput, FromField, FromMeta};
+use darling::{FromDeriveInput, FromField};
 use proc_macro2::{TokenStream as TokenStream2, Span};
 use quote::{quote, ToTokens};
 use syn::{Ident, Type, Path, LitStr};
@@ -105,6 +105,113 @@ pub(crate) fn generate_from_attributes_impl(opts: &EntityOpts) -> TokenStream2 {
                 Ok(Self {
                     #(#field_assignments)*
                 })
+            }
+        }
+    }
+}
+
+pub(crate) fn generate_builder_impl(opts: &EntityOpts) -> TokenStream2 {
+    let struct_name = &opts.ident;
+    let builder_name = Ident::new(&format!("{}Builder", struct_name), Span::call_site());
+    let fields = opts.data.as_ref().take_struct().expect("Expected struct");
+    let schema_type = opts.schema_type.as_ref().map(|s| quote!(#s));
+
+    // Generate field definitions for the builder
+    let builder_fields = fields.iter().map(|field| {
+        let field_name = field.ident.as_ref().expect("Expected named field");
+        let field_type = &field.ty;
+        quote! {
+            #field_name: #field_type,
+        }
+    });
+
+        // Generate setter methods for each field
+    let setter_methods = fields.iter().map(|field| {
+        let field_name = field.ident.as_ref().expect("Expected named field");
+        let mut_name = Ident::new(&format!("{}_mut", field_name), Span::call_site());
+        let field_type = &field.ty;
+        
+        // For Option<T> types, we don't need impl Into
+        let (param_type, conversion) = if let syn::Type::Path(type_path) = field_type {
+            if type_path.path.segments.last().map(|s| s.ident == "Option").unwrap_or(false) {
+                if let syn::PathArguments::AngleBracketed(args) = &type_path.path.segments.last().unwrap().arguments {
+                    if let Some(syn::GenericArgument::Type(inner_type)) = args.args.first() {
+                        (quote!(#inner_type), quote!(Some(value)))
+                    } else {
+                        panic!("Expected inner type for Option<T>")
+                    }
+                } else {
+                    (quote!(#field_type), quote!(value))
+                }
+            } else if type_path.path.segments.last().map(|s| s.ident == "String").unwrap_or(false) {
+                (quote!(impl Into<String>), quote!(value.into()))
+            } else {
+                (quote!(#field_type), quote!(value))
+            }
+        } else {
+            // (quote!(#field_type), quote!(value))
+            panic!("Expected Option<T> type")
+        };
+
+        quote! {
+            pub fn #field_name(mut self, value: #param_type) -> Self {
+                self.#field_name = #conversion;
+                self
+            }
+
+            pub fn #mut_name(&mut self, value: #param_type) {
+                self.#field_name = #conversion;
+            }
+        }
+    });
+
+    let field_names: Vec<_> = fields.iter()
+        .map(|f| f.ident.as_ref().expect("Expected named field"))
+        .collect();
+
+    let type_set_block = if let Some(schema_type) = &schema_type {
+        quote! {
+            built = built.with_type(#schema_type);
+        }
+    } else {
+        quote! {}
+    };
+
+    quote! {
+        impl #struct_name {
+            pub fn new(id: impl Into<String>) -> #builder_name {
+                #builder_name::new(id.into())
+            }
+        }
+
+        #[derive(Default)]
+        pub struct #builder_name {
+            id: String,
+            #(#builder_fields)*
+        }
+
+        impl #builder_name {
+            pub fn new(id: String) -> Self {
+                Self {
+                    id,
+                    ..Default::default()
+                }
+            }
+
+            #(#setter_methods)*
+
+            pub fn build(self) -> sdk::mapping::Entity<#struct_name> {
+                let mut built = sdk::mapping::Entity::new(
+                    self.id,
+                    #struct_name {
+                        #(
+                            #field_names: self.#field_names,
+                        )*
+                    }
+                );
+
+                #type_set_block
+                built
             }
         }
     }
