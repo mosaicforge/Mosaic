@@ -1,4 +1,4 @@
-use futures::{StreamExt, TryStreamExt};
+use futures::TryStreamExt;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use sdk::{
@@ -68,6 +68,22 @@ impl Space {
     fn personal_space_admin_plugin(&self) -> Option<&str> {
         self.entity.attributes.personal_space_admin_plugin.as_deref()
     }
+
+    // fn updated_at(&self) -> &str {
+    //     &self.entity.updated_at
+    // }
+
+    // fn created_at(&self) -> &str {
+    //     &self.entity.created_at
+    // }
+
+    // fn updated_at_block(&self) -> i32 {
+    //     self.entity.updated_at_block
+    // }
+
+    // fn created_at_block(&self) -> i32 {
+    //     self.entity.created_at_block
+    // }
 
     async fn members<'a, S: ScalarValue>(
         &'a self,

@@ -8,8 +8,8 @@ pub struct TypesFilter {
 }
 
 impl TypesFilter {
-    pub fn r#type(mut self, type_: String) -> Self {
-        self.types_contains.push(type_);
+    pub fn r#type(mut self, r#type: impl Into<String>) -> Self {
+        self.types_contains.push(r#type.into());
         self
     }
 

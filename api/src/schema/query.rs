@@ -4,7 +4,6 @@ use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 use sdk::{
     mapping::{self, entity_node, query_utils::{Query, QueryStream}, relation_node},
     models::{Account as SdkAccount, Space as SdkSpace},
-    system_ids,
 };
 
 use crate::{

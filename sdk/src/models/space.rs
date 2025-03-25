@@ -212,6 +212,63 @@ impl Space {
     pub fn subspaces(neo4j: &neo4rs::Graph, space_id: &str) -> SubspacesQuery {
         SubspacesQuery::new(neo4j.clone(), space_id.to_string())
     }
+
+    /// Find all types defined in a space
+    pub fn types(neo4j: &neo4rs::Graph, space_id: &str) -> SpaceTypesQuery {
+        SpaceTypesQuery::new(neo4j.clone(), space_id.to_string())
+    }
+}
+
+/// Query to find all types defined in a space
+pub struct SpaceTypesQuery {
+    neo4j: neo4rs::Graph,
+    space_id: String,
+    limit: usize,
+    skip: Option<usize>,
+}
+
+impl SpaceTypesQuery {
+    fn new(neo4j: neo4rs::Graph, space_id: String) -> Self {
+        Self {
+            neo4j,
+            space_id,
+            limit: 100,
+            skip: None,
+        }
+    }
+
+    /// Limit the number of results
+    pub fn limit(mut self, limit: usize) -> Self {
+        self.limit = limit;
+        self
+    }
+
+    /// Skip a number of results
+    pub fn skip(mut self, skip: usize) -> Self {
+        self.skip = Some(skip);
+        self
+    }
+}
+
+impl QueryStream<EntityNode> for SpaceTypesQuery {
+    async fn send(
+        self,
+    ) -> Result<impl Stream<Item = Result<EntityNode, DatabaseError>>, DatabaseError> {
+        // Find all entities that have a TYPES relation to the Type entity
+        let mut stream = entity_node::find_many(&self.neo4j)
+            .with_filter(
+                EntityFilter::default()
+                    .relations(TypesFilter::default().r#type(system_ids::SCHEMA_TYPE))
+                    .space_id(self.space_id),
+            )
+            .limit(self.limit);
+
+        if let Some(skip) = self.skip {
+            stream = stream.skip(skip);
+        }
+
+        stream.send().await
+    }
 }
 
 /// Query to find a single space by ID
