@@ -33,14 +33,17 @@ impl Space {
 #[graphql_object]
 #[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
 impl Space {
+    /// Space ID
     fn id(&self) -> &str {
         &self.entity.id
     }
 
+    /// Network of the space
     fn network(&self) -> &str {
         &self.entity.attributes.network
     }
 
+    /// Governance type of the space (Public or Personal)
     fn governance_type(&self) -> &str {
         match self.entity.attributes.governance_type {
             sdk::models::space::SpaceGovernanceType::Public => "Public",
@@ -48,22 +51,27 @@ impl Space {
         }
     }
 
+    /// DAO contract address of the space
     fn dao_contract_address(&self) -> &str {
         &self.entity.attributes.dao_contract_address
     }
 
+    /// Space plugin address (if available)
     fn space_plugin_address(&self) -> Option<&str> {
         self.entity.attributes.space_plugin_address.as_deref()
     }
 
+    /// Voting plugin address (if available)
     fn voting_plugin_address(&self) -> Option<&str> {
         self.entity.attributes.voting_plugin_address.as_deref()
     }
 
+    /// Member access plugin address (if available)
     fn member_access_plugin(&self) -> Option<&str> {
         self.entity.attributes.member_access_plugin.as_deref()
     }
 
+    /// Personal space admin plugin address (if available)
     fn personal_space_admin_plugin(&self) -> Option<&str> {
         self.entity
             .attributes
@@ -87,6 +95,7 @@ impl Space {
     //     self.entity.created_at_block
     // }
 
+    /// Members of the space
     async fn members<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
@@ -114,6 +123,7 @@ impl Space {
             .await?)
     }
 
+    /// Editors of the space
     async fn editors<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
@@ -141,6 +151,7 @@ impl Space {
             .await?)
     }
 
+    /// Parent spaces of this space
     async fn parent_spaces<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
@@ -168,6 +179,7 @@ impl Space {
             .await?)
     }
 
+    /// Subspaces of this space
     async fn subspaces<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,

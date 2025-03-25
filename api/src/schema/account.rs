@@ -30,10 +30,12 @@ impl Account {
 #[graphql_object]
 #[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
 impl Account {
+    /// Account ID
     fn id(&self) -> &str {
         &self.entity.id
     }
 
+    /// Ethereum address of the account
     fn address(&self) -> &str {
         &self.entity.attributes.address
     }
