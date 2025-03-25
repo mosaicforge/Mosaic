@@ -226,7 +226,7 @@ type Space {
   network: String!
 
   """Governance type of the space (Public or Personal)"""
-  governanceType: String!
+  governanceType: SpaceGovernanceType!
 
   """DAO contract address of the space"""
   daoContractAddress: String!
@@ -289,6 +289,11 @@ input SpaceFilter {
   personalSpaceAdminPluginNot: String
   personalSpaceAdminPluginIn: [String!]
   personalSpaceAdminPluginNotIn: [String!]
+}
+
+enum SpaceGovernanceType {
+  PUBLIC
+  PERSONAL
 }
 
 type Triple {

@@ -1,5 +1,5 @@
 use futures::TryStreamExt;
-use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
+use juniper::{graphql_object, Executor, FieldResult, GraphQLEnum, ScalarValue};
 
 use sdk::{
     mapping::{
@@ -30,6 +30,21 @@ impl Space {
     }
 }
 
+#[derive(GraphQLEnum)]
+enum SpaceGovernanceType {
+    Public,
+    Personal,
+}
+
+impl From<sdk::models::space::SpaceGovernanceType> for SpaceGovernanceType {
+    fn from(governance_type: sdk::models::space::SpaceGovernanceType) -> Self {
+        match governance_type {
+            sdk::models::space::SpaceGovernanceType::Public => SpaceGovernanceType::Public,
+            sdk::models::space::SpaceGovernanceType::Personal => SpaceGovernanceType::Personal,
+        }
+    }
+}
+
 #[graphql_object]
 #[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
 impl Space {
@@ -44,11 +59,8 @@ impl Space {
     }
 
     /// Governance type of the space (Public or Personal)
-    fn governance_type(&self) -> &str {
-        match self.entity.attributes.governance_type {
-            sdk::models::space::SpaceGovernanceType::Public => "Public",
-            sdk::models::space::SpaceGovernanceType::Personal => "Personal",
-        }
+    fn governance_type(&self) -> SpaceGovernanceType {
+        self.entity.attributes.governance_type.clone().into()
     }
 
     /// DAO contract address of the space
