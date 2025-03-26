@@ -71,3 +71,26 @@ impl QueryStream<Entity<Space>> for SubspacesQuery {
         Ok(space_stream)
     }
 }
+
+impl QueryStream<String> for SubspacesQuery {
+    async fn send(
+        self,
+    ) -> Result<impl Stream<Item = Result<String, DatabaseError>>, DatabaseError> {
+        // Find all parent space relations where this space is the parent
+        let relations_stream = relation_node::find_many(&self.neo4j)
+            .relation_type(PropFilter::default().value(indexer_ids::PARENT_SPACE))
+            .to_id(PropFilter::default().value(self.space_id.clone()))
+            .space_id(PropFilter::default().value(indexer_ids::INDEXER_SPACE_ID))
+            .limit(self.limit)
+            .send()
+            .await?;
+
+        // Convert the stream of relations to a stream of spaces
+        let space_stream = relations_stream
+            .map(move |relation_result| {
+                relation_result.map(|relation| relation.to)
+            });
+
+        Ok(space_stream)
+    }
+}

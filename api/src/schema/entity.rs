@@ -2,12 +2,11 @@ use futures::TryStreamExt;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use sdk::{
-    mapping::{
+    aggregation, mapping::{
         entity_node,
         query_utils::{prop_filter, Query, QueryStream},
         triple, EntityNode,
-    },
-    neo4rs, system_ids,
+    }, neo4rs, system_ids
 };
 
 use crate::{
@@ -62,18 +61,19 @@ impl Entity {
     async fn name<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-    ) -> Option<String> {
-        triple::find_one(
+        #[graphql(default = true)]
+        strict: bool,
+    ) -> FieldResult<Option<String>> {
+        Ok(aggregation::pluralism::get_triple(
             &executor.context().0,
-            system_ids::NAME_ATTRIBUTE,
-            &self.node.id,
-            &self.space_id,
+            system_ids::NAME_ATTRIBUTE.into(),
+            self.node.id.clone(),
+            self.space_id.clone(),
             self.space_version.clone(),
+            strict,
         )
-        .send()
-        .await
-        .expect("Failed to find name")
-        .map(|triple| triple.value.value)
+        .await?
+        .map(|triple| triple.value.value))
     }
 
     /// Entity description (if available)

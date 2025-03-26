@@ -3,7 +3,7 @@ use juniper::{graphql_object, Executor, FieldResult, GraphQLEnum, ScalarValue};
 
 use sdk::{
     mapping::query_utils::{Query, QueryStream},
-    models::{space::ParentSpacesQuery, Space as SdkSpace},
+    models::{space::{ParentSpacesQuery, SubspacesQuery}, Space as SdkSpace},
     neo4rs,
 };
 
@@ -207,8 +207,7 @@ impl Space {
             query = query.skip(skip as usize);
         }
 
-        Ok(query
-            .send()
+        Ok(<SubspacesQuery as QueryStream<sdk::mapping::Entity<sdk::models::Space>>>::send(query)
             .await?
             .map_ok(Space::new)
             .try_collect::<Vec<_>>()
@@ -218,14 +217,14 @@ impl Space {
     async fn types<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-        strict: bool,
+        strict: Option<bool>,
         first: Option<i32>,
         skip: Option<i32>,
     ) -> FieldResult<Vec<Entity>> {
         let types = sdk::aggregation::schema_types::space_schema_types(
             &executor.context().0,
             &self.entity.id,
-            strict,
+            strict.unwrap_or(true),
         )
         .await?;
 

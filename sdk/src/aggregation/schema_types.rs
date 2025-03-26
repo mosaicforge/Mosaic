@@ -22,14 +22,14 @@ pub async fn space_schema_types(
     let mut result_map = HashMap::new();
 
     // Get all spaces to query (just the given space if strict, or all parent spaces if not)
-    let mut spaces_to_query = vec![space_id.to_string()];
+    let mut spaces_to_query = vec![(space_id.to_string(), 0)];
     if !strict {
         let parent_spaces = space_hierarchy::all_parent_spaces(neo4j, space_id).await?;
         spaces_to_query.extend(parent_spaces);
     }
 
     // Query types from each space
-    for space_id in spaces_to_query {
+    for (space_id, _) in spaces_to_query {
         let stream = SpaceTypesQuery::new(neo4j.clone(), space_id)
             .send()
             .await?;
