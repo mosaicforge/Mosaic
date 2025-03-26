@@ -2,24 +2,21 @@ use futures::TryStreamExt;
 use juniper::{graphql_object, Executor, FieldResult, GraphQLEnum, ScalarValue};
 
 use sdk::{
-    mapping::{
-        query_utils::{Query, QueryStream},
-        Entity,
-    },
-    models::Space as SdkSpace,
+    mapping::query_utils::{Query, QueryStream},
+    models::{space::ParentSpacesQuery, Space as SdkSpace},
     neo4rs,
 };
 
 use crate::context::KnowledgeGraph;
 
-use super::Account;
+use super::{Account, Entity};
 
 pub struct Space {
-    entity: Entity<SdkSpace>,
+    entity: sdk::mapping::Entity<SdkSpace>,
 }
 
 impl Space {
-    pub fn new(entity: Entity<SdkSpace>) -> Self {
+    pub fn new(entity: sdk::mapping::Entity<SdkSpace>) -> Self {
         Self { entity }
     }
 
@@ -183,8 +180,7 @@ impl Space {
             query = query.skip(skip as usize);
         }
 
-        Ok(query
-            .send()
+        Ok(<ParentSpacesQuery as QueryStream<sdk::mapping::Entity<sdk::models::Space>>>::send(query)
             .await?
             .map_ok(Space::new)
             .try_collect::<Vec<_>>()
@@ -217,5 +213,27 @@ impl Space {
             .map_ok(Space::new)
             .try_collect::<Vec<_>>()
             .await?)
+    }
+
+    async fn types<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        strict: bool,
+        first: Option<i32>,
+        skip: Option<i32>,
+    ) -> FieldResult<Vec<Entity>> {
+        let types = sdk::aggregation::schema_types::space_schema_types(
+            &executor.context().0,
+            &self.entity.id,
+            strict,
+        )
+        .await?;
+
+        Ok(types
+            .into_iter()
+            .skip(skip.unwrap_or(0) as usize)
+            .take(first.unwrap_or(1000) as usize)
+            .map(|node| Entity::new(node, self.entity.id.clone(), None))
+            .collect())
     }
 }

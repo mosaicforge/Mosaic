@@ -137,7 +137,7 @@ pub fn find_many(neo4j: &neo4rs::Graph) -> FindManyQuery {
     FindManyQuery::new(neo4j)
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 pub struct SystemProperties {
     #[serde(rename = "82nP7aFmHJLbaPFszj2nbx")] // CREATED_AT_TIMESTAMP
     pub created_at: DateTime<Utc>,
