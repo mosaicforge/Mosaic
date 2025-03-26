@@ -48,7 +48,6 @@ pub fn entity(_args: TokenStream, input: TokenStream) -> TokenStream {
             field.attrs.retain(|attr| !attr.path().is_ident("grc20"));
         }
     }
-    
 
     // let impl_builder = entity::generate_builder_impl(&opts);
 
@@ -98,7 +97,6 @@ pub fn relation(_args: TokenStream, input: TokenStream) -> TokenStream {
             field.attrs.retain(|attr| !attr.path().is_ident("grc20"));
         }
     }
-    
 
     // let impl_builder = relation::generate_builder_impl(&opts);
 

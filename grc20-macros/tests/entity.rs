@@ -71,7 +71,7 @@ fn test_entity_macro_with_string_literals() {
 
 //     // Test builder with default values
 //     let person = Person::new("person-2").name("Bob").age(25).build();
-    
+
 //     assert_eq!(person.id, "person-2");
 //     assert_eq!(person.attributes.name, "Bob");
 //     assert_eq!(person.attributes.nickname, None);
@@ -101,7 +101,10 @@ fn test_entity_macro_with_paths() {
 
     let attrs = person.into_attributes().unwrap();
     assert_eq!(attrs.get::<String>(test_ids::NAME_ATTR).unwrap(), "Alice");
-    assert_eq!(attrs.get::<String>(test_ids::NICKNAME_ATTRIBUTE).unwrap(), "Ali");
+    assert_eq!(
+        attrs.get::<String>(test_ids::NICKNAME_ATTRIBUTE).unwrap(),
+        "Ali"
+    );
     assert_eq!(attrs.get::<u64>(test_ids::AGE_ATTR).unwrap(), 30);
 
     // Test FromAttributes

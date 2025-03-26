@@ -2,6 +2,7 @@ use futures::Stream;
 use web3_utils::checksum_address;
 
 use crate::{
+    self as sdk,
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
@@ -11,7 +12,6 @@ use crate::{
         Entity,
     },
     system_ids,
-    self as sdk,
 };
 
 #[derive(Clone, PartialEq)]

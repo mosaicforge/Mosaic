@@ -1,9 +1,6 @@
 use crate::{
-    self as sdk,
-    ids, indexer_ids,
-    mapping::{
-        Entity, Relation
-    },
+    self as sdk, ids, indexer_ids,
+    mapping::{Entity, Relation},
     system_ids,
 };
 

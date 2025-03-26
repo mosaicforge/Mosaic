@@ -1,11 +1,11 @@
 //! Procedural macros for the GRC20 SDK
-//! 
+//!
 //! This crate provides macros for automatically implementing traits from the GRC20 SDK.
 
 use darling::{FromDeriveInput, FromField};
-use proc_macro2::{TokenStream as TokenStream2, Span};
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
-use syn::{Ident, Type, Path, LitStr};
+use syn::{Ident, LitStr, Path, Type};
 
 /// Represents either a string literal or a path to a constant
 #[derive(Debug, Clone)]
@@ -30,7 +30,9 @@ impl darling::FromMeta for StringOrPath {
         match expr {
             syn::Expr::Path(path) => Ok(StringOrPath::Path(path.path.clone())),
             syn::Expr::Lit(lit) => Self::from_value(&lit.lit),
-            _ => Err(darling::Error::custom("expected string literal or path expression")),
+            _ => Err(darling::Error::custom(
+                "expected string literal or path expression",
+            )),
         }
     }
 
@@ -85,7 +87,13 @@ pub(crate) fn generate_from_attributes_impl(opts: &EntityOpts) -> TokenStream2 {
 
         // Check if field type is Option<T>
         if let syn::Type::Path(type_path) = field_type {
-            if type_path.path.segments.last().map(|s| s.ident == "Option").unwrap_or(false) {
+            if type_path
+                .path
+                .segments
+                .last()
+                .map(|s| s.ident == "Option")
+                .unwrap_or(false)
+            {
                 return quote! {
                     #field_name: attributes.pop_opt(#attribute_name)?,
                 };
@@ -125,16 +133,24 @@ pub(crate) fn generate_builder_impl(opts: &EntityOpts) -> TokenStream2 {
         }
     });
 
-        // Generate setter methods for each field
+    // Generate setter methods for each field
     let setter_methods = fields.iter().map(|field| {
         let field_name = field.ident.as_ref().expect("Expected named field");
         let mut_name = Ident::new(&format!("{}_mut", field_name), Span::call_site());
         let field_type = &field.ty;
-        
+
         // For Option<T> types, we don't need impl Into
         let (param_type, conversion) = if let syn::Type::Path(type_path) = field_type {
-            if type_path.path.segments.last().map(|s| s.ident == "Option").unwrap_or(false) {
-                if let syn::PathArguments::AngleBracketed(args) = &type_path.path.segments.last().unwrap().arguments {
+            if type_path
+                .path
+                .segments
+                .last()
+                .map(|s| s.ident == "Option")
+                .unwrap_or(false)
+            {
+                if let syn::PathArguments::AngleBracketed(args) =
+                    &type_path.path.segments.last().unwrap().arguments
+                {
                     if let Some(syn::GenericArgument::Type(inner_type)) = args.args.first() {
                         (quote!(#inner_type), quote!(Some(value)))
                     } else {
@@ -143,7 +159,13 @@ pub(crate) fn generate_builder_impl(opts: &EntityOpts) -> TokenStream2 {
                 } else {
                     (quote!(#field_type), quote!(value))
                 }
-            } else if type_path.path.segments.last().map(|s| s.ident == "String").unwrap_or(false) {
+            } else if type_path
+                .path
+                .segments
+                .last()
+                .map(|s| s.ident == "String")
+                .unwrap_or(false)
+            {
                 (quote!(impl Into<String>), quote!(value.into()))
             } else {
                 (quote!(#field_type), quote!(value))
@@ -165,7 +187,8 @@ pub(crate) fn generate_builder_impl(opts: &EntityOpts) -> TokenStream2 {
         }
     });
 
-    let field_names: Vec<_> = fields.iter()
+    let field_names: Vec<_> = fields
+        .iter()
         .map(|f| f.ident.as_ref().expect("Expected named field"))
         .collect();
 
@@ -231,7 +254,13 @@ pub(crate) fn generate_into_attributes_impl(opts: &EntityOpts) -> TokenStream2 {
 
         // Check if field type is Option<T>
         if let syn::Type::Path(type_path) = &field.ty {
-            if type_path.path.segments.last().map(|s| s.ident == "Option").unwrap_or(false) {
+            if type_path
+                .path
+                .segments
+                .last()
+                .map(|s| s.ident == "Option")
+                .unwrap_or(false)
+            {
                 return quote! {
                     if let Some(value) = self.#field_name {
                         attributes = attributes.attribute((#attribute_name, value));

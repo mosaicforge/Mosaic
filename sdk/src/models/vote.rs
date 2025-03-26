@@ -1,8 +1,7 @@
 //! This module contains models reserved for use by the KG Indexer.
 
 use crate::{
-    self as sdk,
-    ids, indexer_ids,
+    self as sdk, ids, indexer_ids,
     mapping::{self, Relation},
 };
 
