@@ -848,6 +848,8 @@ impl SpaceBuilder {
 /// Parent space relation (for subspaces).
 /// Space > PARENT_SPACE > Space
 #[derive(Clone)]
+#[grc20_macros::relation]
+#[grc20(relation_type = indexer_ids::PARENT_SPACE)]
 pub struct ParentSpace;
 
 impl ParentSpace {
@@ -882,19 +884,5 @@ impl ParentSpace {
         )
         .send()
         .await
-    }
-}
-
-impl mapping::IntoAttributes for ParentSpace {
-    fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
-        Ok(mapping::Attributes::default())
-    }
-}
-
-impl FromAttributes for ParentSpace {
-    fn from_attributes(
-        _attributes: mapping::Attributes,
-    ) -> Result<Self, mapping::TriplesConversionError> {
-        Ok(Self {})
     }
 }
