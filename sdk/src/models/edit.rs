@@ -1,14 +1,20 @@
 use crate::{
+    self as sdk,
     ids, indexer_ids,
     mapping::{
-        Attributes, Entity, FromAttributes, IntoAttributes, Relation, TriplesConversionError,
+        Entity, Relation
     },
     system_ids,
 };
 
+#[grc20_macros::entity]
+#[grc20(schema_type = indexer_ids::EDIT_TYPE)]
 pub struct Edit {
+    #[grc20(attribute = system_ids::NAME_ATTRIBUTE)]
     pub name: String,
+    #[grc20(attribute = indexer_ids::EDIT_CONTENT_URI_ATTRIBUTE)]
     pub content_uri: String,
+    #[grc20(attribute = indexer_ids::EDIT_INDEX_ATTRIBUTE)]
     pub index: Option<String>,
 }
 
@@ -30,32 +36,10 @@ impl Edit {
     }
 }
 
-impl IntoAttributes for Edit {
-    fn into_attributes(self) -> Result<Attributes, TriplesConversionError> {
-        let attrs = Attributes::default()
-            .attribute((system_ids::NAME_ATTRIBUTE, self.name))
-            .attribute((indexer_ids::EDIT_CONTENT_URI_ATTRIBUTE, self.content_uri));
-
-        if let Some(index) = self.index {
-            Ok(attrs.attribute((indexer_ids::EDIT_INDEX_ATTRIBUTE, index)))
-        } else {
-            Ok(attrs)
-        }
-    }
-}
-
-impl FromAttributes for Edit {
-    fn from_attributes(attributes: Attributes) -> Result<Self, TriplesConversionError> {
-        Ok(Self {
-            name: attributes.get(system_ids::NAME_ATTRIBUTE)?,
-            content_uri: attributes.get(indexer_ids::EDIT_CONTENT_URI_ATTRIBUTE)?,
-            index: attributes.get_opt(indexer_ids::EDIT_INDEX_ATTRIBUTE)?,
-        })
-    }
-}
-
 /// Space > EDITS > Edit
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[grc20_macros::relation]
+#[grc20(relation_type = indexer_ids::EDITS)]
 pub struct Edits;
 
 impl Edits {
@@ -78,20 +62,10 @@ impl Edits {
     }
 }
 
-impl FromAttributes for Edits {
-    fn from_attributes(_attributes: Attributes) -> Result<Self, TriplesConversionError> {
-        Ok(Self {})
-    }
-}
-
-impl IntoAttributes for Edits {
-    fn into_attributes(self) -> Result<Attributes, TriplesConversionError> {
-        Ok(Attributes::default())
-    }
-}
-
 /// EditProposal > PROPOSED_EDIT > Edit
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[grc20_macros::relation]
+#[grc20(relation_type = indexer_ids::PROPOSED_EDIT)]
 pub struct ProposedEdit;
 
 impl ProposedEdit {
@@ -111,17 +85,5 @@ impl ProposedEdit {
             "0",
             Self {},
         )
-    }
-}
-
-impl FromAttributes for ProposedEdit {
-    fn from_attributes(_attributes: Attributes) -> Result<Self, TriplesConversionError> {
-        Ok(Self {})
-    }
-}
-
-impl IntoAttributes for ProposedEdit {
-    fn into_attributes(self) -> Result<Attributes, TriplesConversionError> {
-        Ok(Attributes::default())
     }
 }

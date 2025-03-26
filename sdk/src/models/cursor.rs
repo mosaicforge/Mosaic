@@ -2,16 +2,22 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    self as sdk,
     error::DatabaseError,
     indexer_ids,
-    mapping::{self, entity, Entity, Query},
+    mapping::{entity, Entity, Query},
 };
 
 #[derive(Clone, Default, Deserialize, Serialize)]
+#[grc20_macros::entity]
 pub struct Cursor {
+    #[grc20(attribute = indexer_ids::CURSOR_ATTRIBUTE)]
     pub cursor: String,
+    #[grc20(attribute = indexer_ids::BLOCK_NUMBER_ATTRIBUTE)]
     pub block_number: u64,
+    #[grc20(attribute = indexer_ids::BLOCK_TIMESTAMP_ATTRIBUTE)]
     pub block_timestamp: DateTime<Utc>,
+    #[grc20(attribute = indexer_ids::VERSION_ATTRIBUTE)]
     pub version: String,
 }
 
@@ -43,28 +49,5 @@ impl Cursor {
         )
         .send()
         .await
-    }
-}
-
-impl mapping::IntoAttributes for Cursor {
-    fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
-        Ok(mapping::Attributes::default()
-            .attribute((indexer_ids::CURSOR_ATTRIBUTE, self.cursor))
-            .attribute((indexer_ids::BLOCK_NUMBER_ATTRIBUTE, self.block_number))
-            .attribute((indexer_ids::BLOCK_TIMESTAMP_ATTRIBUTE, self.block_timestamp))
-            .attribute((indexer_ids::VERSION_ATTRIBUTE, self.version)))
-    }
-}
-
-impl mapping::FromAttributes for Cursor {
-    fn from_attributes(
-        mut attributes: mapping::Attributes,
-    ) -> Result<Self, mapping::TriplesConversionError> {
-        Ok(Self {
-            cursor: attributes.pop(indexer_ids::CURSOR_ATTRIBUTE)?,
-            block_number: attributes.pop(indexer_ids::BLOCK_NUMBER_ATTRIBUTE)?,
-            block_timestamp: attributes.pop(indexer_ids::BLOCK_TIMESTAMP_ATTRIBUTE)?,
-            version: attributes.pop(indexer_ids::VERSION_ATTRIBUTE)?,
-        })
     }
 }

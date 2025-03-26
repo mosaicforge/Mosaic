@@ -1,13 +1,17 @@
 use crate::{
+    self as sdk,
     error::DatabaseError,
     ids, indexer_ids,
-    mapping::{self, query_utils::Query, relation, Relation},
+    mapping::{query_utils::Query, relation, Relation},
 };
 
 use super::BlockMetadata;
 
-/// Space editor relation.
+/// Space member relation.
+/// Account > MEMBER > Space
 #[derive(Clone)]
+#[grc20_macros::relation]
+#[grc20(relation_type = indexer_ids::MEMBER_RELATION)]
 pub struct SpaceMember;
 
 impl SpaceMember {
@@ -42,19 +46,5 @@ impl SpaceMember {
         )
         .send()
         .await
-    }
-}
-
-impl mapping::IntoAttributes for SpaceMember {
-    fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
-        Ok(mapping::Attributes::default())
-    }
-}
-
-impl mapping::FromAttributes for SpaceMember {
-    fn from_attributes(
-        _attributes: mapping::Attributes,
-    ) -> Result<Self, mapping::TriplesConversionError> {
-        Ok(Self)
     }
 }

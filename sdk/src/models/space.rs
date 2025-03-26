@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use web3_utils::checksum_address;
 
 use crate::{
+    self as sdk,
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
@@ -22,18 +23,33 @@ use crate::{
 use super::BlockMetadata;
 
 #[derive(Clone)]
+#[grc20_macros::entity]
+#[grc20(schema_type = system_ids::SPACE_TYPE)]
 pub struct Space {
+    #[grc20(attribute = system_ids::NETWORK_ATTRIBUTE)]
     pub network: String,
+
+    #[grc20(attribute = indexer_ids::SPACE_GOVERNANCE_TYPE)]
     pub governance_type: SpaceGovernanceType,
+
     /// The address of the space's DAO contract.
+    #[grc20(attribute = indexer_ids::SPACE_DAO_ADDRESS)]
     pub dao_contract_address: String,
+
     /// The address of the space plugin contract.
+    #[grc20(attribute = indexer_ids::SPACE_PLUGIN_ADDRESS)]
     pub space_plugin_address: Option<String>,
+
     /// The address of the voting plugin contract.
+    #[grc20(attribute = indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS)]
     pub voting_plugin_address: Option<String>,
+
     /// The address of the member access plugin contract.
+    #[grc20(attribute = indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS)]
     pub member_access_plugin: Option<String>,
+
     /// The address of the personal space admin plugin contract.
+    #[grc20(attribute = indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS)]
     pub personal_space_admin_plugin: Option<String>,
 }
 
@@ -721,58 +737,7 @@ impl QueryStream<Entity<Space>> for SubspacesQuery {
     }
 }
 
-impl IntoAttributes for Space {
-    fn into_attributes(self) -> Result<Attributes, TriplesConversionError> {
-        let mut attributes = Attributes::default()
-            .attribute((system_ids::NETWORK_ATTRIBUTE, self.network))
-            .attribute((indexer_ids::SPACE_GOVERNANCE_TYPE, self.governance_type))
-            .attribute((indexer_ids::SPACE_DAO_ADDRESS, self.dao_contract_address));
-
-        if let Some(space_plugin_address) = self.space_plugin_address {
-            attributes.attribute_mut((indexer_ids::SPACE_PLUGIN_ADDRESS, space_plugin_address))
-        }
-
-        if let Some(voting_plugin_address) = self.voting_plugin_address {
-            attributes.attribute_mut((
-                indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS,
-                voting_plugin_address,
-            ))
-        }
-
-        if let Some(member_access_plugin) = self.member_access_plugin {
-            attributes.attribute_mut((
-                indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS,
-                member_access_plugin,
-            ))
-        }
-
-        if let Some(personal_space_admin_plugin) = self.personal_space_admin_plugin {
-            attributes.attribute_mut((
-                indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS,
-                personal_space_admin_plugin,
-            ))
-        }
-
-        Ok(attributes)
-    }
-}
-
-impl FromAttributes for Space {
-    fn from_attributes(mut attributes: Attributes) -> Result<Self, TriplesConversionError> {
-        Ok(Self {
-            network: attributes.pop(system_ids::NETWORK_ATTRIBUTE)?,
-            governance_type: attributes.pop(indexer_ids::SPACE_GOVERNANCE_TYPE)?,
-            dao_contract_address: attributes.pop(indexer_ids::SPACE_DAO_ADDRESS)?,
-            space_plugin_address: attributes.pop_opt(indexer_ids::SPACE_PLUGIN_ADDRESS)?,
-            voting_plugin_address: attributes.pop_opt(indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS)?,
-            member_access_plugin: attributes.pop_opt(indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS)?,
-            personal_space_admin_plugin: attributes
-                .pop_opt(indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS)?,
-        })
-    }
-}
-
-#[derive(Clone, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub enum SpaceGovernanceType {
     #[default]
     Public,

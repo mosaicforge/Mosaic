@@ -1,21 +1,24 @@
 use futures::Stream;
 use web3_utils::checksum_address;
-use grc20_macros::entity;
 
 use crate::{
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
-        self, entity,
+        entity,
         entity_node::EntityFilter,
         query_utils::{AttributeFilter, PropFilter, Query, QueryStream, TypesFilter},
         Entity,
     },
     system_ids,
+    self as sdk,
 };
 
 #[derive(Clone, PartialEq)]
+#[grc20_macros::entity]
+#[grc20(schema_type = system_ids::ACCOUNT_TYPE)]
 pub struct Account {
+    #[grc20(attribute = system_ids::ADDRESS_ATTRIBUTE)]
     pub address: String,
 }
 
@@ -44,22 +47,6 @@ impl Account {
     /// Find multiple accounts with filters
     pub fn find_many(neo4j: &neo4rs::Graph) -> FindManyQuery {
         FindManyQuery::new(neo4j.clone())
-    }
-}
-
-impl mapping::IntoAttributes for Account {
-    fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
-        Ok(mapping::Attributes::default().attribute((system_ids::ADDRESS_ATTRIBUTE, self.address)))
-    }
-}
-
-impl mapping::FromAttributes for Account {
-    fn from_attributes(
-        mut attributes: mapping::Attributes,
-    ) -> Result<Self, mapping::TriplesConversionError> {
-        Ok(Self {
-            address: attributes.pop(system_ids::ADDRESS_ATTRIBUTE)?,
-        })
     }
 }
 

@@ -1,7 +1,8 @@
 use crate::{
+    self as sdk,
     error::DatabaseError,
     ids, indexer_ids,
-    mapping::{self, query_utils::Query, relation, Relation},
+    mapping::{query_utils::Query, relation, Relation},
 };
 
 use super::BlockMetadata;
@@ -9,6 +10,8 @@ use super::BlockMetadata;
 /// Space editor relation.
 /// Account > EDITOR > Space
 #[derive(Clone)]
+#[grc20_macros::relation]
+#[grc20(relation_type = indexer_ids::EDITOR_RELATION)]
 pub struct SpaceEditor;
 
 impl SpaceEditor {
@@ -43,19 +46,5 @@ impl SpaceEditor {
         )
         .send()
         .await
-    }
-}
-
-impl mapping::IntoAttributes for SpaceEditor {
-    fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
-        Ok(mapping::Attributes::default())
-    }
-}
-
-impl mapping::FromAttributes for SpaceEditor {
-    fn from_attributes(
-        _attributes: mapping::Attributes,
-    ) -> Result<Self, mapping::TriplesConversionError> {
-        Ok(Self)
     }
 }

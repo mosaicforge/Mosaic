@@ -1,6 +1,7 @@
 //! This module contains models reserved for use by the KG Indexer.
 
 use crate::{
+    self as sdk,
     ids, indexer_ids,
     mapping::{self, Relation},
 };
@@ -9,7 +10,10 @@ use crate::{
 ///
 /// `Person > VOTE_CAST > Proposal`
 #[derive(Clone)]
+#[grc20_macros::relation]
+#[grc20(relation_type = indexer_ids::VOTE_CAST_TYPE)]
 pub struct VoteCast {
+    #[grc20(attribute = indexer_ids::VOTE_TYPE_ATTRIBUTE)]
     pub vote_type: VoteType,
 }
 
@@ -31,24 +35,7 @@ impl VoteCast {
     }
 }
 
-impl mapping::IntoAttributes for VoteCast {
-    fn into_attributes(self) -> Result<mapping::Attributes, mapping::TriplesConversionError> {
-        Ok(mapping::Attributes::default()
-            .attribute((indexer_ids::VOTE_TYPE_ATTRIBUTE, self.vote_type)))
-    }
-}
-
-impl mapping::FromAttributes for VoteCast {
-    fn from_attributes(
-        mut attributes: mapping::Attributes,
-    ) -> Result<Self, mapping::TriplesConversionError> {
-        Ok(Self {
-            vote_type: attributes.pop(indexer_ids::VOTE_TYPE_ATTRIBUTE)?,
-        })
-    }
-}
-
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum VoteType {
     Accept,
     Reject,

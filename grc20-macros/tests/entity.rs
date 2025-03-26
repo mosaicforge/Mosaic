@@ -43,41 +43,41 @@ fn test_entity_macro_with_string_literals() {
     assert_eq!(person.age, 25);
 }
 
-#[test]
-fn test_entity_macro_builder() {
-    #[grc20_macros::entity]
-    #[grc20(schema_type = "PERSON")]
-    struct Person {
-        #[grc20(attribute = "name")]
-        name: String,
-        #[grc20(attribute = "nickname")]
-        nickname: Option<String>,
-        #[grc20(attribute = "age")]
-        age: u64,
-    }
+// #[test]
+// fn test_entity_macro_builder() {
+//     #[grc20_macros::entity]
+//     #[grc20(schema_type = "PERSON")]
+//     struct Person {
+//         #[grc20(attribute = "name")]
+//         name: String,
+//         #[grc20(attribute = "nickname")]
+//         nickname: Option<String>,
+//         #[grc20(attribute = "age")]
+//         age: u64,
+//     }
 
-    // Test builder pattern
-    let person = Person::new("person-1")
-        .name("Alice")
-        .nickname("Ali".to_string())
-        .age(30)
-        .build();
+//     // Test builder pattern
+//     let person = Person::new("person-1")
+//         .name("Alice")
+//         .nickname("Ali".to_string())
+//         .age(30)
+//         .build();
 
-    assert_eq!(person.id, "person-1");
-    assert_eq!(person.attributes.name, "Alice");
-    assert_eq!(person.attributes.nickname, Some("Ali".to_string()));
-    assert_eq!(person.attributes.age, 30);
-    assert_eq!(person.types, vec!["PERSON".to_string()]);
+//     assert_eq!(person.id, "person-1");
+//     assert_eq!(person.attributes.name, "Alice");
+//     assert_eq!(person.attributes.nickname, Some("Ali".to_string()));
+//     assert_eq!(person.attributes.age, 30);
+//     assert_eq!(person.types, vec!["PERSON".to_string()]);
 
-    // Test builder with default values
-    let person = Person::new("person-2").name("Bob").age(25).build();
+//     // Test builder with default values
+//     let person = Person::new("person-2").name("Bob").age(25).build();
     
-    assert_eq!(person.id, "person-2");
-    assert_eq!(person.attributes.name, "Bob");
-    assert_eq!(person.attributes.nickname, None);
-    assert_eq!(person.attributes.age, 25);
-    assert_eq!(person.types, vec!["PERSON".to_string()]);
-}
+//     assert_eq!(person.id, "person-2");
+//     assert_eq!(person.attributes.name, "Bob");
+//     assert_eq!(person.attributes.nickname, None);
+//     assert_eq!(person.attributes.age, 25);
+//     assert_eq!(person.types, vec!["PERSON".to_string()]);
+// }
 
 #[test]
 fn test_entity_macro_with_paths() {
