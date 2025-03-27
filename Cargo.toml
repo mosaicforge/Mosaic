@@ -1,6 +1,12 @@
 [workspace]
 resolver = "2"
-members = [ "api",
-    "sdk", "ipfs", "sink", "substreams-utils", "web3-utils",
+members = [
+    "api",
+    "ipfs",
+    "sink",
+    "substreams-utils",
+    "web3-utils",
+    "grc20-core",
+    "grc20-macros",
+    "grc20-sdk",
 ]
-

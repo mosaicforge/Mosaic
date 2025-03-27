@@ -1,7 +1,5 @@
-use sdk::{
-    models::{self, Account, Space, SpaceEditor},
-    pb::geo,
-};
+use grc20_core::{block::BlockMetadata, pb::geo};
+use grc20_sdk::models::{Account, Space, SpaceEditor};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -9,7 +7,7 @@ impl EventHandler {
     pub async fn handle_editor_removed(
         &self,
         editor_removed: &geo::EditorRemoved,
-        block: &models::BlockMetadata,
+        block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space =
             Space::find_entity_by_dao_address(&self.neo4j, &editor_removed.dao_address).await?;

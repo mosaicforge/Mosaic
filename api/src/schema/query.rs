@@ -1,14 +1,15 @@
 use futures::TryStreamExt;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
-use sdk::{
+use grc20_core::{
+    indexer_ids,
     mapping::{
         self, entity_node,
         query_utils::{Query, QueryStream},
         relation_node,
     },
-    models::{Account as SdkAccount, Space as SdkSpace},
 };
+use grc20_sdk::models::{account, space};
 
 use crate::{
     context::KnowledgeGraph,
@@ -41,7 +42,7 @@ impl RootQuery {
         first: Option<i32>,
         skip: Option<i32>,
     ) -> FieldResult<Vec<Space>> {
-        let mut query = SdkSpace::find_many(&executor.context().0);
+        let mut query = space::find_many(&executor.context().0, indexer_ids::INDEXER_SPACE_ID);
 
         // Apply filters if provided
         if let Some(where_) = &where_ {
@@ -117,7 +118,11 @@ impl RootQuery {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         address: String,
     ) -> FieldResult<Option<Account>> {
-        let query = SdkAccount::find_one(&executor.context().0, &address);
+        let query = account::find_one(
+            &executor.context().0,
+            &address,
+            indexer_ids::INDEXER_SPACE_ID,
+        );
         Ok(query.send().await?.map(Account::new))
     }
 
@@ -130,7 +135,7 @@ impl RootQuery {
         first: Option<i32>,
         skip: Option<i32>,
     ) -> FieldResult<Vec<Account>> {
-        let mut query = SdkAccount::find_many(&executor.context().0);
+        let mut query = account::find_many(&executor.context().0, indexer_ids::INDEXER_SPACE_ID);
 
         // Apply filters if provided
         if let Some(where_) = &where_ {

@@ -1,10 +1,6 @@
 use futures::join;
-use sdk::{
-    indexer_ids,
-    mapping::query_utils::Query,
-    models::{self, space::ParentSpace},
-    pb::geo,
-};
+use grc20_core::{block::BlockMetadata, indexer_ids, mapping::query_utils::Query, pb::geo};
+use grc20_sdk::models::{space::ParentSpace, Space};
 use web3_utils::checksum_address;
 
 use super::{handler::HandlerError, EventHandler};
@@ -13,14 +9,11 @@ impl EventHandler {
     pub async fn handle_subspace_added(
         &self,
         subspace_added: &geo::SubspaceAdded,
-        block: &models::BlockMetadata,
+        block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         match join!(
-            models::Space::find_entity_by_space_plugin_address(
-                &self.neo4j,
-                &subspace_added.plugin_address
-            ),
-            models::Space::find_entity_by_dao_address(&self.neo4j, &subspace_added.subspace)
+            Space::find_entity_by_space_plugin_address(&self.neo4j, &subspace_added.plugin_address),
+            Space::find_entity_by_dao_address(&self.neo4j, &subspace_added.subspace)
         ) {
             (Ok(Some(parent_space)), Ok(Some(subspace))) => {
                 tracing::info!(

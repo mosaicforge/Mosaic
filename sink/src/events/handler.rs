@@ -1,11 +1,11 @@
 use chrono::DateTime;
 use futures::{stream, StreamExt, TryStreamExt};
+use grc20_core::{
+    block::BlockMetadata, error::DatabaseError, ids::create_geo_id, indexer_ids, mapping::Query,
+    neo4rs, pb::geo::GeoOutput,
+};
 use ipfs::IpfsClient;
 use prost::Message;
-use sdk::{
-    error::DatabaseError, ids::create_geo_id, indexer_ids, mapping::Query, models::BlockMetadata,
-    pb::geo::GeoOutput,
-};
 use substreams_utils::pb::sf::substreams::rpc::v2::BlockScopedData;
 
 use crate::{blacklist, metrics};
@@ -382,18 +382,18 @@ impl substreams_utils::Sink for EventHandler {
             .await?;
 
         // Persist block number and timestamp
-        sdk::mapping::triple::insert_many(
+        grc20_core::mapping::triple::insert_many(
             &self.neo4j,
             &BlockMetadata::default(),
             indexer_ids::INDEXER_SPACE_ID,
             "0",
         )
-        .triple(sdk::mapping::triple::Triple::new(
+        .triple(grc20_core::mapping::triple::Triple::new(
             indexer_ids::CURSOR_ID,
             indexer_ids::BLOCK_NUMBER_ATTRIBUTE,
             block.block_number,
         ))
-        .triple(sdk::mapping::triple::Triple::new(
+        .triple(grc20_core::mapping::triple::Triple::new(
             indexer_ids::CURSOR_ID,
             indexer_ids::BLOCK_TIMESTAMP_ATTRIBUTE,
             block.timestamp,
@@ -405,7 +405,7 @@ impl substreams_utils::Sink for EventHandler {
     }
 
     async fn load_persisted_cursor(&self) -> Result<Option<String>, Self::Error> {
-        let cursor = sdk::mapping::triple::find_one(
+        let cursor = grc20_core::mapping::triple::find_one(
             &self.neo4j,
             indexer_ids::CURSOR_ATTRIBUTE,
             indexer_ids::CURSOR_ID,
@@ -419,7 +419,7 @@ impl substreams_utils::Sink for EventHandler {
     }
 
     async fn persist_cursor(&self, cursor: String) -> Result<(), Self::Error> {
-        sdk::mapping::triple::Triple::new(
+        grc20_core::mapping::triple::Triple::new(
             indexer_ids::CURSOR_ID,
             indexer_ids::CURSOR_ATTRIBUTE,
             cursor,

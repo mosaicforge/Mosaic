@@ -1,16 +1,17 @@
 use futures::{stream, StreamExt, TryStreamExt};
-use ipfs::deserialize;
-use sdk::{
+use grc20_core::{
+    block::BlockMetadata,
     error::DatabaseError,
     indexer_ids,
     mapping::{self, entity_node, query_utils::Query, relation_node, triple, Entity},
-    models::{
-        self,
-        edit::{Edits, ProposedEdit},
-        Proposal, Space,
-    },
     pb::{self, geo},
 };
+use grc20_sdk::models::{
+    self,
+    edit::{Edits, ProposedEdit},
+    Proposal, Space,
+};
+use ipfs::deserialize;
 use web3_utils::checksum_address;
 
 use super::{handler::HandlerError, EventHandler};
@@ -30,7 +31,7 @@ impl EventHandler {
         &self,
         edits_published: &[geo::EditPublished],
         _created_space_ids: &[String],
-        block: &models::BlockMetadata,
+        block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let proposals = stream::iter(edits_published)
             .then(|proposal| async {
@@ -160,7 +161,7 @@ impl EventHandler {
 
     pub async fn process_edit(
         &self,
-        block: &models::BlockMetadata,
+        block: &BlockMetadata,
         edit: Edit,
         index: usize,
     ) -> Result<(), DatabaseError> {
@@ -238,7 +239,7 @@ impl EventHandler {
 
     async fn create_edit_relations(
         &self,
-        block: &models::BlockMetadata,
+        block: &BlockMetadata,
         edit: Entity<models::Edit>,
         space_id: &str,
         proposal_id: &str,

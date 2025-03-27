@@ -1,6 +1,6 @@
 use juniper::GraphQLInputObject;
 
-use sdk::mapping::{self, relation_node};
+use grc20_core::mapping::{self, relation_node};
 
 use crate::schema::{EntityAttributeFilter, EntityFilter};
 

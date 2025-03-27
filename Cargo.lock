@@ -106,10 +106,11 @@ dependencies = [
  "chrono",
  "clap",
  "futures",
+ "grc20-core",
+ "grc20-sdk",
  "juniper",
  "juniper_axum",
  "juniper_graphql_ws",
- "sdk",
  "serde",
  "serde_json",
  "serde_path_to_error",
@@ -381,9 +382,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chrono"
-version = "0.4.39"
+version = "0.4.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e36cc9d416881d2e24f9a963be5fb1cd90966419ac844274161d10488b3e825"
+checksum = "1a7964611d71df112cb1730f2ee67324fcf4d0fc6606acbbe9bfe06df124637c"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
@@ -391,7 +392,7 @@ dependencies = [
  "num-traits",
  "serde",
  "wasm-bindgen",
- "windows-targets 0.52.6",
+ "windows-link",
 ]
 
 [[package]]
@@ -902,6 +903,60 @@ name = "gimli"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
+
+[[package]]
+name = "grc20-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "const_format",
+ "futures",
+ "grc20-macros",
+ "md-5",
+ "neo4rs",
+ "pretty_assertions",
+ "prost",
+ "rand",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "testcontainers",
+ "thiserror 2.0.11",
+ "tokio",
+ "tracing",
+ "uuid",
+ "web3-utils",
+]
+
+[[package]]
+name = "grc20-macros"
+version = "0.1.0"
+dependencies = [
+ "darling",
+ "futures",
+ "grc20-core",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.96",
+ "testcontainers",
+ "tokio",
+ "tracing",
+ "tracing-test",
+]
+
+[[package]]
+name = "grc20-sdk"
+version = "0.1.0"
+dependencies = [
+ "async-stream",
+ "chrono",
+ "futures",
+ "grc20-core",
+ "serde",
+ "serde_json",
+ "web3-utils",
+]
 
 [[package]]
 name = "h2"
@@ -2344,30 +2399,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
-name = "sdk"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "const_format",
- "futures",
- "md-5",
- "neo4rs",
- "pretty_assertions",
- "prost",
- "rand",
- "serde",
- "serde_json",
- "serde_with",
- "testcontainers",
- "thiserror 2.0.11",
- "tokio",
- "tracing",
- "uuid",
- "web3-utils",
-]
-
-[[package]]
 name = "security-framework"
 version = "2.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2405,18 +2436,18 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.217"
+version = "1.0.219"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02fc4265df13d6fa1d00ecff087228cc0a2b5f3c0e87e258d8b94a156e984c70"
+checksum = "5f0e2c6ed6606019b4e29e69dbaba95b11854410e5347d525002456dbbb786b6"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.217"
+version = "1.0.219"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a9bf7cf98d04a2b28aead066b7496853d4779c9cc183c440dbac457641e19a0"
+checksum = "5b0276cf7f2c73365f7157c8123c21cd9a50fbbd844757af28ca1f5925fc2a00"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2425,9 +2456,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.138"
+version = "1.0.140"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d434192e7da787e94a6ea7e9670b26a036d0ca41e0b7efb2676dd32bae872949"
+checksum = "20068b6e96dc6c9bd23e01df8827e6c7e1f2fddd43c21810382803c136b99373"
 dependencies = [
  "itoa",
  "memchr",
@@ -2555,16 +2586,16 @@ dependencies = [
  "clap",
  "const_format",
  "futures",
+ "grc20-core",
+ "grc20-sdk",
  "heck",
  "ipfs",
  "lazy_static",
  "md-5",
- "neo4rs",
  "prometheus",
  "prost",
  "prost-types",
  "reqwest 0.12.12",
- "sdk",
  "serde",
  "serde_json",
  "serde_path_to_error",
@@ -2918,9 +2949,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.43.0"
+version = "1.44.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d61fa4ffa3de412bfea335c6ecff681de2b609ba3c77ef3e00e521813a9ed9e"
+checksum = "f382da615b842244d4b8738c82ed1275e6c5dd90c459a30941cd07080b06c91a"
 dependencies = [
  "backtrace",
  "bytes",
@@ -3187,6 +3218,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-test"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "557b891436fe0d5e0e363427fc7f217abf9ccd510d5136549847bdcbcd011d68"
+dependencies = [
+ "tracing-core",
+ "tracing-subscriber",
+ "tracing-test-macro",
+]
+
+[[package]]
+name = "tracing-test-macro"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04659ddb06c87d233c566112c1c9c5b9e98256d9af50ec3bc9c8327f873a7568"
+dependencies = [
+ "quote",
+ "syn 2.0.96",
+]
+
+[[package]]
 name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3430,6 +3482,12 @@ checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
 dependencies = [
  "windows-targets 0.52.6",
 ]
+
+[[package]]
+name = "windows-link"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76840935b766e1b0a05c0066835fb9ec80071d4c09a16f6bd5f7e655e3c14c38"
 
 [[package]]
 name = "windows-registry"

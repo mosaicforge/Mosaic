@@ -1,6 +1,6 @@
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
-use sdk::{
+use grc20_core::{
     mapping::{query_utils::Query, relation_node, RelationNode},
     neo4rs,
 };

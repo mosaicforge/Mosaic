@@ -1,43 +1,72 @@
 use futures::TryStreamExt;
 use juniper::{graphql_object, Executor, FieldResult, GraphQLEnum, ScalarValue};
 
-use sdk::{
-    mapping::query_utils::{Query, QueryStream},
-    models::{space::{ParentSpacesQuery, SubspacesQuery}, Space as SdkSpace},
+
+use grc20_core::{
+    indexer_ids,
+    mapping::{self, query_utils::{Query, QueryStream}},
     neo4rs,
 };
+use grc20_sdk::models::{space::{self, ParentSpacesQuery, SubspacesQuery}, Space as SdkSpace};
 
 use crate::context::KnowledgeGraph;
 
 use super::{Account, Entity};
 
 pub struct Space {
-    entity: sdk::mapping::Entity<SdkSpace>,
+    entity: mapping::Entity<SdkSpace>,
 }
 
 impl Space {
-    pub fn new(entity: sdk::mapping::Entity<SdkSpace>) -> Self {
+    pub fn new(entity: mapping::Entity<SdkSpace>) -> Self {
         Self { entity }
     }
 
     pub async fn load(neo4j: &neo4rs::Graph, id: impl Into<String>) -> FieldResult<Option<Self>> {
         let id = id.into();
 
-        Ok(SdkSpace::find_one(neo4j, &id).send().await?.map(Space::new))
+        Ok(space::find_one(neo4j, &id, indexer_ids::INDEXER_SPACE_ID)
+            .send()
+            .await?
+            .map(Space::new))
     }
 }
 
-#[derive(GraphQLEnum)]
-enum SpaceGovernanceType {
+#[derive(Clone, Debug, GraphQLEnum)]
+pub enum SpaceGovernanceType {
     Public,
     Personal,
 }
 
-impl From<sdk::models::space::SpaceGovernanceType> for SpaceGovernanceType {
-    fn from(governance_type: sdk::models::space::SpaceGovernanceType) -> Self {
+impl From<grc20_sdk::models::space::SpaceGovernanceType> for SpaceGovernanceType {
+    fn from(governance_type: grc20_sdk::models::space::SpaceGovernanceType) -> Self {
         match governance_type {
-            sdk::models::space::SpaceGovernanceType::Public => SpaceGovernanceType::Public,
-            sdk::models::space::SpaceGovernanceType::Personal => SpaceGovernanceType::Personal,
+            grc20_sdk::models::space::SpaceGovernanceType::Public => SpaceGovernanceType::Public,
+            grc20_sdk::models::space::SpaceGovernanceType::Personal => {
+                SpaceGovernanceType::Personal
+            }
+        }
+    }
+}
+
+impl From<SpaceGovernanceType> for grc20_sdk::models::space::SpaceGovernanceType {
+    fn from(governance_type: SpaceGovernanceType) -> Self {
+        match governance_type {
+            SpaceGovernanceType::Public => grc20_sdk::models::space::SpaceGovernanceType::Public,
+            SpaceGovernanceType::Personal => {
+                grc20_sdk::models::space::SpaceGovernanceType::Personal
+            }
+        }
+    }
+}
+
+impl From<&SpaceGovernanceType> for grc20_sdk::models::space::SpaceGovernanceType {
+    fn from(governance_type: &SpaceGovernanceType) -> Self {
+        match governance_type {
+            SpaceGovernanceType::Public => grc20_sdk::models::space::SpaceGovernanceType::Public,
+            SpaceGovernanceType::Personal => {
+                grc20_sdk::models::space::SpaceGovernanceType::Personal
+            }
         }
     }
 }
@@ -180,7 +209,7 @@ impl Space {
             query = query.skip(skip as usize);
         }
 
-        Ok(<ParentSpacesQuery as QueryStream<sdk::mapping::Entity<sdk::models::Space>>>::send(query)
+        Ok(<ParentSpacesQuery as QueryStream<mapping::Entity<grc20_sdk::models::Space>>>::send(query)
             .await?
             .map_ok(Space::new)
             .try_collect::<Vec<_>>()
@@ -207,7 +236,7 @@ impl Space {
             query = query.skip(skip as usize);
         }
 
-        Ok(<SubspacesQuery as QueryStream<sdk::mapping::Entity<sdk::models::Space>>>::send(query)
+        Ok(<SubspacesQuery as QueryStream<mapping::Entity<grc20_sdk::models::Space>>>::send(query)
             .await?
             .map_ok(Space::new)
             .try_collect::<Vec<_>>()
@@ -221,7 +250,7 @@ impl Space {
         first: Option<i32>,
         skip: Option<i32>,
     ) -> FieldResult<Vec<Entity>> {
-        let types = sdk::aggregation::schema_types::space_schema_types(
+        let types = grc20_sdk::models::space::schema_types::space_schema_types(
             &executor.context().0,
             &self.entity.id,
             strict.unwrap_or(true),

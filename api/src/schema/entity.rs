@@ -1,8 +1,9 @@
 use futures::TryStreamExt;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
-use sdk::{
-    aggregation, mapping::{
+use grc20_core::{
+    aggregation, 
+    mapping::{
         entity_node,
         query_utils::{prop_filter, Query, QueryStream},
         triple, EntityNode,
@@ -64,16 +65,17 @@ impl Entity {
         #[graphql(default = true)]
         strict: bool,
     ) -> FieldResult<Option<String>> {
-        Ok(aggregation::pluralism::get_triple(
-            &executor.context().0,
-            system_ids::NAME_ATTRIBUTE.into(),
-            self.node.id.clone(),
-            self.space_id.clone(),
-            self.space_version.clone(),
-            strict,
-        )
-        .await?
-        .map(|triple| triple.value.value))
+        // Ok(aggregation::pluralism::get_triple(
+        //     &executor.context().0,
+        //     system_ids::NAME_ATTRIBUTE.into(),
+        //     self.node.id.clone(),
+        //     self.space_id.clone(),
+        //     self.space_version.clone(),
+        //     strict,
+        // )
+        // .await?
+        // .map(|triple| triple.value.value))
+        todo!()
     }
 
     /// Entity description (if available)
