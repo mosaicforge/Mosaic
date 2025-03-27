@@ -3,7 +3,6 @@
 use grc20_core::{
     ids, indexer_ids,
     mapping::{self, Relation},
-    neo4rs,
 };
 
 /// A vote cast by a user on a proposal.
