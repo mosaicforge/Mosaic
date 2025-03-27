@@ -1,10 +1,11 @@
 use chrono::DateTime;
 use futures::{stream, StreamExt, TryStreamExt};
+use grc20_core::{
+    block::BlockMetadata, error::DatabaseError, ids::create_geo_id, indexer_ids, mapping::Query,
+    neo4rs, pb::geo::GeoOutput,
+};
 use ipfs::IpfsClient;
 use prost::Message;
-use grc20_core::{
-    error::DatabaseError, ids::create_geo_id, indexer_ids, mapping::Query, block::BlockMetadata, neo4rs, pb::geo::GeoOutput
-};
 use substreams_utils::pb::sf::substreams::rpc::v2::BlockScopedData;
 
 use crate::{blacklist, metrics};

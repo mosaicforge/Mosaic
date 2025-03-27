@@ -337,61 +337,68 @@ pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
         .collect::<Vec<_>>();
 
     // Generate builder methods for FindManyQuery
-    let find_many_methods = field_names.iter().zip(field_types.iter()).map(|(field_name, field_type)| {
-        let doc_comment = format!("Filter by {}", field_name);
-        let filter_type = if let syn::Type::Path(type_path) = field_type {
-            if type_path
-            .path
-            .segments
-            .last()
-            .map(|s| s.ident == "Option")
-            .unwrap_or(false)
-            {
-            if let syn::PathArguments::AngleBracketed(args) =
-                &type_path.path.segments.last().unwrap().arguments
-            {
-                if let Some(syn::GenericArgument::Type(inner_type)) = args.args.first() {
-                quote!(grc20_core::mapping::query_utils::PropFilter<#inner_type>)
+    let find_many_methods = field_names
+        .iter()
+        .zip(field_types.iter())
+        .map(|(field_name, field_type)| {
+            let doc_comment = format!("Filter by {}", field_name);
+            let filter_type = if let syn::Type::Path(type_path) = field_type {
+                if type_path
+                    .path
+                    .segments
+                    .last()
+                    .map(|s| s.ident == "Option")
+                    .unwrap_or(false)
+                {
+                    if let syn::PathArguments::AngleBracketed(args) =
+                        &type_path.path.segments.last().unwrap().arguments
+                    {
+                        if let Some(syn::GenericArgument::Type(inner_type)) = args.args.first() {
+                            quote!(grc20_core::mapping::query_utils::PropFilter<#inner_type>)
+                        } else {
+                            panic!("Expected inner type for Option<T>")
+                        }
+                    } else {
+                        panic!("Expected angle-bracketed arguments for Option<T>")
+                    }
                 } else {
-                panic!("Expected inner type for Option<T>")
+                    quote!(grc20_core::mapping::query_utils::PropFilter<#field_type>)
                 }
             } else {
-                panic!("Expected angle-bracketed arguments for Option<T>")
-            }
-            } else {
-            quote!(grc20_core::mapping::query_utils::PropFilter<#field_type>)
-            }
-        } else {
-            quote!(grc20_core::mapping::query_utils::PropFilter<#field_type>)
-        };
+                quote!(grc20_core::mapping::query_utils::PropFilter<#field_type>)
+            };
 
-        quote! {
-            #[doc = #doc_comment]
-            pub fn #field_name(mut self, #field_name: #filter_type) -> Self {
-            self.#field_name = Some(#field_name);
-            self
+            quote! {
+                #[doc = #doc_comment]
+                pub fn #field_name(mut self, #field_name: #filter_type) -> Self {
+                self.#field_name = Some(#field_name);
+                self
+                }
             }
-        }
-    }).collect::<Vec<_>>();
+        })
+        .collect::<Vec<_>>();
 
     // Generate attribute filter applications for QueryStream implementation
-    let find_many_filters = fields.iter().map(|field| {
-        let field_name = field.ident.as_ref().expect("Expected named field");
-        let attribute_name = field
-            .attribute
-            .as_ref()
-            .map(|s| quote!(#s))
-            .unwrap_or_else(|| quote!(#field_name.to_string()));
+    let find_many_filters = fields
+        .iter()
+        .map(|field| {
+            let field_name = field.ident.as_ref().expect("Expected named field");
+            let attribute_name = field
+                .attribute
+                .as_ref()
+                .map(|s| quote!(#s))
+                .unwrap_or_else(|| quote!(#field_name.to_string()));
 
-        quote! {
-            if let Some(#field_name) = self.#field_name {
-                query = query.attribute(
-                    grc20_core::mapping::query_utils::AttributeFilter::new(#attribute_name)
-                        .value(#field_name.as_string())
-                );
+            quote! {
+                if let Some(#field_name) = self.#field_name {
+                    query = query.attribute(
+                        grc20_core::mapping::query_utils::AttributeFilter::new(#attribute_name)
+                            .value(#field_name.as_string())
+                    );
+                }
             }
-        }
-    }).collect::<Vec<_>>();
+        })
+        .collect::<Vec<_>>();
 
     let schema_type = opts.schema_type.as_ref().map(|s| quote!(#s));
     let type_filter = if let Some(schema_type) = schema_type {

@@ -1,5 +1,8 @@
 use grc20_core::{
-    block::BlockMetadata, indexer_ids, mapping::{entity_node, Query, Triple}, pb::geo
+    block::BlockMetadata,
+    indexer_ids,
+    mapping::{entity_node, Query, Triple},
+    pb::geo,
 };
 use grc20_sdk::models::{proposal::ProposalStatus, Proposal};
 use web3_utils::checksum_address;

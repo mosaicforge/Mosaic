@@ -1,7 +1,5 @@
 use futures::join;
-use grc20_core::{
-    block::BlockMetadata, indexer_ids, mapping::query_utils::Query, pb::geo
-};
+use grc20_core::{block::BlockMetadata, indexer_ids, mapping::query_utils::Query, pb::geo};
 use grc20_sdk::models::{space::ParentSpace, Space};
 use web3_utils::checksum_address;
 
@@ -14,10 +12,7 @@ impl EventHandler {
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         match join!(
-            Space::find_entity_by_space_plugin_address(
-                &self.neo4j,
-                &subspace_added.plugin_address
-            ),
+            Space::find_entity_by_space_plugin_address(&self.neo4j, &subspace_added.plugin_address),
             Space::find_entity_by_dao_address(&self.neo4j, &subspace_added.subspace)
         ) {
             (Ok(Some(parent_space)), Ok(Some(subspace))) => {

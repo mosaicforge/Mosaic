@@ -1,5 +1,5 @@
-use juniper::GraphQLInputObject;
 use grc20_core::mapping::query_utils::PropFilter;
+use juniper::GraphQLInputObject;
 
 #[derive(Debug, GraphQLInputObject)]
 pub struct AccountFilter {

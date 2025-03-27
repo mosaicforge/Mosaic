@@ -14,8 +14,7 @@ use grc20_core::{
         query_utils::{AttributeFilter, PropFilter, QueryStream},
         Entity, Relation, Value,
     },
-    neo4rs,
-    pb,
+    neo4rs, pb,
 };
 
 /// Common fields for all proposals

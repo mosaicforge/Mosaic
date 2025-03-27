@@ -4,7 +4,7 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use neo4rs::{BoltList, BoltMap, BoltType};
 use serde::Deserialize;
 
-use crate::{error::DatabaseError, indexer_ids, block::BlockMetadata};
+use crate::{block::BlockMetadata, error::DatabaseError, indexer_ids};
 
 use super::{
     query_utils::{query_part, Query, QueryPart, QueryStream, VersionFilter},

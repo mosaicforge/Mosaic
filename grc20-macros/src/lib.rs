@@ -23,7 +23,7 @@ use entity::EntityOpts;
 ///
 /// ```ignore
 /// use grc20_core::entity;
-/// 
+///
 /// #[grc20_core::entity]
 /// #[grc20(schema_type = system_ids::PERSON_TYPE)]
 /// struct Person {
@@ -81,7 +81,7 @@ pub fn entity(_args: TokenStream, input: TokenStream) -> TokenStream {
 /// ```ignore
 /// # use chrono::{DateTime, Utc};
 /// use grc20_core::{relation};
-/// 
+///
 /// #[relation]
 /// #[grc20(relation_type = system_ids::PARENT_SPACE_RELATION)]
 /// struct ParentSpace {

@@ -1,5 +1,8 @@
 use grc20_core::{
-    block::BlockMetadata, indexer_ids, mapping::{entity_node, query_utils::Query}, pb::geo
+    block::BlockMetadata,
+    indexer_ids,
+    mapping::{entity_node, query_utils::Query},
+    pb::geo,
 };
 use grc20_sdk::models::{Account, Proposal, VoteCast};
 

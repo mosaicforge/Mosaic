@@ -3,7 +3,12 @@ use std::env;
 use anyhow::Error;
 use axum::{response::Json, routing::get, Router};
 use clap::{Args, Parser};
-use grc20_core::{block::BlockMetadata, indexer_ids, mapping::{self, query_utils::Query, triple}, neo4rs};
+use grc20_core::{
+    block::BlockMetadata,
+    indexer_ids,
+    mapping::{self, query_utils::Query, triple},
+    neo4rs,
+};
 use sink::bootstrap;
 use sink::{events::EventHandler, metrics};
 use substreams_utils::Sink;

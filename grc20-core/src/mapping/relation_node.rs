@@ -4,7 +4,7 @@ use futures::{Stream, TryStreamExt};
 use neo4rs::BoltType;
 use serde::Deserialize;
 
-use crate::{error::DatabaseError, indexer_ids, block::BlockMetadata, pb, system_ids};
+use crate::{block::BlockMetadata, error::DatabaseError, indexer_ids, pb, system_ids};
 
 use super::{
     attributes, entity_node,

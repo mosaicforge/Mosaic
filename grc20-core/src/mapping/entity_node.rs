@@ -3,7 +3,7 @@ use futures::{stream::TryStreamExt, Stream};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{error::DatabaseError, indexer_ids, block::BlockMetadata, system_ids};
+use crate::{block::BlockMetadata, error::DatabaseError, indexer_ids, system_ids};
 
 use super::{
     attributes, entity_version,

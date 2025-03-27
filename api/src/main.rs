@@ -9,9 +9,9 @@ use axum::{
     Extension, Router,
 };
 use clap::{Args, Parser};
+use grc20_core::neo4rs;
 use juniper::{EmptyMutation, EmptySubscription, RootNode};
 use juniper_axum::{extract::JuniperRequest, graphiql, playground, response::JuniperResponse};
-use grc20_core::neo4rs;
 use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -148,7 +148,9 @@ async fn version() -> Json<serde_json::Value> {
     }))
 }
 
-async fn cursor(Extension(kg): Extension<KnowledgeGraph>) -> Json<Option<grc20_sdk::models::Cursor>> {
+async fn cursor(
+    Extension(kg): Extension<KnowledgeGraph>,
+) -> Json<Option<grc20_sdk::models::Cursor>> {
     // let cursor = grc20_core::mapping::triple::find_one(
     //     &kg.0,
     //     indexer_ids::CURSOR_ATTRIBUTE,

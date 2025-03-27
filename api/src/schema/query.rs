@@ -1,12 +1,15 @@
 use futures::TryStreamExt;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
-use grc20_core::{indexer_ids, mapping::{
+use grc20_core::{
+    indexer_ids,
+    mapping::{
         self, entity_node,
         query_utils::{Query, QueryStream},
         relation_node,
-    }};
-use grc20_sdk::models::{account, Account as SdkAccount, space, Space as SdkSpace};
+    },
+};
+use grc20_sdk::models::{account, space};
 
 use crate::{
     context::KnowledgeGraph,
@@ -115,7 +118,11 @@ impl RootQuery {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         address: String,
     ) -> FieldResult<Option<Account>> {
-        let query = account::find_one(&executor.context().0, &address, indexer_ids::INDEXER_SPACE_ID);
+        let query = account::find_one(
+            &executor.context().0,
+            &address,
+            indexer_ids::INDEXER_SPACE_ID,
+        );
         Ok(query.send().await?.map(Account::new))
     }
 

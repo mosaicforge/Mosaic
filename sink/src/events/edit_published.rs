@@ -1,5 +1,4 @@
 use futures::{stream, StreamExt, TryStreamExt};
-use ipfs::deserialize;
 use grc20_core::{
     block::BlockMetadata,
     error::DatabaseError,
@@ -12,6 +11,7 @@ use grc20_sdk::models::{
     edit::{Edits, ProposedEdit},
     Proposal, Space,
 };
+use ipfs::deserialize;
 use web3_utils::checksum_address;
 
 use super::{handler::HandlerError, EventHandler};

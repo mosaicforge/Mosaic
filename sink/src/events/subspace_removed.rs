@@ -1,6 +1,4 @@
-use grc20_core::{
-    block::BlockMetadata, network_ids, pb::geo
-};
+use grc20_core::{block::BlockMetadata, network_ids, pb::geo};
 use grc20_sdk::models::{space::ParentSpace, Space};
 
 use super::{handler::HandlerError, EventHandler};

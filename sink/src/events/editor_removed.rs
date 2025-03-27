@@ -1,8 +1,5 @@
-use grc20_core::{
-    block::BlockMetadata,
-    pb::geo,
-};
-use grc20_sdk::models::{self, Account, Space, SpaceEditor};
+use grc20_core::{block::BlockMetadata, pb::geo};
+use grc20_sdk::models::{Account, Space, SpaceEditor};
 
 use super::{handler::HandlerError, EventHandler};
 

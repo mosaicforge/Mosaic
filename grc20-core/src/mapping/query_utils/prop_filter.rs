@@ -212,8 +212,12 @@ impl<T: Into<Value>> PropFilter<T> {
             value_lt: self.value_lt.map(|v| v.into().value),
             value_lte: self.value_lte.map(|v| v.into().value),
             value_not: self.value_not.map(|v| v.into().value),
-            value_in: self.value_in.map(|v| v.into_iter().map(|v| v.into().value).collect()),
-            value_not_in: self.value_not_in.map(|v| v.into_iter().map(|v| v.into().value).collect()),
+            value_in: self
+                .value_in
+                .map(|v| v.into_iter().map(|v| v.into().value).collect()),
+            value_not_in: self
+                .value_not_in
+                .map(|v| v.into_iter().map(|v| v.into().value).collect()),
         }
     }
 }

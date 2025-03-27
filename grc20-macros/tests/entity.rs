@@ -1,4 +1,7 @@
-use grc20_core::{mapping::{triple, Attributes, FromAttributes, IntoAttributes, PropFilter}, neo4rs, system_ids};
+use grc20_core::{
+    mapping::{triple, Attributes, FromAttributes, IntoAttributes, PropFilter},
+    neo4rs, system_ids,
+};
 
 mod test_ids {
     pub const PERSON_TYPE: &str = "PERSON";
@@ -131,12 +134,17 @@ async fn test_find_one() {
         age: 30,
     };
 
-    let entity = grc20_core::mapping::Entity::new("abc", person.clone())
-        .with_type(test_ids::PERSON_TYPE);
+    let entity =
+        grc20_core::mapping::Entity::new("abc", person.clone()).with_type(test_ids::PERSON_TYPE);
 
     entity
         .clone()
-        .insert(&neo4j, &grc20_core::block::BlockMetadata::default(), "ROOT", "0")
+        .insert(
+            &neo4j,
+            &grc20_core::block::BlockMetadata::default(),
+            "ROOT",
+            "0",
+        )
         .send()
         .await
         .expect("Failed to insert entity");
@@ -181,7 +189,7 @@ async fn test_find_many() {
         &grc20_core::block::BlockMetadata::default(),
         "ROOT",
         "0",
-        triple::Triple::new("PERSON", system_ids::NAME_ATTRIBUTE, "Person")
+        triple::Triple::new("PERSON", system_ids::NAME_ATTRIBUTE, "Person"),
     )
     .send()
     .await
@@ -193,12 +201,15 @@ async fn test_find_many() {
         &grc20_core::block::BlockMetadata::default(),
         "ROOT",
         "0",
-        triple::Triple::new(system_ids::TYPES_ATTRIBUTE, system_ids::NAME_ATTRIBUTE, "Types")
+        triple::Triple::new(
+            system_ids::TYPES_ATTRIBUTE,
+            system_ids::NAME_ATTRIBUTE,
+            "Types",
+        ),
     )
     .send()
     .await
     .expect("Failed to insert triple");
-
 
     let person = Person {
         name: "Alice".into(),
@@ -206,12 +217,17 @@ async fn test_find_many() {
         age: 30,
     };
 
-    let entity = grc20_core::mapping::Entity::new("abc", person.clone())
-        .with_type(test_ids::PERSON_TYPE);
+    let entity =
+        grc20_core::mapping::Entity::new("abc", person.clone()).with_type(test_ids::PERSON_TYPE);
 
     entity
         .clone()
-        .insert(&neo4j, &grc20_core::block::BlockMetadata::default(), "ROOT", "0")
+        .insert(
+            &neo4j,
+            &grc20_core::block::BlockMetadata::default(),
+            "ROOT",
+            "0",
+        )
         .send()
         .await
         .expect("Failed to insert entity");

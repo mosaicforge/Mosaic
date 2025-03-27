@@ -1,7 +1,9 @@
 use juniper::{graphql_object, FieldResult, ScalarValue};
 
 use grc20_core::{
-    indexer_ids, mapping::{query_utils::Query, Entity}, neo4rs
+    indexer_ids,
+    mapping::{query_utils::Query, Entity},
+    neo4rs,
 };
 use grc20_sdk::models::{account, Account as SdkAccount};
 

@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use grc20_core::{    
+use grc20_core::{
     error::DatabaseError,
     indexer_ids,
     mapping::{entity, Entity, Query},

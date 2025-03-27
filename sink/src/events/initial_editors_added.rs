@@ -1,10 +1,5 @@
 use futures::{stream, StreamExt, TryStreamExt};
-use grc20_core::{
-    block::BlockMetadata,
-    indexer_ids,
-    mapping::query_utils::Query,
-    pb::geo,
-};
+use grc20_core::{block::BlockMetadata, indexer_ids, mapping::query_utils::Query, pb::geo};
 use grc20_sdk::models::{Account, Space, SpaceEditor};
 
 use super::{handler::HandlerError, EventHandler};

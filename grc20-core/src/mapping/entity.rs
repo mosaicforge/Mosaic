@@ -1,6 +1,6 @@
 use futures::{Stream, StreamExt, TryStreamExt};
 
-use crate::{error::DatabaseError, ids, mapping::AttributeNode, block::BlockMetadata, system_ids};
+use crate::{block::BlockMetadata, error::DatabaseError, ids, mapping::AttributeNode, system_ids};
 
 use super::{
     attributes::{self, FromAttributes, IntoAttributes},

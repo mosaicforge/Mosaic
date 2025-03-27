@@ -1,9 +1,4 @@
-use grc20_core::{
-    block::BlockMetadata,
-    indexer_ids,
-    mapping::query_utils::Query,
-    pb::geo,
-};
+use grc20_core::{block::BlockMetadata, indexer_ids, mapping::query_utils::Query, pb::geo};
 use grc20_sdk::models::{Account, Space, SpaceEditor};
 
 use web3_utils::checksum_address;

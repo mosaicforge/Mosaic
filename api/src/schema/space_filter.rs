@@ -1,5 +1,5 @@
-use juniper::GraphQLInputObject;
 use grc20_core::mapping::query_utils::PropFilter;
+use juniper::GraphQLInputObject;
 
 use super::space::SpaceGovernanceType;
 
@@ -99,7 +99,9 @@ impl SpaceFilter {
         Some(filter)
     }
 
-    pub fn governance_type_filter(&self) -> Option<PropFilter<grc20_sdk::models::space::SpaceGovernanceType>> {
+    pub fn governance_type_filter(
+        &self,
+    ) -> Option<PropFilter<grc20_sdk::models::space::SpaceGovernanceType>> {
         if self.governance_type.is_none()
             && self.governance_type_not.is_none()
             && self.governance_type_in.is_none()
@@ -119,11 +121,11 @@ impl SpaceFilter {
         }
 
         if let Some(governance_type_in) = &self.governance_type_in {
-            filter = filter.value_in(governance_type_in.into_iter().map(|g| g.into()).collect());
+            filter = filter.value_in(governance_type_in.iter().map(|g| g.into()).collect());
         }
 
         if let Some(governance_type_not_in) = &self.governance_type_not_in {
-            filter = filter.value_not_in(governance_type_not_in.into_iter().map(|g| g.into()).collect());
+            filter = filter.value_not_in(governance_type_not_in.iter().map(|g| g.into()).collect());
         }
 
         Some(filter)

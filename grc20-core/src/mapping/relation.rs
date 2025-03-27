@@ -1,4 +1,4 @@
-use crate::{error::DatabaseError, block::BlockMetadata};
+use crate::{block::BlockMetadata, error::DatabaseError};
 
 use super::{
     attributes::{self, IntoAttributes},

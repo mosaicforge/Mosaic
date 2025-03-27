@@ -1,11 +1,6 @@
 use web3_utils::checksum_address;
 
-use grc20_core::{    
-    ids,
-    mapping::Entity,
-    neo4rs,
-    system_ids,
-};
+use grc20_core::{ids, mapping::Entity, neo4rs, system_ids};
 
 #[derive(Clone, PartialEq)]
 #[grc20_core::entity]

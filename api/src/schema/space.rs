@@ -2,10 +2,12 @@ use futures::TryStreamExt;
 use juniper::{graphql_object, Executor, FieldResult, GraphQLEnum, ScalarValue};
 
 use grc20_core::{
-    indexer_ids, mapping::{
+    indexer_ids,
+    mapping::{
         query_utils::{Query, QueryStream},
         Entity,
-    }, neo4rs
+    },
+    neo4rs,
 };
 use grc20_sdk::models::{space, Space as SdkSpace};
 
@@ -25,7 +27,10 @@ impl Space {
     pub async fn load(neo4j: &neo4rs::Graph, id: impl Into<String>) -> FieldResult<Option<Self>> {
         let id = id.into();
 
-        Ok(space::find_one(neo4j, &id, indexer_ids::INDEXER_SPACE_ID).send().await?.map(Space::new))
+        Ok(space::find_one(neo4j, &id, indexer_ids::INDEXER_SPACE_ID)
+            .send()
+            .await?
+            .map(Space::new))
     }
 }
 
@@ -39,7 +44,9 @@ impl From<grc20_sdk::models::space::SpaceGovernanceType> for SpaceGovernanceType
     fn from(governance_type: grc20_sdk::models::space::SpaceGovernanceType) -> Self {
         match governance_type {
             grc20_sdk::models::space::SpaceGovernanceType::Public => SpaceGovernanceType::Public,
-            grc20_sdk::models::space::SpaceGovernanceType::Personal => SpaceGovernanceType::Personal,
+            grc20_sdk::models::space::SpaceGovernanceType::Personal => {
+                SpaceGovernanceType::Personal
+            }
         }
     }
 }
@@ -48,7 +55,9 @@ impl From<SpaceGovernanceType> for grc20_sdk::models::space::SpaceGovernanceType
     fn from(governance_type: SpaceGovernanceType) -> Self {
         match governance_type {
             SpaceGovernanceType::Public => grc20_sdk::models::space::SpaceGovernanceType::Public,
-            SpaceGovernanceType::Personal => grc20_sdk::models::space::SpaceGovernanceType::Personal,
+            SpaceGovernanceType::Personal => {
+                grc20_sdk::models::space::SpaceGovernanceType::Personal
+            }
         }
     }
 }
@@ -57,7 +66,9 @@ impl From<&SpaceGovernanceType> for grc20_sdk::models::space::SpaceGovernanceTyp
     fn from(governance_type: &SpaceGovernanceType) -> Self {
         match governance_type {
             SpaceGovernanceType::Public => grc20_sdk::models::space::SpaceGovernanceType::Public,
-            SpaceGovernanceType::Personal => grc20_sdk::models::space::SpaceGovernanceType::Personal,
+            SpaceGovernanceType::Personal => {
+                grc20_sdk::models::space::SpaceGovernanceType::Personal
+            }
         }
     }
 }

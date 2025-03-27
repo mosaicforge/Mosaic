@@ -2,6 +2,7 @@ use futures::{pin_mut, Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use web3_utils::checksum_address;
 
+use crate::models::Account;
 use grc20_core::{
     block::BlockMetadata,
     error::DatabaseError,
@@ -11,13 +12,10 @@ use grc20_core::{
         entity_node::{self, EntityFilter},
         prop_filter,
         query_utils::{AttributeFilter, PropFilter, Query, QueryStream, TypesFilter},
-        relation, relation_node, Entity, EntityNode, Relation,
-        Value,
+        relation, relation_node, Entity, EntityNode, Relation, Value,
     },
-    neo4rs,
-    network_ids, system_ids,
+    neo4rs, network_ids, system_ids,
 };
-use crate::models::Account;
 
 #[derive(Clone)]
 #[grc20_core::entity]

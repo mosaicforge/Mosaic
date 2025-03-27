@@ -1,7 +1,11 @@
 use grc20_core::{
-    block::BlockMetadata, indexer_ids, mapping::{query_utils::Query, Attributes}, network_ids, pb::{self, geo}
+    block::BlockMetadata,
+    indexer_ids,
+    mapping::{query_utils::Query, Attributes},
+    network_ids,
+    pb::{self, geo},
 };
-use grc20_sdk::models::{self, Account, Space, SpaceGovernanceType};
+use grc20_sdk::models::{Account, Space, SpaceGovernanceType};
 
 use web3_utils::checksum_address;
 
