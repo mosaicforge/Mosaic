@@ -148,7 +148,7 @@ async fn version() -> Json<serde_json::Value> {
     }))
 }
 
-async fn cursor(Extension(kg): Extension<KnowledgeGraph>) -> Json<Option<grc20_core::models::Cursor>> {
+async fn cursor(Extension(kg): Extension<KnowledgeGraph>) -> Json<Option<grc20_sdk::models::Cursor>> {
     // let cursor = grc20_core::mapping::triple::find_one(
     //     &kg.0,
     //     indexer_ids::CURSOR_ATTRIBUTE,
