@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use juniper::{graphql_object, Executor, GraphQLEnum, GraphQLObject, ScalarValue};
 
-use sdk::{
+use grc20_core::{
     mapping::{self, query_utils::Query, triple},
     system_ids,
 };

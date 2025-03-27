@@ -1,6 +1,6 @@
 use juniper::GraphQLInputObject;
 
-use sdk::{
+use grc20_core::{
     mapping::{
         entity_node::{self},
         query_utils::{edge_filter::EdgeFilter, prop_filter, PropFilter},

@@ -1,4 +1,4 @@
-use sdk::{indexer_ids, mapping::Triple, system_ids};
+use grc20_core::{indexer_ids, mapping::Triple, system_ids};
 
 pub fn triples() -> Vec<Triple> {
     vec![

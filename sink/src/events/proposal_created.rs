@@ -1,15 +1,16 @@
-use sdk::{
+use grc20_core::{
+    block::BlockMetadata,
     error::DatabaseError,
     indexer_ids,
     mapping::{attributes::IntoAttributes, query_utils::Query, Entity},
-    models::{
-        proposal::{ProposalStatus, ProposedAccount, ProposedSubspace},
-        Account, AddEditorProposal, AddMemberProposal, AddSubspaceProposal, BlockMetadata,
-        EditProposal, Proposal, ProposalCreator, Proposals, RemoveEditorProposal,
-        RemoveMemberProposal, RemoveSubspaceProposal, Space,
-    },
     network_ids,
     pb::geo,
+};
+use grc20_sdk::models::{
+    proposal::{ProposalStatus, ProposedAccount, ProposedSubspace},
+    Account, AddEditorProposal, AddMemberProposal, AddSubspaceProposal, EditProposal, Proposal,
+    ProposalCreator, Proposals, RemoveEditorProposal, RemoveMemberProposal, RemoveSubspaceProposal,
+    Space,
 };
 use web3_utils::checksum_address;
 

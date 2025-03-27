@@ -1,10 +1,6 @@
 use futures::{stream, StreamExt, TryStreamExt};
-use sdk::{
-    indexer_ids,
-    mapping::query_utils::Query,
-    models::{self, Account, Space, SpaceEditor},
-    pb::geo,
-};
+use grc20_core::{block::BlockMetadata, indexer_ids, mapping::query_utils::Query, pb::geo};
+use grc20_sdk::models::{Account, Space, SpaceEditor};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -12,7 +8,7 @@ impl EventHandler {
     pub async fn handle_initial_space_editors_added(
         &self,
         initial_editor_added: &geo::InitialEditorAdded,
-        block: &models::BlockMetadata,
+        block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space =
             Space::find_entity_by_dao_address(&self.neo4j, &initial_editor_added.dao_address)

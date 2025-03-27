@@ -1,4 +1,4 @@
-use sdk::{models::BlockMetadata, pb::geo};
+use grc20_core::{block::BlockMetadata, neo4rs, pb::geo};
 use sink::events::EventHandler;
 use testcontainers::{
     core::{IntoContainerPort, WaitFor},

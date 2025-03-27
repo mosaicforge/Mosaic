@@ -1,5 +1,7 @@
+use grc20_core::mapping::query_utils::PropFilter;
 use juniper::GraphQLInputObject;
-use sdk::mapping::query_utils::PropFilter;
+
+use super::space::SpaceGovernanceType;
 
 #[derive(Debug, GraphQLInputObject)]
 pub struct SpaceFilter {
@@ -13,10 +15,10 @@ pub struct SpaceFilter {
     pub network_in: Option<Vec<String>>,
     pub network_not_in: Option<Vec<String>>,
 
-    pub governance_type: Option<String>,
-    pub governance_type_not: Option<String>,
-    pub governance_type_in: Option<Vec<String>>,
-    pub governance_type_not_in: Option<Vec<String>>,
+    pub governance_type: Option<SpaceGovernanceType>,
+    pub governance_type_not: Option<SpaceGovernanceType>,
+    pub governance_type_in: Option<Vec<SpaceGovernanceType>>,
+    pub governance_type_not_in: Option<Vec<SpaceGovernanceType>>,
 
     pub dao_contract_address: Option<String>,
     pub dao_contract_address_not: Option<String>,
@@ -97,7 +99,9 @@ impl SpaceFilter {
         Some(filter)
     }
 
-    pub fn governance_type_filter(&self) -> Option<PropFilter<String>> {
+    pub fn governance_type_filter(
+        &self,
+    ) -> Option<PropFilter<grc20_sdk::models::space::SpaceGovernanceType>> {
         if self.governance_type.is_none()
             && self.governance_type_not.is_none()
             && self.governance_type_in.is_none()
@@ -117,11 +121,11 @@ impl SpaceFilter {
         }
 
         if let Some(governance_type_in) = &self.governance_type_in {
-            filter = filter.value_in(governance_type_in.clone());
+            filter = filter.value_in(governance_type_in.iter().map(|g| g.into()).collect());
         }
 
         if let Some(governance_type_not_in) = &self.governance_type_not_in {
-            filter = filter.value_not_in(governance_type_not_in.clone());
+            filter = filter.value_not_in(governance_type_not_in.iter().map(|g| g.into()).collect());
         }
 
         Some(filter)
