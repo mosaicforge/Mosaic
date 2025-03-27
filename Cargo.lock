@@ -955,6 +955,7 @@ dependencies = [
  "grc20-core",
  "serde",
  "serde_json",
+ "tokio",
  "web3-utils",
 ]
 

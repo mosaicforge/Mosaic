@@ -1,13 +1,16 @@
-use futures::TryStreamExt;
+use futures::{StreamExt, TryStreamExt};
 use juniper::{graphql_object, Executor, FieldResult, GraphQLEnum, ScalarValue};
 
-
 use grc20_core::{
+    error::DatabaseError,
     indexer_ids,
-    mapping::{self, query_utils::{Query, QueryStream}},
+    mapping::{
+        self,
+        query_utils::{Query, QueryStream},
+    },
     neo4rs,
 };
-use grc20_sdk::models::{space::{self, ParentSpacesQuery, SubspacesQuery}, Space as SdkSpace};
+use grc20_sdk::models::{space, Space as SdkSpace};
 
 use crate::context::KnowledgeGraph;
 
@@ -22,7 +25,10 @@ impl Space {
         Self { entity }
     }
 
-    pub async fn load(neo4j: &neo4rs::Graph, id: impl Into<String>) -> FieldResult<Option<Self>> {
+    pub async fn load(
+        neo4j: &neo4rs::Graph,
+        id: impl Into<String>,
+    ) -> Result<Option<Self>, DatabaseError> {
         let id = id.into();
 
         Ok(space::find_one(neo4j, &id, indexer_ids::INDEXER_SPACE_ID)
@@ -209,9 +215,11 @@ impl Space {
             query = query.skip(skip as usize);
         }
 
-        Ok(<ParentSpacesQuery as QueryStream<mapping::Entity<grc20_sdk::models::Space>>>::send(query)
+        Ok(query
+            .send()
             .await?
-            .map_ok(Space::new)
+            .and_then(|(space_id, _)| Space::load(&executor.context().0, space_id))
+            .filter_map(|space| async move { space.transpose() })
             .try_collect::<Vec<_>>()
             .await?)
     }
@@ -236,9 +244,11 @@ impl Space {
             query = query.skip(skip as usize);
         }
 
-        Ok(<SubspacesQuery as QueryStream<mapping::Entity<grc20_sdk::models::Space>>>::send(query)
+        Ok(query
+            .send()
             .await?
-            .map_ok(Space::new)
+            .and_then(|space_id| Space::load(&executor.context().0, space_id))
+            .filter_map(|space| async move { space.transpose() })
             .try_collect::<Vec<_>>()
             .await?)
     }
@@ -250,18 +260,16 @@ impl Space {
         first: Option<i32>,
         skip: Option<i32>,
     ) -> FieldResult<Vec<Entity>> {
-        let types = grc20_sdk::models::space::schema_types::space_schema_types(
-            &executor.context().0,
-            &self.entity.id,
-            strict.unwrap_or(true),
-        )
-        .await?;
+        let types = SdkSpace::types(&executor.context().0, &self.entity.id)
+            .strict(strict.unwrap_or(true))
+            .limit(first.unwrap_or(100) as usize)
+            .skip(skip.unwrap_or(0) as usize)
+            .send()
+            .await?;
 
         Ok(types
-            .into_iter()
-            .skip(skip.unwrap_or(0) as usize)
-            .take(first.unwrap_or(1000) as usize)
-            .map(|node| Entity::new(node, self.entity.id.clone(), None))
-            .collect())
+            .map_ok(|node| Entity::new(node, self.entity.id.clone(), None))
+            .try_collect()
+            .await?)
     }
 }

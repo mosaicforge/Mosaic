@@ -7,18 +7,16 @@ use grc20_core::{
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
-        entity,
-        entity_node,
-        prop_filter,
-        query_utils::{AttributeFilter, PropFilter, Query, QueryStream,},
-        relation, Entity, EntityNode, Relation,
-        Value,
+        entity, entity_node, prop_filter,
+        query_utils::{AttributeFilter, PropFilter, Query, QueryStream},
+        relation, Entity, EntityNode, Relation, Value,
     },
-    network_ids, system_ids,
-    neo4rs,
+    neo4rs, network_ids, system_ids,
 };
 
-use super::{ParentSpacesQuery, SpaceEditorsQuery, SpaceMembersQuery, SpaceTypesQuery, SubspacesQuery};
+use super::{
+    ParentSpacesQuery, SpaceEditorsQuery, SpaceMembersQuery, SpaceTypesQuery, SubspacesQuery,
+};
 
 #[derive(Clone)]
 #[grc20_core::entity]

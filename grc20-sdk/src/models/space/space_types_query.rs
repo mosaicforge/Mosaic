@@ -1,6 +1,16 @@
-use futures::Stream;
+use futures::{Stream, TryStreamExt};
 
-use grc20_core::{error::DatabaseError, mapping::{entity_node::{self, EntityFilter}, query_utils::{QueryStream, TypesFilter}, EntityNode}, neo4rs, system_ids};
+use grc20_core::{
+    error::DatabaseError,
+    mapping::{
+        entity_node::{self, EntityFilter},
+        query_utils::{QueryStream, TypesFilter},
+        EntityNode, PropFilter,
+    },
+    neo4rs, system_ids,
+};
+
+use super::ParentSpacesQuery;
 
 /// Query to find all types defined in a space
 pub struct SpaceTypesQuery {
@@ -8,6 +18,7 @@ pub struct SpaceTypesQuery {
     space_id: String,
     limit: usize,
     skip: Option<usize>,
+    strict: bool,
 }
 
 impl SpaceTypesQuery {
@@ -17,6 +28,7 @@ impl SpaceTypesQuery {
             space_id,
             limit: 100,
             skip: None,
+            strict: true,
         }
     }
 
@@ -31,25 +43,43 @@ impl SpaceTypesQuery {
         self.skip = Some(skip);
         self
     }
+
+    /// Set whether to only query the given space or all parent spaces
+    pub fn strict(mut self, strict: bool) -> Self {
+        self.strict = strict;
+        self
+    }
 }
 
 impl QueryStream<EntityNode> for SpaceTypesQuery {
     async fn send(
         self,
     ) -> Result<impl Stream<Item = Result<EntityNode, DatabaseError>>, DatabaseError> {
+        let spaces = if self.strict {
+            vec![self.space_id.clone()]
+        } else {
+            ParentSpacesQuery::new(self.neo4j.clone(), self.space_id.clone())
+                .max_depth(None)
+                .send()
+                .await?
+                .map_ok(|(space, _)| space)
+                .try_collect()
+                .await?
+        };
+
         // Find all entities that have a TYPES relation to the Type entity
-        let mut stream = entity_node::find_many(&self.neo4j)
+        let mut query = entity_node::find_many(&self.neo4j)
             .with_filter(
                 EntityFilter::default()
                     .relations(TypesFilter::default().r#type(system_ids::SCHEMA_TYPE))
-                    .space_id(self.space_id),
+                    .space_id(PropFilter::default().value_in(spaces)),
             )
             .limit(self.limit);
 
         if let Some(skip) = self.skip {
-            stream = stream.skip(skip);
+            query = query.skip(skip);
         }
 
-        stream.send().await
+        query.send().await
     }
 }

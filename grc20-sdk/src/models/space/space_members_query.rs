@@ -1,6 +1,11 @@
 use futures::{Stream, StreamExt};
 
-use grc20_core::{error::DatabaseError, indexer_ids, mapping::{entity, query_utils::QueryStream, relation_node, Entity, PropFilter, Query}, neo4rs};
+use grc20_core::{
+    error::DatabaseError,
+    indexer_ids,
+    mapping::{entity, query_utils::QueryStream, relation_node, Entity, PropFilter, Query},
+    neo4rs,
+};
 
 use crate::models::Account;
 

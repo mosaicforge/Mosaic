@@ -4,7 +4,7 @@ use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 use grc20_core::{
     indexer_ids,
     mapping::{
-        self, entity_node,
+        self, entity_node, prop_filter,
         query_utils::{Query, QueryStream},
         relation_node,
     },
@@ -30,7 +30,7 @@ impl RootQuery {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         id: String,
     ) -> FieldResult<Option<Space>> {
-        Space::load(&executor.context().0, id).await
+        Ok(Space::load(&executor.context().0, id).await?)
     }
 
     /// Returns multiple spaces according to the provided filter
@@ -195,9 +195,9 @@ impl RootQuery {
         let mut query = entity_node::find_many(&executor.context().0);
 
         let entity_filter = if let Some(r#where) = r#where {
-            entity_node::EntityFilter::from(r#where).space_id(&space_id)
+            entity_node::EntityFilter::from(r#where).space_id(prop_filter::value(&space_id))
         } else {
-            entity_node::EntityFilter::default().space_id(&space_id)
+            entity_node::EntityFilter::default().space_id(prop_filter::value(&space_id))
         };
         query = query.with_filter(entity_filter);
 

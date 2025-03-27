@@ -2,12 +2,12 @@ use futures::TryStreamExt;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use grc20_core::{
-    aggregation, 
     mapping::{
         entity_node,
         query_utils::{prop_filter, Query, QueryStream},
         triple, EntityNode,
-    }, neo4rs, system_ids
+    },
+    neo4rs, system_ids,
 };
 
 use crate::{
@@ -61,9 +61,8 @@ impl Entity {
     /// Entity name (if available)
     async fn name<'a, S: ScalarValue>(
         &'a self,
-        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-        #[graphql(default = true)]
-        strict: bool,
+        _executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        #[graphql(default = true)] _strict: bool,
     ) -> FieldResult<Option<String>> {
         // Ok(aggregation::pluralism::get_triple(
         //     &executor.context().0,

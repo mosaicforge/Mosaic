@@ -355,12 +355,11 @@ impl EntityFilter {
 
     /// Applies a global space_id to all sub-filters (i.e.: attribute and relation filters).
     /// If a space_id is already set in a sub-filter, it will be overwritten.
-    pub fn space_id(mut self, space_id: impl Into<String>) -> Self {
-        let space_id = space_id.into();
-        self.space_id = Some(prop_filter::value(space_id.clone()));
+    pub fn space_id(mut self, space_id: PropFilter<String>) -> Self {
+        self.space_id = Some(space_id.clone());
 
         for attribute in &mut self.attributes {
-            attribute.space_id_mut(prop_filter::value(&space_id));
+            attribute.space_id_mut(space_id.clone());
         }
 
         if let Some(relations) = self.relations {
@@ -430,15 +429,12 @@ impl EntityRelationFilter {
 
     /// Applies a global space_id to all sub-filters (i.e.: relation_type and to_id filters).
     /// If a space_id is already set in a sub-filter, it will be overwritten.
-    pub fn with_space_id(mut self, space_id: impl Into<String>) -> Self {
-        let space_id = space_id.into();
+    pub fn with_space_id(mut self, space_id: PropFilter<String>) -> Self {
         self.relation_type = self
             .relation_type
-            .map(|filter| filter.space_id(prop_filter::value(&space_id)));
+            .map(|filter| filter.space_id(space_id.clone()));
 
-        self.to_id = self
-            .to_id
-            .map(|filter| filter.space_id(prop_filter::value(&space_id)));
+        self.to_id = self.to_id.map(|filter| filter.space_id(space_id));
 
         self
     }
