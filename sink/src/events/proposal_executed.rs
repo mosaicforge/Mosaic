@@ -1,9 +1,7 @@
-use sdk::{
-    indexer_ids,
-    mapping::{entity_node, Query, Triple},
-    models::{self, proposal::ProposalStatus, Proposal},
-    pb::geo,
+use grc20_core::{
+    block::BlockMetadata, indexer_ids, mapping::{entity_node, Query, Triple}, pb::geo
 };
+use grc20_sdk::models::{proposal::ProposalStatus, Proposal};
 use web3_utils::checksum_address;
 
 use super::{handler::HandlerError, EventHandler};
@@ -12,7 +10,7 @@ impl EventHandler {
     pub async fn handle_proposal_executed(
         &self,
         proposal_executed: &geo::ProposalExecuted,
-        block: &models::BlockMetadata,
+        block: &BlockMetadata,
         _index: usize,
     ) -> Result<(), HandlerError> {
         let plugin_address = checksum_address(&proposal_executed.plugin_address);

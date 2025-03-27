@@ -1,7 +1,7 @@
 use futures::TryStreamExt;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
-use sdk::{
+use grc20_core::{
     mapping::{
         entity_node,
         query_utils::{prop_filter, Query, QueryStream},

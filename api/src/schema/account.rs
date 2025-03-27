@@ -1,10 +1,9 @@
 use juniper::{graphql_object, FieldResult, ScalarValue};
 
-use sdk::{
-    mapping::{query_utils::Query, Entity},
-    models::Account as SdkAccount,
-    neo4rs,
+use grc20_core::{
+    indexer_ids, mapping::{query_utils::Query, Entity}, neo4rs
 };
+use grc20_sdk::models::{account, Account as SdkAccount};
 
 use crate::context::KnowledgeGraph;
 
@@ -20,7 +19,7 @@ impl Account {
     pub async fn load(neo4j: &neo4rs::Graph, id: impl Into<String>) -> FieldResult<Option<Self>> {
         let id = id.into();
 
-        Ok(SdkAccount::find_one(neo4j, &id)
+        Ok(account::find_one(neo4j, &id, indexer_ids::INDEXER_SPACE_ID)
             .send()
             .await?
             .map(Account::new))

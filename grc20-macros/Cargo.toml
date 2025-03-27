@@ -11,6 +11,11 @@ proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "2.0", features = ["full", "extra-traits"] }
 darling = "0.20"
+tracing = "0.1.41"
 
 [dev-dependencies]
-sdk = { path = "../sdk" }
+futures = "0.3.31"
+grc20-core = { path = "../grc20-core" }
+testcontainers = "0.23.3"
+tokio = "1.44.1"
+tracing-test = { version = "0.2.5", features = ["no-env-filter"] }

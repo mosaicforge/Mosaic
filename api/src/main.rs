@@ -11,7 +11,7 @@ use axum::{
 use clap::{Args, Parser};
 use juniper::{EmptyMutation, EmptySubscription, RootNode};
 use juniper_axum::{extract::JuniperRequest, graphiql, playground, response::JuniperResponse};
-use sdk::neo4rs;
+use grc20_core::neo4rs;
 use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -148,8 +148,8 @@ async fn version() -> Json<serde_json::Value> {
     }))
 }
 
-async fn cursor(Extension(kg): Extension<KnowledgeGraph>) -> Json<Option<sdk::models::Cursor>> {
-    // let cursor = sdk::mapping::triple::find_one(
+async fn cursor(Extension(kg): Extension<KnowledgeGraph>) -> Json<Option<grc20_core::models::Cursor>> {
+    // let cursor = grc20_core::mapping::triple::find_one(
     //     &kg.0,
     //     indexer_ids::CURSOR_ATTRIBUTE,
     //     indexer_ids::CURSOR_ID,
@@ -160,7 +160,7 @@ async fn cursor(Extension(kg): Extension<KnowledgeGraph>) -> Json<Option<sdk::mo
     // .await
     // .unwrap();
 
-    // let block_number = sdk::mapping::triple::find_one(
+    // let block_number = grc20_core::mapping::triple::find_one(
     //     &kg.0,
     //     indexer_ids::BLOCK_NUMBER_ATTRIBUTE,
     //     indexer_ids::CURSOR_ID,
@@ -170,7 +170,7 @@ async fn cursor(Extension(kg): Extension<KnowledgeGraph>) -> Json<Option<sdk::mo
     // .send()
     // .await
     // .unwrap();
-    let cursor = sdk::models::Cursor::load(&kg.0)
+    let cursor = grc20_sdk::models::Cursor::load(&kg.0)
         .await
         .unwrap()
         .map(|cursor| cursor.attributes);

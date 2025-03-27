@@ -1,9 +1,7 @@
-use sdk::{
-    indexer_ids,
-    mapping::query_utils::Query,
-    models::{Account, BlockMetadata, Space, SpaceMember},
-    pb::geo,
+use grc20_core::{
+    block::BlockMetadata, indexer_ids, mapping::query_utils::Query, pb::geo
 };
+use grc20_sdk::models::{Account, Space, SpaceMember};
 
 use super::{handler::HandlerError, EventHandler};
 

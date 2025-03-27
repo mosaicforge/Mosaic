@@ -1,10 +1,8 @@
-use sdk::{
-    indexer_ids,
-    mapping::{query_utils::Query, Attributes},
-    models::{self, Account, Space, SpaceGovernanceType},
-    network_ids,
-    pb::{self, geo},
+use grc20_core::{
+    block::BlockMetadata, indexer_ids, mapping::{query_utils::Query, Attributes}, network_ids, pb::{self, geo}
 };
+use grc20_sdk::models::{self, Account, Space, SpaceGovernanceType};
+
 use web3_utils::checksum_address;
 
 use super::{handler::HandlerError, EventHandler};
@@ -15,7 +13,7 @@ impl EventHandler {
         &self,
         space_created: &geo::GeoSpaceCreated,
         edits_published: &[geo::EditPublished],
-        block: &models::BlockMetadata,
+        block: &BlockMetadata,
     ) -> Result<String, HandlerError> {
         let maybe_initial_proposal = edits_published.iter().find(|proposal| {
             checksum_address(&proposal.plugin_address)
@@ -83,7 +81,7 @@ impl EventHandler {
     pub async fn handle_personal_space_created(
         &self,
         personal_space_created: &geo::GeoPersonalSpaceAdminPluginCreated,
-        block: &models::BlockMetadata,
+        block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space =
             Space::find_entity_by_dao_address(&self.neo4j, &personal_space_created.dao_address)
@@ -139,7 +137,7 @@ impl EventHandler {
     pub async fn handle_governance_plugin_created(
         &self,
         governance_plugin_created: &geo::GeoGovernancePluginCreated,
-        block: &models::BlockMetadata,
+        block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space =
             Space::find_entity_by_dao_address(&self.neo4j, &governance_plugin_created.dao_address)

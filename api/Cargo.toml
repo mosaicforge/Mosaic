@@ -18,7 +18,8 @@ tower-http = { version = "0.6.2", features = ["cors"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
-sdk = { version = "0.1.0", path = "../sdk" }
+grc20-core = { version = "0.1.0", path = "../grc20-core" }
+grc20-sdk = { version = "0.1.0", path = "../grc20-sdk" }
 chrono = "0.4.39"
 
 [dev-dependencies]

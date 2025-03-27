@@ -1,4 +1,4 @@
-use sdk::neo4rs;
+use grc20_core::neo4rs;
 use std::sync::Arc;
 
 #[derive(Clone)]

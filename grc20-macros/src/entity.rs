@@ -106,10 +106,10 @@ pub(crate) fn generate_from_attributes_impl(opts: &EntityOpts) -> TokenStream2 {
     });
 
     quote! {
-        impl sdk::mapping::FromAttributes for #struct_name {
+        impl grc20_core::mapping::FromAttributes for #struct_name {
             fn from_attributes(
-                mut attributes: sdk::mapping::Attributes,
-            ) -> Result<Self, sdk::mapping::TriplesConversionError> {
+                mut attributes: grc20_core::mapping::Attributes,
+            ) -> Result<Self, grc20_core::mapping::TriplesConversionError> {
                 Ok(Self {
                     #(#field_assignments)*
                 })
@@ -223,8 +223,8 @@ pub(crate) fn generate_builder_impl(opts: &EntityOpts) -> TokenStream2 {
 
             #(#setter_methods)*
 
-            pub fn build(self) -> sdk::mapping::Entity<#struct_name> {
-                let mut built = sdk::mapping::Entity::new(
+            pub fn build(self) -> grc20_core::mapping::Entity<#struct_name> {
+                let mut built = grc20_core::Entity::new(
                     self.id,
                     #struct_name {
                         #(
@@ -237,6 +237,255 @@ pub(crate) fn generate_builder_impl(opts: &EntityOpts) -> TokenStream2 {
                 built
             }
         }
+    }
+}
+
+pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
+    let struct_name = &opts.ident;
+    let fields = opts.data.as_ref().take_struct().expect("Expected struct");
+
+    let find_one_fn = quote! {
+        /// Find a person by its id
+        pub fn find_one(
+            neo4j: &neo4rs::Graph,
+            id: impl Into<String>,
+            space_id: impl Into<String>,
+        ) -> FindOneQuery {
+            FindOneQuery::new(neo4j.clone(), id.into(), space_id.into())
+        }
+    };
+
+    let find_many_fn = quote! {
+        /// Find multiple persons with filters
+        pub fn find_many(neo4j: &neo4rs::Graph, space_id: impl Into<String>) -> FindManyQuery {
+            FindManyQuery::new(neo4j.clone(), space_id.into())
+        }
+    };
+
+    let find_one_query_struct = quote! {
+        /// Query to find a single person
+        pub struct FindOneQuery {
+            neo4j: neo4rs::Graph,
+            id: String,
+            space_id: String,
+            version: Option<String>,
+        }
+
+        impl FindOneQuery {
+            fn new(neo4j: neo4rs::Graph, id: String, space_id: String) -> Self {
+                Self {
+                    neo4j,
+                    id,
+                    space_id,
+                    version: None,
+                }
+            }
+
+            pub fn version(mut self, version: impl Into<String>) -> Self {
+                self.version = Some(version.into());
+                self
+            }
+        }
+
+        impl grc20_core::mapping::query_utils::Query<Option<grc20_core::mapping::Entity<#struct_name>>> for FindOneQuery {
+            async fn send(self) -> Result<Option<grc20_core::mapping::Entity<#struct_name>>, grc20_core::error::DatabaseError> {
+                grc20_core::entity::find_one(
+                    &self.neo4j,
+                    self.id,
+                    self.space_id,
+                    self.version,
+                )
+                    .send()
+                    .await
+            }
+        }
+    };
+
+    // Collect field names and types
+    let field_names: Vec<_> = fields
+        .iter()
+        .map(|f| f.ident.as_ref().expect("Expected named field"))
+        .collect();
+    let field_types: Vec<_> = fields.iter().map(|f| &f.ty).collect();
+
+    // Generate fields for FindManyQuery
+    let find_many_fields = field_names.iter().zip(field_types.iter())
+        .map(|(field_name, field_type)| {
+            if let syn::Type::Path(type_path) = field_type {
+                if type_path
+                    .path
+                    .segments
+                    .last()
+                    .map(|s| s.ident == "Option")
+                    .unwrap_or(false)
+                {
+                    if let syn::PathArguments::AngleBracketed(args) =
+                        &type_path.path.segments.last().unwrap().arguments
+                    {
+                        if let Some(syn::GenericArgument::Type(inner_type)) = args.args.first() {
+                            return quote! {
+                                #field_name: Option<grc20_core::mapping::query_utils::PropFilter<#inner_type>>,
+                            };
+                        }
+                    }
+                }
+            }
+            quote! {
+                #field_name: Option<grc20_core::mapping::query_utils::PropFilter<#field_type>>,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    // Generate builder methods for FindManyQuery
+    let find_many_methods = field_names.iter().zip(field_types.iter()).map(|(field_name, field_type)| {
+        let doc_comment = format!("Filter by {}", field_name);
+        let filter_type = if let syn::Type::Path(type_path) = field_type {
+            if type_path
+            .path
+            .segments
+            .last()
+            .map(|s| s.ident == "Option")
+            .unwrap_or(false)
+            {
+            if let syn::PathArguments::AngleBracketed(args) =
+                &type_path.path.segments.last().unwrap().arguments
+            {
+                if let Some(syn::GenericArgument::Type(inner_type)) = args.args.first() {
+                quote!(grc20_core::mapping::query_utils::PropFilter<#inner_type>)
+                } else {
+                panic!("Expected inner type for Option<T>")
+                }
+            } else {
+                panic!("Expected angle-bracketed arguments for Option<T>")
+            }
+            } else {
+            quote!(grc20_core::mapping::query_utils::PropFilter<#field_type>)
+            }
+        } else {
+            quote!(grc20_core::mapping::query_utils::PropFilter<#field_type>)
+        };
+
+        quote! {
+            #[doc = #doc_comment]
+            pub fn #field_name(mut self, #field_name: #filter_type) -> Self {
+            self.#field_name = Some(#field_name);
+            self
+            }
+        }
+    }).collect::<Vec<_>>();
+
+    // Generate attribute filter applications for QueryStream implementation
+    let find_many_filters = fields.iter().map(|field| {
+        let field_name = field.ident.as_ref().expect("Expected named field");
+        let attribute_name = field
+            .attribute
+            .as_ref()
+            .map(|s| quote!(#s))
+            .unwrap_or_else(|| quote!(#field_name.to_string()));
+
+        quote! {
+            if let Some(#field_name) = self.#field_name {
+                query = query.attribute(
+                    grc20_core::mapping::query_utils::AttributeFilter::new(#attribute_name)
+                        .value(#field_name.as_string())
+                );
+            }
+        }
+    }).collect::<Vec<_>>();
+
+    let schema_type = opts.schema_type.as_ref().map(|s| quote!(#s));
+    let type_filter = if let Some(schema_type) = schema_type {
+        quote! {
+            .relations(grc20_core::mapping::query_utils::TypesFilter::default().r#type(#schema_type.to_string()))
+        }
+    } else {
+        quote! {}
+    };
+
+    let find_many_query_struct = quote! {
+        /// Query to find multiple persons with filters
+        pub struct FindManyQuery {
+            neo4j: neo4rs::Graph,
+            #(#find_many_fields)*
+            space_id: String,
+            version: Option<String>,
+            limit: usize,
+            skip: Option<usize>,
+        }
+
+        impl FindManyQuery {
+            fn new(neo4j: neo4rs::Graph, space_id: String) -> Self {
+                let mut query = Self {
+                    neo4j,
+                    space_id,
+                    #(
+                        #field_names: None,
+                    )*
+                    version: None,
+                    limit: 100,
+                    skip: None,
+                };
+
+                query
+            }
+
+            #(#find_many_methods)*
+
+            pub fn version(mut self, version: impl Into<String>) -> Self {
+                self.version = Some(version.into());
+                self
+            }
+
+            /// Limit the number of results
+            pub fn limit(mut self, limit: usize) -> Self {
+                self.limit = limit;
+                self
+            }
+
+            /// Skip a number of results
+            pub fn skip(mut self, skip: usize) -> Self {
+                self.skip = Some(skip);
+                self
+            }
+        }
+
+        impl grc20_core::mapping::query_utils::QueryStream<grc20_core::mapping::Entity<#struct_name>> for FindManyQuery {
+            async fn send(
+                self,
+            ) -> Result<impl futures::Stream<Item = Result<grc20_core::mapping::Entity<#struct_name>, grc20_core::error::DatabaseError>>, grc20_core::error::DatabaseError> {
+                let mut query = grc20_core::entity::find_many(
+                    &self.neo4j,
+                    self.space_id,
+                    self.version,
+                )
+                    .limit(self.limit)
+                    .with_filter(
+                        grc20_core::mapping::EntityFilter::default()
+                            #type_filter
+                    );
+
+                #(#find_many_filters)*
+
+                if let Some(skip) = self.skip {
+                    query = query.skip(skip);
+                }
+
+                query.send().await
+            }
+        }
+    };
+
+    quote! {
+        use grc20_core::{
+            mapping::{
+                query_utils::{Query as _, QueryStream as __},
+            },
+        };
+
+        #find_one_fn
+        #find_many_fn
+        #find_one_query_struct
+        #find_many_query_struct
     }
 }
 
@@ -275,11 +524,11 @@ pub(crate) fn generate_into_attributes_impl(opts: &EntityOpts) -> TokenStream2 {
     });
 
     quote! {
-        impl sdk::mapping::IntoAttributes for #struct_name {
+        impl grc20_core::mapping::IntoAttributes for #struct_name {
             fn into_attributes(
                 self,
-            ) -> Result<sdk::mapping::Attributes, sdk::mapping::TriplesConversionError> {
-                let mut attributes = sdk::mapping::Attributes::default();
+            ) -> Result<grc20_core::mapping::Attributes, grc20_core::mapping::TriplesConversionError> {
+                let mut attributes = grc20_core::mapping::Attributes::default();
                 #(#field_conversions)*
                 Ok(attributes)
             }

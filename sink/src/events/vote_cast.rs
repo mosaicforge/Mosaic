@@ -1,9 +1,7 @@
-use sdk::{
-    indexer_ids,
-    mapping::{entity_node, query_utils::Query},
-    models::{self, Account, Proposal, VoteCast},
-    pb::geo,
+use grc20_core::{
+    block::BlockMetadata, indexer_ids, mapping::{entity_node, query_utils::Query}, pb::geo
 };
+use grc20_sdk::models::{Account, Proposal, VoteCast};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -11,7 +9,7 @@ impl EventHandler {
     pub async fn handle_vote_cast(
         &self,
         vote: &geo::VoteCast,
-        block: &models::BlockMetadata,
+        block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         // // TODO: (optimization) Merge the two queries into one OR query
         // match join!(

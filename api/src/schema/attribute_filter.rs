@@ -1,6 +1,6 @@
 use juniper::GraphQLInputObject;
 
-use sdk::mapping;
+use grc20_core::mapping;
 
 use super::triple::ValueType;
 

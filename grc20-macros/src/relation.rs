@@ -106,10 +106,10 @@ pub(crate) fn generate_from_attributes_impl(opts: &RelationOpts) -> TokenStream2
     });
 
     quote! {
-        impl sdk::mapping::FromAttributes for #struct_name {
+        impl grc20_core::mapping::FromAttributes for #struct_name {
             fn from_attributes(
-                mut attributes: sdk::mapping::Attributes,
-            ) -> Result<Self, sdk::mapping::TriplesConversionError> {
+                mut attributes: grc20_core::mapping::Attributes,
+            ) -> Result<Self, grc20_core::mapping::TriplesConversionError> {
                 Ok(Self {
                     #(#field_assignments)*
                 })
@@ -223,8 +223,8 @@ pub(crate) fn generate_builder_impl(opts: &RelationOpts) -> TokenStream2 {
 
             #(#setter_methods)*
 
-            pub fn build(self) -> sdk::mapping::Relation<#struct_name> {
-                let mut built = sdk::mapping::Relation::new(
+            pub fn build(self) -> grc20_core::mapping::Relation<#struct_name> {
+                let mut built = grc20_core::mapping::Relation::new(
                     self.id,
                     #struct_name {
                         #(
@@ -275,11 +275,11 @@ pub(crate) fn generate_into_attributes_impl(opts: &RelationOpts) -> TokenStream2
     });
 
     quote! {
-        impl sdk::mapping::IntoAttributes for #struct_name {
+        impl grc20_core::mapping::IntoAttributes for #struct_name {
             fn into_attributes(
                 self,
-            ) -> Result<sdk::mapping::Attributes, sdk::mapping::TriplesConversionError> {
-                let mut attributes = sdk::mapping::Attributes::default();
+            ) -> Result<grc20_core::mapping::Attributes, grc20_core::mapping::TriplesConversionError> {
+                let mut attributes = grc20_core::mapping::Attributes::default();
                 #(#field_conversions)*
                 Ok(attributes)
             }
