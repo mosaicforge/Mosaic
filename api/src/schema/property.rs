@@ -1,5 +1,6 @@
 use futures::{pin_mut, TryStreamExt};
 use grc20_core::{mapping::{prop_filter, query_utils::QueryStream, EntityNode}, system_ids};
+use grc20_sdk::models::property;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use crate::context::KnowledgeGraph;
@@ -125,18 +126,30 @@ impl Property {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Option<Entity>> {
-        let value_type = self
-            .entity
-            .node
-            .get_outbound_relations(
-                &executor.context().0,
-                self.space_id(),
-                self.entity.space_version.clone(),
-            )
-            .relation_type(prop_filter::value(system_ids::VALUE_TYPE_ATTRIBUTE))
-            .limit(1)
-            .send()
-            .await?;
+        // let value_type = self
+        //     .entity
+        //     .node
+        //     .get_outbound_relations(
+        //         &executor.context().0,
+        //         self.space_id(),
+        //         self.entity.space_version.clone(),
+        //     )
+        //     .relation_type(prop_filter::value(system_ids::VALUE_TYPE_ATTRIBUTE))
+        //     .limit(1)
+        //     .send()
+        //     .await?;
+        tracing::info!("Fetching value type for property {}", self.entity.id());
+
+        let value_type = property::get_outbound_relations(
+            &executor.context().0,
+            system_ids::VALUE_TYPE_ATTRIBUTE,
+            self.entity.id(),
+            self.space_id(),
+            self.entity.space_version.clone(),
+            Some(1),
+            None,
+            self.entity.strict,
+        ).await?;
 
         pin_mut!(value_type);
 
@@ -159,18 +172,30 @@ impl Property {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Option<Entity>> {
-        let rel_value_type = self
-            .entity
-            .node
-            .get_outbound_relations(
-                &executor.context().0,
-                self.space_id(),
-                self.entity.space_version.clone(),
-            )
-            .relation_type(prop_filter::value(system_ids::RELATION_VALUE_RELATIONSHIP_TYPE))
-            .limit(1)
-            .send()
-            .await?;
+        // let rel_value_type = self
+        //     .entity
+        //     .node
+        //     .get_outbound_relations(
+        //         &executor.context().0,
+        //         self.space_id(),
+        //         self.entity.space_version.clone(),
+        //     )
+        //     .relation_type(prop_filter::value(system_ids::RELATION_VALUE_RELATIONSHIP_TYPE))
+        //     .limit(1)
+        //     .send()
+        //     .await?;
+        tracing::info!("Fetching relation value type for property {}", self.entity.id());
+
+        let rel_value_type = property::get_outbound_relations(
+            &executor.context().0,
+            system_ids::RELATION_VALUE_RELATIONSHIP_TYPE,
+            self.entity.id(),
+            self.space_id(),
+            self.entity.space_version.clone(),
+            Some(1),
+            None,
+            self.entity.strict,
+        ).await?;
 
         pin_mut!(rel_value_type);
 

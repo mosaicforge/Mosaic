@@ -1,10 +1,16 @@
 use futures::TryStreamExt;
-use grc20_core::{mapping::{entity_node, prop_filter, query_utils::QueryStream, EntityNode}, system_ids};
+use grc20_core::{
+    mapping::{entity_node, prop_filter, query_utils::QueryStream, EntityNode},
+    system_ids,
+};
+use grc20_sdk::models::property;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use crate::context::KnowledgeGraph;
 
-use super::{AttributeFilter, Entity, EntityRelationFilter, EntityVersion, Property, Relation, Triple};
+use super::{
+    AttributeFilter, Entity, EntityRelationFilter, EntityVersion, Property, Relation, Triple,
+};
 
 #[derive(Debug)]
 pub struct SchemaType {
@@ -12,13 +18,15 @@ pub struct SchemaType {
 }
 
 impl SchemaType {
-    pub fn new(node: EntityNode, space_id: String, space_version: Option<String>, strict: bool) -> Self {
-        Self {entity: Entity::new(
-            node,
-            space_id,
-            space_version,
-            strict,
-        )}
+    pub fn new(
+        node: EntityNode,
+        space_id: String,
+        space_version: Option<String>,
+        strict: bool,
+    ) -> Self {
+        Self {
+            entity: Entity::new(node, space_id, space_version, strict),
+        }
     }
 }
 
@@ -125,35 +133,43 @@ impl SchemaType {
     async fn properties<'a, S: ScalarValue>(
         &self,
         executor: &Executor<'_, '_, KnowledgeGraph, S>,
-        #[graphql(default = 100)]
-        first: i32,
-        #[graphql(default = 0)]
-        skip: i32,
+        #[graphql(default = 100)] first: i32,
+        #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<Property>> {
-        let properties = self
-            .entity
-            .node
-            .get_outbound_relations(
-                &executor.context().0,
-                self.space_id(),
-                self.entity.space_version.clone(),
-            )
-            .relation_type(prop_filter::value(system_ids::PROPERTIES))
-            .limit(first as usize)
-            .skip(skip as usize)
-            .send()
-            .await?
-            .try_collect::<Vec<_>>()
-            .await?;
+        tracing::info!("Fetching properties for type {}", self.entity.id());
 
-        Ok(entity_node::find_many(&executor.context().0)
-            .id(prop_filter::value_in(
-                properties.into_iter().map(|rel| rel.to).collect(),
-            ))
-            .send()
-            .await?
-            .map_ok(|node| Property::new(node, self.space_id().to_string(), self.entity.space_version.clone(), self.entity.strict))
-            .try_collect::<Vec<_>>()
-            .await?)
+        let properties = property::get_outbound_relations(
+            &executor.context().0,
+            system_ids::PROPERTIES,
+            self.entity.id(),
+            self.space_id(),
+            self.entity.space_version.clone(),
+            Some(first as usize),
+            Some(skip as usize),
+            self.entity.strict,
+        ).await?
+        .try_collect::<Vec<_>>()
+        .await?;
+
+        if properties.is_empty() {
+            Ok(Vec::new())
+        } else {
+            Ok(entity_node::find_many(&executor.context().0)
+                .id(prop_filter::value_in(
+                    properties.into_iter().map(|rel| rel.to).collect(),
+                ))
+                .send()
+                .await?
+                .map_ok(|node| {
+                    Property::new(
+                        node,
+                        self.space_id().to_string(),
+                        self.entity.space_version.clone(),
+                        self.entity.strict,
+                    )
+                })
+                .try_collect::<Vec<_>>()
+                .await?)
+        }
     }
 }

@@ -296,7 +296,7 @@ impl QueryStream<EntityNode> for FindManyQuery {
 
         let query = if cfg!(debug_assertions) || cfg!(test) {
             let query_part = self.into_query_part();
-            tracing::info!("entity_node::FindManyQuery:\n{}", query_part.query());
+            tracing::info!("entity_node::FindManyQuery:\n{}\nparams:{:?}", query_part.query(), query_part.params);
             query_part.build()
         } else {
             self.into_query_part().build()

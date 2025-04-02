@@ -1,11 +1,12 @@
-use futures::TryStreamExt;
+use futures::{pin_mut, Stream, TryStreamExt};
 use grc20_core::{
-    error::DatabaseError, mapping::{triple, TriplesConversionError, Value}, neo4rs, system_ids
+    error::DatabaseError, mapping::{prop_filter, relation_node, triple, TriplesConversionError, Value}, neo4rs, system_ids
 };
 
 use crate::models::space::ParentSpacesQuery;
 
 use super::space::SubspacesQuery;
+use async_stream::try_stream;
 
 #[grc20_core::entity]
 #[grc20(schema_type = system_ids::ATTRIBUTE)]
@@ -105,7 +106,7 @@ async fn attribute_aggregation_direction(
 // TODO: Find a better place for this function
 pub async fn get_triple(
     neo4j: &neo4rs::Graph,
-    attribute_id: impl Into<String>,
+    property_id: impl Into<String>,
     entity_id: impl Into<String>,
     space_id: impl Into<String>,
     space_version: Option<String>,
@@ -113,12 +114,16 @@ pub async fn get_triple(
 ) -> Result<Option<triple::Triple>, DatabaseError> {
     let space_id = space_id.into();
     let entity_id = entity_id.into();
-    let attribute_id = attribute_id.into();
+    let property_id = property_id.into();
 
-    if strict {
+    let mut spaces = spaces_for_property(neo4j, &property_id, &space_id, strict).await?;
+
+    spaces.sort_by_key(|(_, depth)| *depth);
+
+    for (space_id, _) in spaces {
         let maybe_triple = triple::find_one(
             neo4j,
-            &attribute_id,
+            &property_id,
             &entity_id,
             &space_id,
             space_version.clone(),
@@ -126,65 +131,106 @@ pub async fn get_triple(
         .send()
         .await?;
 
-        return Ok(maybe_triple);
+        if let Some(triple) = maybe_triple {
+            return Ok(Some(triple));
+        }
     }
 
-    match attribute_aggregation_direction(neo4j, &space_id, &attribute_id).await? {
+    Ok(None)
+}
+
+pub async fn get_outbound_relations(
+    neo4j: &neo4rs::Graph,
+    property_id: impl Into<String>,
+    entity_id: impl Into<String>,
+    space_id: impl Into<String>,
+    space_version: Option<String>,
+    limit: Option<usize>,
+    skip: Option<usize>,
+    strict: bool,
+) -> Result<impl Stream<Item = Result<relation_node::RelationNode, DatabaseError>>, DatabaseError> {
+    let neo4j = neo4j.clone();
+    let space_id = space_id.into();
+    let entity_id = entity_id.into();
+    let property_id = property_id.into();
+
+    let spaces = spaces_for_property(&neo4j, &property_id, &space_id, strict)
+        .await?
+        .into_iter()
+        .map(|(space_id, _)| space_id)
+        .collect::<Vec<_>>();
+    // spaces.sort_by_key(|(_, depth)| *depth);
+
+    // TODO: Optimization: We can accept limit/skip parameters here and pass them to the query.
+    // By counting the number of results we can determine if we need to continue to the next space
+    // or if we have enough results already.
+    // let stream = try_stream! {
+    //     for (space_id, _) in spaces {
+    //         let relations_stream = relation_node::FindManyQuery::new(&neo4j)
+    //             .from_id(prop_filter::value(entity_id.clone()))
+    //             .space_id(prop_filter::value(space_id.clone()))
+    //             .relation_type(prop_filter::value(property_id.clone()))
+    //             .version(space_version.clone())
+    //             .send()
+    //             .await?;
+
+    //         pin_mut!(relations_stream);
+
+    //         while let Some(relation) = relations_stream.try_next().await? {
+    //             yield relation;
+    //         }
+    //     }
+    // };
+
+    Ok(relation_node::FindManyQuery::new(&neo4j)
+        .from_id(prop_filter::value(entity_id.clone()))
+        .space_id(prop_filter::value_in(spaces))
+        .relation_type(prop_filter::value(property_id.clone()))
+        .version(space_version.clone())
+        .limit(limit.unwrap_or(100))
+        .skip(skip.unwrap_or(0))
+        .send()
+        .await?)
+}
+
+/// Returns the spaces from which the property is inherited
+async fn spaces_for_property(
+    neo4j: &neo4rs::Graph,
+    property_id: impl Into<String>,
+    space_id: impl Into<String>,
+    strict: bool,
+) -> Result<Vec<(String, usize)>, DatabaseError> {
+    let space_id = space_id.into();
+    let property_id = property_id.into();
+    
+    let mut spaces = vec![(space_id.clone(), 0)];
+
+    if strict {
+        return Ok(spaces);
+    }
+
+    match attribute_aggregation_direction(neo4j, &space_id, &property_id).await? {
         Some(AggregationDirection::Up) => {
-            let mut subspaces = SubspacesQuery::new(neo4j.clone(), space_id.clone())
+            let subspaces = SubspacesQuery::new(neo4j.clone(), space_id.clone())
                 .max_depth(None)
                 .send()
                 .await?
                 .try_collect::<Vec<_>>()
                 .await?;
 
-            subspaces.sort_by_key(|(_, depth)| *depth);
-            
-            for (space_id, _) in subspaces {
-                let maybe_triple = triple::find_one(
-                    neo4j,
-                    &attribute_id,
-                    &entity_id,
-                    &space_id,
-                    space_version.clone(),
-                )
-                .send()
-                .await?;
-
-                if let Some(triple) = maybe_triple {
-                    return Ok(Some(triple));
-                }
-            }
-
-            Ok(None)
+            spaces.extend(subspaces);
+            Ok(spaces)
         }
         Some(AggregationDirection::Down) => {
-            let mut parent_spaces = ParentSpacesQuery::new(neo4j.clone(), space_id.clone())
+            let parent_spaces = ParentSpacesQuery::new(neo4j.clone(), space_id.clone())
                 .max_depth(None)
                 .send()
                 .await?
                 .try_collect::<Vec<_>>()
                 .await?;
 
-            parent_spaces.sort_by_key(|(_, depth)| *depth);
-            
-            for (space_id, _) in parent_spaces {
-                let maybe_triple = triple::find_one(
-                    neo4j,
-                    &attribute_id,
-                    &entity_id,
-                    &space_id,
-                    space_version.clone(),
-                )
-                .send()
-                .await?;
-
-                if let Some(triple) = maybe_triple {
-                    return Ok(Some(triple));
-                }
-            }
-
-            Ok(None)
+            spaces.extend(parent_spaces);
+            Ok(spaces)
         }
         Some(AggregationDirection::Bidirectional) => {
             let subspaces = SubspacesQuery::new(neo4j.clone(), space_id.clone())
@@ -201,39 +247,10 @@ pub async fn get_triple(
                 .try_collect::<Vec<_>>()
                 .await?;
 
-            let mut spaces = subspaces.into_iter().chain(parent_spaces.into_iter()).collect::<Vec<_>>();
-            spaces.sort_by_key(|(_, depth)| *depth);
-            
-            for (space_id, _) in spaces {
-                let maybe_triple = triple::find_one(
-                    neo4j,
-                    &attribute_id,
-                    &entity_id,
-                    &space_id,
-                    space_version.clone(),
-                )
-                .send()
-                .await?;
-
-                if let Some(triple) = maybe_triple {
-                    return Ok(Some(triple));
-                }
-            }
-
-            Ok(None)
+            spaces.extend(subspaces);
+            spaces.extend(parent_spaces);
+            Ok(spaces)
         }
-        None => {
-            let maybe_triple = triple::find_one(
-                neo4j,
-                &attribute_id,
-                &entity_id,
-                &space_id,
-                space_version,
-            )
-            .send()
-            .await?;
-
-            Ok(maybe_triple)
-        },
+        None => Ok(spaces),
     }
 }
