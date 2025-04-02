@@ -86,10 +86,10 @@ impl SubspacesQuery {
 //     }
 // }
 
-impl QueryStream<String> for SubspacesQuery {
+impl QueryStream<(String, usize)> for SubspacesQuery {
     async fn send(
         self,
-    ) -> Result<impl Stream<Item = Result<String, DatabaseError>>, DatabaseError> {
+    ) -> Result<impl Stream<Item = Result<(String, usize), DatabaseError>>, DatabaseError> {
         let mut visited = HashSet::new();
         let mut queue = vec![(self.space_id.clone(), 0)]; // (space_id, depth)
 
@@ -121,7 +121,7 @@ impl QueryStream<String> for SubspacesQuery {
                             }
 
                             // Yield the subspace ID
-                            yield Ok(subspace.clone());
+                            yield Ok((subspace.clone(), depth));
 
                             // Add to queue for further processing
                             queue.push((subspace, depth + 1));

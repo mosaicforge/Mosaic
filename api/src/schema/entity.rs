@@ -22,6 +22,7 @@ pub struct Entity {
     node: EntityNode,
     space_id: String,
     space_version: Option<String>,
+    strict: bool,
 }
 
 impl Entity {
@@ -30,6 +31,7 @@ impl Entity {
             node,
             space_id,
             space_version,
+            strict: true,
         }
     }
 

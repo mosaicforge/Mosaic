@@ -30,33 +30,31 @@ impl Attributes {
 
     pub fn pop<T>(&mut self, attribute_id: &str) -> Result<T, TriplesConversionError>
     where
-        T: TryFrom<Value, Error = String>,
+        T: TryFrom<Value, Error = TriplesConversionError>,
     {
         self.0
             .remove(attribute_id)
             .ok_or_else(|| TriplesConversionError::MissingAttribute(attribute_id.to_string()))?
             .value
             .try_into()
-            .map_err(TriplesConversionError::InvalidValue)
     }
 
     pub fn pop_opt<T>(&mut self, attribute_id: &str) -> Result<Option<T>, TriplesConversionError>
     where
-        T: TryFrom<Value, Error = String>,
+        T: TryFrom<Value, Error = TriplesConversionError>,
     {
         self.0
             .remove(attribute_id)
             .map(|attr| {
                 attr.value
                     .try_into()
-                    .map_err(TriplesConversionError::InvalidValue)
             })
             .transpose()
     }
 
     pub fn get<T>(&self, attribute_id: &str) -> Result<T, TriplesConversionError>
     where
-        T: TryFrom<Value, Error = String>,
+        T: TryFrom<Value, Error = TriplesConversionError>,
     {
         self.0
             .get(attribute_id)
@@ -64,12 +62,11 @@ impl Attributes {
             .value
             .clone()
             .try_into()
-            .map_err(TriplesConversionError::InvalidValue)
     }
 
     pub fn get_opt<T>(&self, attribute_id: &str) -> Result<Option<T>, TriplesConversionError>
     where
-        T: TryFrom<Value, Error = String>,
+        T: TryFrom<Value, Error = TriplesConversionError>,
     {
         self.0
             .get(attribute_id)
@@ -77,7 +74,6 @@ impl Attributes {
                 attr.value
                     .clone()
                     .try_into()
-                    .map_err(TriplesConversionError::InvalidValue)
             })
             .transpose()
     }

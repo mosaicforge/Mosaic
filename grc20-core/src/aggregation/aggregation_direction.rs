@@ -3,3 +3,4 @@ pub enum AggregationDirection {
     Down,
     Bidirectional,
 }
+

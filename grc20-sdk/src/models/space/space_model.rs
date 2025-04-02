@@ -7,9 +7,7 @@ use grc20_core::{
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
-        entity, entity_node, prop_filter,
-        query_utils::{AttributeFilter, PropFilter, Query, QueryStream},
-        relation, Entity, EntityNode, Relation, Value,
+        entity, entity_node, prop_filter, query_utils::{AttributeFilter, PropFilter, Query, QueryStream}, relation, Entity, EntityNode, Relation, TriplesConversionError, Value
     },
     neo4rs, network_ids, system_ids,
 };
@@ -240,16 +238,16 @@ impl From<SpaceGovernanceType> for Value {
 }
 
 impl TryFrom<Value> for SpaceGovernanceType {
-    type Error = String;
+    type Error = TriplesConversionError;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
         match value.value.as_str() {
             "Public" => Ok(SpaceGovernanceType::Public),
             "Personal" => Ok(SpaceGovernanceType::Personal),
-            _ => Err(format!(
+            _ => Err(TriplesConversionError::InvalidValue(format!(
                 "Invalid SpaceGovernanceType value: {}",
                 value.value
-            )),
+            ))),
         }
     }
 }

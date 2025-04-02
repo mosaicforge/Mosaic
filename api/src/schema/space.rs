@@ -247,7 +247,7 @@ impl Space {
         Ok(query
             .send()
             .await?
-            .and_then(|space_id| Space::load(&executor.context().0, space_id))
+            .and_then(|(space_id, _)| Space::load(&executor.context().0, space_id))
             .filter_map(|space| async move { space.transpose() })
             .try_collect::<Vec<_>>()
             .await?)

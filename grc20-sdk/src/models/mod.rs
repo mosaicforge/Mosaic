@@ -3,6 +3,7 @@ pub mod cursor;
 pub mod edit;
 pub mod editor;
 pub mod member;
+pub mod property;
 pub mod proposal;
 pub mod space;
 pub mod vote;

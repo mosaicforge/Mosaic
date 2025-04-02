@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use neo4rs::BoltType;
 use serde::Deserialize;
 
-use super::{Triple, Value};
+use super::{Triple, TriplesConversionError, Value};
 
 /// Neo4j model of an entity Attribute
 #[derive(Clone, Debug, Deserialize, PartialEq)]
@@ -92,7 +92,7 @@ where
 }
 
 impl TryFrom<AttributeNode> for String {
-    type Error = String;
+    type Error = TriplesConversionError;
 
     fn try_from(attr: AttributeNode) -> Result<Self, Self::Error> {
         attr.value.try_into()
@@ -100,7 +100,7 @@ impl TryFrom<AttributeNode> for String {
 }
 
 impl TryFrom<AttributeNode> for i64 {
-    type Error = String;
+    type Error = TriplesConversionError;
 
     fn try_from(attr: AttributeNode) -> Result<Self, Self::Error> {
         attr.value.try_into()
@@ -108,7 +108,7 @@ impl TryFrom<AttributeNode> for i64 {
 }
 
 impl TryFrom<AttributeNode> for u64 {
-    type Error = String;
+    type Error = TriplesConversionError;
 
     fn try_from(attr: AttributeNode) -> Result<Self, Self::Error> {
         attr.value.try_into()
@@ -116,7 +116,7 @@ impl TryFrom<AttributeNode> for u64 {
 }
 
 impl TryFrom<AttributeNode> for f64 {
-    type Error = String;
+    type Error = TriplesConversionError;
 
     fn try_from(attr: AttributeNode) -> Result<Self, Self::Error> {
         attr.value.try_into()
@@ -124,7 +124,7 @@ impl TryFrom<AttributeNode> for f64 {
 }
 
 impl TryFrom<AttributeNode> for bool {
-    type Error = String;
+    type Error = TriplesConversionError;
 
     fn try_from(attr: AttributeNode) -> Result<Self, Self::Error> {
         attr.value.try_into()
@@ -132,7 +132,7 @@ impl TryFrom<AttributeNode> for bool {
 }
 
 impl TryFrom<AttributeNode> for DateTime<Utc> {
-    type Error = String;
+    type Error = TriplesConversionError;
 
     fn try_from(attr: AttributeNode) -> Result<Self, Self::Error> {
         attr.value.try_into()
