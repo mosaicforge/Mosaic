@@ -277,7 +277,11 @@ impl FindManyQuery {
             .match_clause("(e:Entity)")
             .limit(self.limit);
 
-        query_part.merge_mut(self.filter.into_query_part("e"));
+        query_part.merge_mut(
+            self.filter
+                .space_id(self.space_id.clone())
+                .into_query_part("e")
+        );
 
         if let Some(order_by) = self.order_by {
             query_part.merge_mut(order_by.into_query_part("e"));

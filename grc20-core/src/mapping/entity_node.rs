@@ -357,15 +357,6 @@ impl EntityFilter {
     /// If a space_id is already set in a sub-filter, it will be overwritten.
     pub fn space_id(mut self, space_id: PropFilter<String>) -> Self {
         self.space_id = Some(space_id.clone());
-
-        for attribute in &mut self.attributes {
-            attribute.space_id_mut(space_id.clone());
-        }
-
-        if let Some(relations) = self.relations {
-            self.relations = Some(relations.with_space_id(space_id));
-        }
-
         self
     }
 
@@ -378,18 +369,24 @@ impl EntityFilter {
         }
 
         if self.attributes.is_empty() {
-            if let Some(space_id) = self.space_id {
+            if let Some(space_id) = &self.space_id {
                 query_part = query_part
                     .match_clause(format!("({node_var}) -[attribute:ATTRIBUTE]- (:Attribute)",))
-                    .merge(space_id.into_query_part("attribute", "space_id"));
+                    .merge(space_id.clone().into_query_part("attribute", "space_id"));
             }
         } else {
-            for attribute in self.attributes {
+            for mut attribute in self.attributes {
+                if let Some(space_id) = &self.space_id {
+                    attribute = attribute.space_id(space_id.clone());
+                }
                 query_part.merge_mut(attribute.into_query_part(&node_var));
             }
         }
 
-        if let Some(relations) = self.relations {
+        if let Some(mut relations) = self.relations {
+            if let Some(space_id) = &self.space_id {
+                relations = relations.space_id(space_id.clone());
+            }
             query_part.merge_mut(relations.into_query_part(node_var));
         }
 
@@ -404,6 +401,7 @@ impl EntityFilter {
 pub struct EntityRelationFilter {
     relation_type: Option<EdgeFilter>,
     to_id: Option<EdgeFilter>,
+    space_id: Option<PropFilter<String>>,
     space_version: Option<String>,
 }
 
@@ -415,6 +413,11 @@ impl EntityRelationFilter {
 
     pub fn to_id(mut self, to_id: EdgeFilter) -> Self {
         self.to_id = Some(to_id);
+        self
+    }
+
+    pub fn space_id(mut self, space_id: PropFilter<String>) -> Self {
+        self.space_id = Some(space_id);
         self
     }
 
@@ -450,7 +453,11 @@ impl EntityRelationFilter {
                 FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE
             ));
 
-            if let Some(relation_type) = self.relation_type {
+            if let Some(mut relation_type) = self.relation_type {
+                if let Some(space_id) = &self.space_id {
+                    relation_type = relation_type.space_id(space_id.clone());
+                }
+
                 query_part.merge_mut(relation_type.into_query_part(
                     &rel_node_var,
                     system_ids::RELATION_TYPE_ATTRIBUTE,
@@ -458,7 +465,11 @@ impl EntityRelationFilter {
                 ));
             }
 
-            if let Some(to_id) = self.to_id {
+            if let Some(mut to_id) = self.to_id {
+                if let Some(space_id) = self.space_id {
+                    to_id = to_id.space_id(space_id);
+                }
+
                 query_part.merge_mut(to_id.into_query_part(
                     &rel_node_var,
                     system_ids::RELATION_TO_ATTRIBUTE,

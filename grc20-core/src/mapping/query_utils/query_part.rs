@@ -171,18 +171,18 @@ impl QueryPart {
             query.push('\n');
         }
 
-        if let Some((clause, other)) = &self.with_clauses {
-            query.push_str(&format!("WITH {clause}\n"));
-            query.push_str(&other.query());
-            query.push('\n');
+        if let Some(skip) = self.skip {
+            query.push_str(&format!("SKIP {}\n", skip));
         }
 
         if let Some(limit) = self.limit {
             query.push_str(&format!("LIMIT {}\n", limit));
         }
 
-        if let Some(skip) = self.skip {
-            query.push_str(&format!("SKIP {}\n", skip));
+        if let Some((clause, other)) = &self.with_clauses {
+            query.push_str(&format!("WITH {clause}\n"));
+            query.push_str(&other.query());
+            query.push('\n');
         }
 
         if !self.return_clauses.is_empty() {

@@ -1,32 +1,21 @@
 use futures::TryStreamExt;
+use grc20_core::{mapping::{entity_node, prop_filter, query_utils::QueryStream, triple, EntityNode, Query}, neo4rs, system_ids};
 use grc20_sdk::models::property;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
-use grc20_core::{
-    mapping::{
-        entity_node,
-        query_utils::{prop_filter, Query, QueryStream},
-        triple, EntityNode,
-    },
-    neo4rs, system_ids,
-};
+use crate::context::KnowledgeGraph;
 
-use crate::{
-    context::KnowledgeGraph,
-    schema::{Relation, Triple},
-};
-
-use super::{AttributeFilter, EntityRelationFilter, EntityVersion};
+use super::{AttributeFilter, Entity, EntityRelationFilter, EntityVersion, Relation, Triple};
 
 #[derive(Debug)]
-pub struct Entity {
+pub struct SchemaType {
     node: EntityNode,
     space_id: String,
     space_version: Option<String>,
     strict: bool,
 }
 
-impl Entity {
+impl SchemaType {
     pub fn new(node: EntityNode, space_id: String, space_version: Option<String>) -> Self {
         Self {
             node,
@@ -48,14 +37,14 @@ impl Entity {
         Ok(entity_node::find_one(neo4j, id)
             .send()
             .await?
-            .map(|node| Entity::new(node, space_id, space_version)))
+            .map(|node| SchemaType::new(node, space_id, space_version)))
     }
 }
 
 #[graphql_object]
 #[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
-/// Entity object
-impl Entity {
+/// SchemaType object
+impl SchemaType {
     /// Entity ID
     fn id(&self) -> &str {
         &self.node.id

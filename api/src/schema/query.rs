@@ -9,14 +9,14 @@ use grc20_core::{
         relation_node,
     },
 };
-use grc20_sdk::models::{account, space};
+use grc20_sdk::models::{account, property, space};
 
 use crate::{
     context::KnowledgeGraph,
     schema::{Account, AccountFilter, Entity, Relation, RelationFilter, Space, SpaceFilter},
 };
 
-use super::{entity_order_by::OrderDirection, EntityFilter};
+use super::{entity_order_by::OrderDirection, EntityFilter, Triple};
 
 #[derive(Clone)]
 pub struct RootQuery;
@@ -132,8 +132,10 @@ impl RootQuery {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         where_: Option<AccountFilter>,
-        first: Option<i32>,
-        skip: Option<i32>,
+        #[graphql(default = 100)]
+        first: i32,
+        #[graphql(default = 0)]
+        skip: i32,
     ) -> FieldResult<Vec<Account>> {
         let mut query = account::find_many(&executor.context().0, indexer_ids::INDEXER_SPACE_ID);
 
@@ -145,18 +147,13 @@ impl RootQuery {
             }
         }
 
-        if let Some(first) = first {
-            if first > 1000 {
-                return Err("Cannot query more than 1000 accounts at once".into());
-            }
-            query = query.limit(first as usize);
-        }
-
-        if let Some(skip) = skip {
-            query = query.skip(skip as usize);
+        if first > 1000 {
+            return Err("Cannot query more than 1000 relations at once".into());
         }
 
         Ok(query
+            .limit(first as usize)
+            .skip(skip as usize)
             .send()
             .await?
             .map_ok(Account::new)
@@ -189,8 +186,10 @@ impl RootQuery {
         order_by: Option<String>,
         order_direction: Option<OrderDirection>,
         r#where: Option<EntityFilter>,
-        first: Option<i32>,
-        skip: Option<i32>,
+        #[graphql(default = 100)]
+        first: i32,
+        #[graphql(default = 0)]
+        skip: i32,
     ) -> FieldResult<Vec<Entity>> {
         let mut query = entity_node::find_many(&executor.context().0);
 
@@ -211,18 +210,13 @@ impl RootQuery {
             _ => {}
         }
 
-        if let Some(first) = first {
-            if first > 1000 {
-                return Err("Cannot query more than 1000 entities at once".into());
-            }
-            query = query.limit(first as usize);
-        }
-
-        if let Some(skip) = skip {
-            query = query.skip(skip as usize);
+        if first > 1000 {
+            return Err("Cannot query more than 1000 relations at once".into());
         }
 
         Ok(query
+            .limit(first as usize)
+            .skip(skip as usize)
             .send()
             .await?
             .map_ok(|entity| Entity::new(entity, space_id.clone(), None))
@@ -257,8 +251,10 @@ impl RootQuery {
         _order_by: Option<String>,
         _order_direction: Option<OrderDirection>,
         r#where: Option<RelationFilter>,
-        first: Option<i32>,
-        skip: Option<i32>,
+        #[graphql(default = 100)]
+        first: i32,
+        #[graphql(default = 0)]
+        skip: i32,
     ) -> FieldResult<Vec<Relation>> {
         let mut query = relation_node::find_many(&executor.context().0);
 
@@ -266,22 +262,47 @@ impl RootQuery {
             query = r#where.apply_filter(query);
         }
 
-        if let Some(first) = first {
-            if first > 1000 {
-                return Err("Cannot query more than 1000 relations at once".into());
-            }
-            query = query.limit(first as usize);
-        }
-
-        if let Some(skip) = skip {
-            query = query.skip(skip as usize);
+        if first > 1000 {
+            return Err("Cannot query more than 1000 relations at once".into());
         }
 
         Ok(query
+            .limit(first as usize)
+            .skip(skip as usize)
             .send()
             .await?
             .map_ok(|relation| Relation::new(relation, space_id.clone(), None))
             .try_collect::<Vec<_>>()
             .await?)
+    }
+
+    /// Returns a single triple identified by its entity ID, attribute ID, space ID and
+    /// optional version ID
+    async fn triple<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        entity_id: String,
+        attribute_id: String,
+        space_id: String,
+        version_id: Option<String>,
+        #[graphql(default = true)]
+        strict: bool,
+    ) -> FieldResult<Option<Triple>> {
+        let version_index = if let Some(version_id) = version_id {
+            mapping::get_version_index(&executor.context().0, version_id).await?
+        } else {
+            None
+        };
+
+        Ok(property::get_triple(
+            &executor.context().0,
+            &attribute_id,
+            &entity_id,
+            &space_id,
+            version_index.clone(),
+            strict,
+        )
+        .await?
+        .map(|triple| Triple::new(triple, space_id, version_index)))
     }
 }

@@ -102,16 +102,32 @@ async fn attribute_aggregation_direction(
     Ok(None)
 }
 
-async fn get_triple(
+// TODO: Find a better place for this function
+pub async fn get_triple(
     neo4j: &neo4rs::Graph,
     attribute_id: impl Into<String>,
     entity_id: impl Into<String>,
     space_id: impl Into<String>,
     space_version: Option<String>,
+    strict: bool,
 ) -> Result<Option<triple::Triple>, DatabaseError> {
     let space_id = space_id.into();
     let entity_id = entity_id.into();
     let attribute_id = attribute_id.into();
+
+    if strict {
+        let maybe_triple = triple::find_one(
+            neo4j,
+            &attribute_id,
+            &entity_id,
+            &space_id,
+            space_version.clone(),
+        )
+        .send()
+        .await?;
+
+        return Ok(maybe_triple);
+    }
 
     match attribute_aggregation_direction(neo4j, &space_id, &attribute_id).await? {
         Some(AggregationDirection::Up) => {

@@ -8,9 +8,11 @@ pub mod entity_version;
 pub mod query;
 pub mod relation;
 pub mod relation_filter;
+pub mod schema_type;
 pub mod space;
 pub mod space_filter;
 pub mod triple;
+pub mod triple_filter;
 
 pub use account::Account;
 pub use account_filter::AccountFilter;
