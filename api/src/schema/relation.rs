@@ -14,14 +14,16 @@ pub struct Relation {
     node: RelationNode,
     space_id: String,
     space_version: Option<String>,
+    strict: bool,
 }
 
 impl Relation {
-    pub fn new(node: RelationNode, space_id: String, space_version: Option<String>) -> Self {
+    pub fn new(node: RelationNode, space_id: String, space_version: Option<String>, strict: bool) -> Self {
         Self {
             node,
             space_id,
             space_version,
+            strict,
         }
     }
 
@@ -30,6 +32,7 @@ impl Relation {
         id: impl Into<String>,
         space_id: impl Into<String>,
         space_version: Option<String>,
+        strict: bool,
     ) -> FieldResult<Option<Self>> {
         let id = id.into();
         let space_id = space_id.into();
@@ -38,7 +41,7 @@ impl Relation {
             relation_node::find_one(neo4j, id, space_id.clone(), space_version.clone())
                 .send()
                 .await?
-                .map(|node| Relation::new(node, space_id, space_version)),
+                .map(|node| Relation::new(node, space_id, space_version, strict)),
         )
     }
 }
@@ -62,6 +65,7 @@ impl Relation {
             &self.node.id,
             self.space_id.clone(),
             self.space_version.clone(),
+            self.strict,
         )
         .await?
         .expect("Relation entity not found"))
@@ -77,6 +81,7 @@ impl Relation {
             &self.node.relation_type,
             self.space_id.clone(),
             self.space_version.clone(),
+            self.strict,
         )
         .await?
         .expect("Relation type entity not found"))
@@ -92,6 +97,7 @@ impl Relation {
             &self.node.from,
             self.space_id.clone(),
             self.space_version.clone(),
+            self.strict,
         )
         .await?
         .expect("Relation from entity not found"))
@@ -107,6 +113,7 @@ impl Relation {
             &self.node.to,
             self.space_id.clone(),
             self.space_version.clone(),
+            self.strict,
         )
         .await?
         .expect("Relation to entity not found"))

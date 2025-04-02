@@ -39,8 +39,10 @@ impl RootQuery {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         where_: Option<SpaceFilter>,
-        first: Option<i32>,
-        skip: Option<i32>,
+        #[graphql(default = 100)]
+        first: i32,
+        #[graphql(default = 0)]
+        skip: i32,
     ) -> FieldResult<Vec<Space>> {
         let mut query = space::find_many(&executor.context().0, indexer_ids::INDEXER_SPACE_ID);
 
@@ -84,18 +86,13 @@ impl RootQuery {
             }
         }
 
-        if let Some(first) = first {
-            if first > 1000 {
-                return Err("Cannot query more than 1000 spaces at once".into());
-            }
-            query = query.limit(first as usize);
-        }
-
-        if let Some(skip) = skip {
-            query = query.skip(skip as usize);
+        if first > 1000 {
+            return Err("Cannot query more than 1000 relations at once".into());
         }
 
         Ok(query
+            .limit(first as usize)
+            .skip(skip as usize)
             .send()
             .await?
             .map_ok(Space::new)
@@ -167,6 +164,8 @@ impl RootQuery {
         id: String,
         space_id: String,
         version_id: Option<String>,
+        #[graphql(default = true)]
+        strict: bool,
     ) -> FieldResult<Option<Entity>> {
         let version_index = if let Some(version_id) = version_id {
             mapping::get_version_index(&executor.context().0, version_id).await?
@@ -174,7 +173,7 @@ impl RootQuery {
             None
         };
 
-        Entity::load(&executor.context().0, id, space_id, version_index).await
+        Entity::load(&executor.context().0, id, space_id, version_index, strict).await
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -190,6 +189,8 @@ impl RootQuery {
         first: i32,
         #[graphql(default = 0)]
         skip: i32,
+        #[graphql(default = true)]
+        strict: bool,
     ) -> FieldResult<Vec<Entity>> {
         let mut query = entity_node::find_many(&executor.context().0);
 
@@ -219,7 +220,7 @@ impl RootQuery {
             .skip(skip as usize)
             .send()
             .await?
-            .map_ok(|entity| Entity::new(entity, space_id.clone(), None))
+            .map_ok(|entity| Entity::new(entity, space_id.clone(), None, strict))
             .try_collect::<Vec<_>>()
             .await?)
     }
@@ -231,6 +232,8 @@ impl RootQuery {
         id: String,
         space_id: String,
         version_id: Option<String>,
+        #[graphql(default = true)]
+        strict: bool,
     ) -> FieldResult<Option<Relation>> {
         let version_index = if let Some(version_id) = version_id {
             mapping::get_version_index(&executor.context().0, version_id).await?
@@ -238,7 +241,7 @@ impl RootQuery {
             None
         };
 
-        Relation::load(&executor.context().0, id, space_id, version_index).await
+        Relation::load(&executor.context().0, id, space_id, version_index, strict).await
     }
 
     // TODO: Add order_by and order_direction
@@ -255,6 +258,8 @@ impl RootQuery {
         first: i32,
         #[graphql(default = 0)]
         skip: i32,
+        #[graphql(default = true)]
+        strict: bool,
     ) -> FieldResult<Vec<Relation>> {
         let mut query = relation_node::find_many(&executor.context().0);
 
@@ -271,7 +276,7 @@ impl RootQuery {
             .skip(skip as usize)
             .send()
             .await?
-            .map_ok(|relation| Relation::new(relation, space_id.clone(), None))
+            .map_ok(|relation| Relation::new(relation, space_id.clone(), None, strict))
             .try_collect::<Vec<_>>()
             .await?)
     }

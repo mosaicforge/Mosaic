@@ -14,7 +14,7 @@ use grc20_sdk::models::{space, Space as SdkSpace};
 
 use crate::context::KnowledgeGraph;
 
-use super::{Account, Entity};
+use super::{SchemaType, Account};
 
 pub struct Space {
     entity: mapping::Entity<SdkSpace>,
@@ -143,23 +143,20 @@ impl Space {
     async fn members<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-        first: Option<i32>,
-        skip: Option<i32>,
+        #[graphql(default = 100)]
+        first: i32,
+        #[graphql(default = 0)]
+        skip: i32,
     ) -> FieldResult<Vec<super::Account>> {
-        let mut query = SdkSpace::members(&executor.context().0, &self.entity.id);
+        let query = SdkSpace::members(&executor.context().0, &self.entity.id);
 
-        if let Some(first) = first {
-            if first > 1000 {
-                return Err("Cannot query more than 1000 members at once".into());
-            }
-            query = query.limit(first as usize);
-        }
-
-        if let Some(skip) = skip {
-            query = query.skip(skip as usize);
+        if first > 1000 {
+            return Err("Cannot query more than 1000 relations at once".into());
         }
 
         Ok(query
+            .limit(first as usize)
+            .skip(skip as usize)
             .send()
             .await?
             .map_ok(Account::new)
@@ -171,23 +168,20 @@ impl Space {
     async fn editors<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-        first: Option<i32>,
-        skip: Option<i32>,
+        #[graphql(default = 100)]
+        first: i32,
+        #[graphql(default = 0)]
+        skip: i32,
     ) -> FieldResult<Vec<super::Account>> {
-        let mut query = SdkSpace::editors(&executor.context().0, &self.entity.id);
+        let query = SdkSpace::editors(&executor.context().0, &self.entity.id);
 
-        if let Some(first) = first {
-            if first > 1000 {
-                return Err("Cannot query more than 1000 editors at once".into());
-            }
-            query = query.limit(first as usize);
-        }
-
-        if let Some(skip) = skip {
-            query = query.skip(skip as usize);
+        if first > 1000 {
+            return Err("Cannot query more than 1000 relations at once".into());
         }
 
         Ok(query
+            .limit(first as usize)
+            .skip(skip as usize)
             .send()
             .await?
             .map_ok(Account::new)
@@ -199,23 +193,20 @@ impl Space {
     async fn parent_spaces<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-        first: Option<i32>,
-        skip: Option<i32>,
+        #[graphql(default = 100)]
+        first: i32,
+        #[graphql(default = 0)]
+        skip: i32,
     ) -> FieldResult<Vec<Space>> {
-        let mut query = SdkSpace::parent_spaces(&executor.context().0, &self.entity.id);
+        let query = SdkSpace::parent_spaces(&executor.context().0, &self.entity.id);
 
-        if let Some(first) = first {
-            if first > 1000 {
-                return Err("Cannot query more than 1000 parent spaces at once".into());
-            }
-            query = query.limit(first as usize);
-        }
-
-        if let Some(skip) = skip {
-            query = query.skip(skip as usize);
+        if first > 1000 {
+            return Err("Cannot query more than 1000 relations at once".into());
         }
 
         Ok(query
+            .limit(first as usize)
+            .skip(skip as usize)
             .send()
             .await?
             .and_then(|(space_id, _)| Space::load(&executor.context().0, space_id))
@@ -228,23 +219,20 @@ impl Space {
     async fn subspaces<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-        first: Option<i32>,
-        skip: Option<i32>,
+        #[graphql(default = 100)]
+        first: i32,
+        #[graphql(default = 0)]
+        skip: i32,
     ) -> FieldResult<Vec<Space>> {
-        let mut query = SdkSpace::subspaces(&executor.context().0, &self.entity.id);
+        let query = SdkSpace::subspaces(&executor.context().0, &self.entity.id);
 
-        if let Some(first) = first {
-            if first > 1000 {
-                return Err("Cannot query more than 1000 subspaces at once".into());
-            }
-            query = query.limit(first as usize);
-        }
-
-        if let Some(skip) = skip {
-            query = query.skip(skip as usize);
+        if first > 1000 {
+            return Err("Cannot query more than 1000 relations at once".into());
         }
 
         Ok(query
+            .limit(first as usize)
+            .skip(skip as usize)
             .send()
             .await?
             .and_then(|(space_id, _)| Space::load(&executor.context().0, space_id))
@@ -256,19 +244,22 @@ impl Space {
     async fn types<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-        strict: Option<bool>,
-        first: Option<i32>,
-        skip: Option<i32>,
-    ) -> FieldResult<Vec<Entity>> {
+        #[graphql(default = 100)]
+        first: i32,
+        #[graphql(default = 0)]
+        skip: i32,
+        #[graphql(default = true)]
+        strict: bool,
+    ) -> FieldResult<Vec<SchemaType>> {
         let types = SdkSpace::types(&executor.context().0, &self.entity.id)
-            .strict(strict.unwrap_or(true))
-            .limit(first.unwrap_or(100) as usize)
-            .skip(skip.unwrap_or(0) as usize)
+            .strict(strict)
+            .limit(first as usize)
+            .skip(skip as usize)
             .send()
             .await?;
 
         Ok(types
-            .map_ok(|node| Entity::new(node, self.entity.id.clone(), None))
+            .map_ok(|node| SchemaType::new(node, self.entity.id.clone(), None, strict))
             .try_collect()
             .await?)
     }

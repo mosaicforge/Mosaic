@@ -55,17 +55,19 @@ impl QueryStream<EntityNode> for SpaceTypesQuery {
     async fn send(
         self,
     ) -> Result<impl Stream<Item = Result<EntityNode, DatabaseError>>, DatabaseError> {
-        let spaces = if self.strict {
-            vec![self.space_id.clone()]
-        } else {
-            ParentSpacesQuery::new(self.neo4j.clone(), self.space_id.clone())
+        let mut spaces = vec![self.space_id.clone()];
+        
+        if !self.strict {
+            let parent_spaces: Vec<String> = ParentSpacesQuery::new(self.neo4j.clone(), self.space_id.clone())
                 .max_depth(None)
                 .send()
                 .await?
                 .map_ok(|(space, _)| space)
                 .try_collect()
-                .await?
-        };
+                .await?;
+
+            spaces.extend(parent_spaces);
+        }
 
         // Find all entities that have a TYPES relation to the Type entity
         let mut query = entity_node::find_many(&self.neo4j)

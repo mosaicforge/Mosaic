@@ -291,7 +291,7 @@ impl FindManyQuery {
             query_part = query_part.skip(skip);
         }
 
-        query_part.with_clause("e", {
+        query_part.with_clause("DISTINCT e", {
             QueryPart::default()
                 .match_clause("(e) -[r:ATTRIBUTE]-> (n:Attribute)")
                 .merge(self.space_id.into_query_part("r", "space_id"))

@@ -271,7 +271,7 @@ impl FindManyQuery {
     fn into_query_part(self) -> QueryPart {
         let mut query_part = QueryPart::default()
             .match_clause("(e:Entity)")
-            .return_clause("e")
+            .return_clause("DISTINCT e")
             .limit(self.limit);
 
         query_part.merge_mut(self.filter.into_query_part("e"));

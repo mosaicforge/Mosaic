@@ -1,17 +1,17 @@
-use futures::TryStreamExt;
-use grc20_core::{mapping::{entity_node, prop_filter, query_utils::QueryStream, EntityNode}, system_ids};
+use futures::{pin_mut, TryStreamExt};
+use grc20_core::{mapping::{prop_filter, query_utils::QueryStream, EntityNode}, system_ids};
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use crate::context::KnowledgeGraph;
 
-use super::{AttributeFilter, Entity, EntityRelationFilter, EntityVersion, Property, Relation, Triple};
+use super::{AttributeFilter, Entity, EntityRelationFilter, EntityVersion, Relation, Triple};
 
 #[derive(Debug)]
-pub struct SchemaType {
+pub struct Property {
     entity: Entity,
 }
 
-impl SchemaType {
+impl Property {
     pub fn new(node: EntityNode, space_id: String, space_version: Option<String>, strict: bool) -> Self {
         Self {entity: Entity::new(
             node,
@@ -24,8 +24,7 @@ impl SchemaType {
 
 #[graphql_object]
 #[graphql(context = KnowledgeGraph, scalar = S: ScalarValue)]
-/// SchemaType object
-impl SchemaType {
+impl Property {
     /// Entity ID
     fn id(&self) -> &str {
         self.entity.id()
@@ -121,16 +120,12 @@ impl SchemaType {
         self.entity.versions(executor).await
     }
 
-    /// Properties of the Type
-    async fn properties<'a, S: ScalarValue>(
-        &self,
-        executor: &Executor<'_, '_, KnowledgeGraph, S>,
-        #[graphql(default = 100)]
-        first: i32,
-        #[graphql(default = 0)]
-        skip: i32,
-    ) -> FieldResult<Vec<Property>> {
-        let properties = self
+    /// Value type of the property
+    async fn value_type<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> FieldResult<Option<Entity>> {
+        let value_type = self
             .entity
             .node
             .get_outbound_relations(
@@ -138,22 +133,58 @@ impl SchemaType {
                 self.space_id(),
                 self.entity.space_version.clone(),
             )
-            .relation_type(prop_filter::value(system_ids::PROPERTIES))
-            .limit(first as usize)
-            .skip(skip as usize)
+            .relation_type(prop_filter::value(system_ids::VALUE_TYPE_ATTRIBUTE))
+            .limit(1)
             .send()
-            .await?
-            .try_collect::<Vec<_>>()
             .await?;
 
-        Ok(entity_node::find_many(&executor.context().0)
-            .id(prop_filter::value_in(
-                properties.into_iter().map(|rel| rel.to).collect(),
-            ))
-            .send()
-            .await?
-            .map_ok(|node| Property::new(node, self.space_id().to_string(), self.entity.space_version.clone(), self.entity.strict))
-            .try_collect::<Vec<_>>()
+        pin_mut!(value_type);
+
+        if let Some(value_type) = value_type.try_next().await? {
+            Ok(Entity::load(
+                &executor.context().0,
+                &value_type.to,
+                self.space_id().to_string(),
+                self.entity.space_version.clone(),
+                self.entity.strict,
+            )
             .await?)
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Value type of the property
+    async fn relation_value_type<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> FieldResult<Option<Entity>> {
+        let rel_value_type = self
+            .entity
+            .node
+            .get_outbound_relations(
+                &executor.context().0,
+                self.space_id(),
+                self.entity.space_version.clone(),
+            )
+            .relation_type(prop_filter::value(system_ids::RELATION_VALUE_RELATIONSHIP_TYPE))
+            .limit(1)
+            .send()
+            .await?;
+
+        pin_mut!(rel_value_type);
+
+        if let Some(value_type) = rel_value_type.try_next().await? {
+            Ok(Entity::load(
+                &executor.context().0,
+                &value_type.to,
+                self.space_id().to_string(),
+                self.entity.space_version.clone(),
+                self.entity.strict,
+            )
+            .await?)
+        } else {
+            Ok(None)
+        }
     }
 }
