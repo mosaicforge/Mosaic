@@ -1,5 +1,5 @@
-use futures::{pin_mut, TryStreamExt};
-use grc20_core::{mapping::{prop_filter, query_utils::QueryStream, EntityNode}, system_ids};
+use futures::TryStreamExt;
+use grc20_core::{mapping::EntityNode, system_ids};
 use grc20_sdk::models::property;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
@@ -149,11 +149,11 @@ impl Property {
             Some(1),
             None,
             self.entity.strict,
-        ).await?;
+        ).await?
+        .try_collect::<Vec<_>>()
+        .await?;
 
-        pin_mut!(value_type);
-
-        if let Some(value_type) = value_type.try_next().await? {
+        if let Some(value_type) = value_type.first() {
             Ok(Entity::load(
                 &executor.context().0,
                 &value_type.to,
@@ -195,11 +195,13 @@ impl Property {
             Some(1),
             None,
             self.entity.strict,
-        ).await?;
+        ).await?
+        .try_collect::<Vec<_>>()
+        .await?;
 
-        pin_mut!(rel_value_type);
+        // pin_mut!(rel_value_type);
 
-        if let Some(value_type) = rel_value_type.try_next().await? {
+        if let Some(value_type) = rel_value_type.first() {
             Ok(Entity::load(
                 &executor.context().0,
                 &value_type.to,

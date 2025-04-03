@@ -1,5 +1,5 @@
 use grc20_core::{
-    mapping::{triple, Attributes, FromAttributes, IntoAttributes, PropFilter},
+    mapping::{triple, Attributes, FromAttributes, IntoAttributes, PropFilter, Query, QueryStream},
     neo4rs, system_ids,
 };
 

@@ -52,6 +52,9 @@ pub fn entity(_args: TokenStream, input: TokenStream) -> TokenStream {
         }
     }
 
+    // let struct_name = input.ident.clone();
+    // let snake_case_name = syn::Ident::new(&stringcase::snake_case(&input.ident.to_string()), input.ident.span());
+
     let _impl_builder = entity::generate_builder_impl(&opts);
 
     quote! {
@@ -60,7 +63,13 @@ pub fn entity(_args: TokenStream, input: TokenStream) -> TokenStream {
 
         #impl_from_attributes
         #impl_into_attributes
+
+        // pub mod #snake_case_name {
+        //     use super::*;
+        //     #impl_query
+        // }
         #impl_query
+
         // #impl_builder
     }
     .into()

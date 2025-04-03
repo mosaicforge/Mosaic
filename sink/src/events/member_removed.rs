@@ -1,5 +1,5 @@
 use grc20_core::{block::BlockMetadata, pb::geo};
-use grc20_sdk::models::{Account, Space, SpaceMember};
+use grc20_sdk::models::{account, Space, SpaceMember};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -16,7 +16,7 @@ impl EventHandler {
             SpaceMember::remove(
                 &self.neo4j,
                 block,
-                &Account::gen_id(&member_removed.member_address),
+                &account::gen_id(&member_removed.member_address),
                 &space.id,
             )
             .await?;

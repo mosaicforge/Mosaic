@@ -4,7 +4,7 @@ use grc20_core::{
     mapping::{entity_node, query_utils::Query},
     pb::geo,
 };
-use grc20_sdk::models::{Account, Proposal, VoteCast};
+use grc20_sdk::models::{account, Proposal, VoteCast};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -97,7 +97,7 @@ impl EventHandler {
             .send()
             .await?;
 
-        let maybe_account = entity_node::find_one(&self.neo4j, Account::gen_id(&vote.voter))
+        let maybe_account = entity_node::find_one(&self.neo4j, account::gen_id(&vote.voter))
             .send()
             .await?;
 

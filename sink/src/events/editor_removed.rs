@@ -1,5 +1,5 @@
 use grc20_core::{block::BlockMetadata, pb::geo};
-use grc20_sdk::models::{Account, Space, SpaceEditor};
+use grc20_sdk::models::{account, Space, SpaceEditor};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -16,7 +16,7 @@ impl EventHandler {
             SpaceEditor::remove(
                 &self.neo4j,
                 block,
-                &Account::gen_id(&editor_removed.editor_address),
+                &account::gen_id(&editor_removed.editor_address),
                 &space.id,
             )
             .await?;

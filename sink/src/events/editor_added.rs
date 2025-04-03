@@ -1,5 +1,5 @@
 use grc20_core::{block::BlockMetadata, indexer_ids, mapping::query_utils::Query, pb::geo};
-use grc20_sdk::models::{Account, Space, SpaceEditor};
+use grc20_sdk::models::{account, Space, SpaceEditor};
 
 use web3_utils::checksum_address;
 
@@ -15,7 +15,7 @@ impl EventHandler {
             Space::find_entity_by_dao_address(&self.neo4j, &editor_added.dao_address).await?
         {
             // Create editor account and space editor relation
-            let editor = Account::new(editor_added.editor_address.clone());
+            let editor = account::new(editor_added.editor_address.clone());
             let editor_relation = SpaceEditor::new(&editor.id, &space.id);
 
             // Insert editor account

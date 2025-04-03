@@ -1,7 +1,7 @@
 use grc20_core::{
     ids, indexer_ids,
     mapping::{Entity, Relation},
-    neo4rs, system_ids,
+    system_ids,
 };
 
 #[grc20_core::entity]

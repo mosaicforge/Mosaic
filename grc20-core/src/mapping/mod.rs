@@ -18,7 +18,7 @@ pub use entity::Entity;
 pub use entity_node::{EntityFilter, EntityNode};
 pub use entity_version::EntityVersion;
 pub use error::TriplesConversionError;
-pub use query_utils::{order_by, prop_filter, AttributeFilter, PropFilter, Query};
+pub use query_utils::{order_by, prop_filter, AttributeFilter, PropFilter, Query, QueryStream};
 pub use relation::Relation;
 pub use relation_node::RelationNode;
 pub use triple::Triple;

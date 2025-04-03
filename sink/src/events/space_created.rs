@@ -5,7 +5,7 @@ use grc20_core::{
     network_ids,
     pb::{self, geo},
 };
-use grc20_sdk::models::{Account, Space, SpaceGovernanceType};
+use grc20_sdk::models::{account, Space, SpaceGovernanceType};
 
 use web3_utils::checksum_address;
 
@@ -112,7 +112,7 @@ impl EventHandler {
                 .await?;
 
             // Add initial editors to the personal space
-            let editor = Account::new(personal_space_created.initial_editor.clone());
+            let editor = account::new(personal_space_created.initial_editor.clone());
 
             editor
                 .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
@@ -124,7 +124,7 @@ impl EventHandler {
                 block.block_number,
                 block.timestamp,
                 space.id,
-                Account::gen_id(&personal_space_created.initial_editor),
+                account::gen_id(&personal_space_created.initial_editor),
             );
         } else {
             tracing::warn!(

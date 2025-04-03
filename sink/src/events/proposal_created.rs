@@ -8,7 +8,7 @@ use grc20_core::{
 };
 use grc20_sdk::models::{
     proposal::{ProposalStatus, ProposedAccount, ProposedSubspace},
-    Account, AddEditorProposal, AddMemberProposal, AddSubspaceProposal, EditProposal, Proposal,
+    account, AddEditorProposal, AddMemberProposal, AddSubspaceProposal, EditProposal, Proposal,
     ProposalCreator, Proposals, RemoveEditorProposal, RemoveMemberProposal, RemoveSubspaceProposal,
     Space,
 };
@@ -23,8 +23,8 @@ impl EventHandler {
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space_id = Space::gen_id(network_ids::GEO, &add_member_proposal.dao_address);
-        let creator_id = Account::gen_id(&add_member_proposal.creator);
-        let proposed_account_id = Account::gen_id(&add_member_proposal.member);
+        let creator_id = account::gen_id(&add_member_proposal.creator);
+        let proposed_account_id = account::gen_id(&add_member_proposal.member);
 
         // Create proposal
         let proposal = AddMemberProposal::new(Proposal {
@@ -53,8 +53,8 @@ impl EventHandler {
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space_id = Space::gen_id(network_ids::GEO, &remove_member_proposal.dao_address);
-        let creator_id = Account::gen_id(&remove_member_proposal.creator);
-        let proposed_account_id = Account::gen_id(&remove_member_proposal.member);
+        let creator_id = account::gen_id(&remove_member_proposal.creator);
+        let proposed_account_id = account::gen_id(&remove_member_proposal.member);
 
         // Create proposal
         let proposal = RemoveMemberProposal::new(Proposal {
@@ -83,8 +83,8 @@ impl EventHandler {
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space_id = Space::gen_id(network_ids::GEO, &add_editor_proposal.dao_address);
-        let creator_id = Account::gen_id(&add_editor_proposal.creator);
-        let proposed_account_id = Account::gen_id(&add_editor_proposal.editor);
+        let creator_id = account::gen_id(&add_editor_proposal.creator);
+        let proposed_account_id = account::gen_id(&add_editor_proposal.editor);
 
         // Create proposal
         let proposal = AddEditorProposal::new(Proposal {
@@ -113,8 +113,8 @@ impl EventHandler {
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space_id = Space::gen_id(network_ids::GEO, &remove_editor_proposal.dao_address);
-        let creator_id = Account::gen_id(&remove_editor_proposal.creator);
-        let proposed_account_id = Account::gen_id(&remove_editor_proposal.editor);
+        let creator_id = account::gen_id(&remove_editor_proposal.creator);
+        let proposed_account_id = account::gen_id(&remove_editor_proposal.editor);
 
         // Create proposal
         let proposal = RemoveEditorProposal::new(Proposal {
@@ -143,7 +143,7 @@ impl EventHandler {
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space_id = Space::gen_id(network_ids::GEO, &add_subspace_proposal.dao_address);
-        let creator_id = Account::gen_id(&add_subspace_proposal.creator);
+        let creator_id = account::gen_id(&add_subspace_proposal.creator);
         let proposed_subspace_id = Space::gen_id(network_ids::GEO, &add_subspace_proposal.subspace);
 
         // Create proposal
@@ -173,7 +173,7 @@ impl EventHandler {
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space_id = Space::gen_id(network_ids::GEO, &remove_subspace_proposal.dao_address);
-        let creator_id = Account::gen_id(&remove_subspace_proposal.creator);
+        let creator_id = account::gen_id(&remove_subspace_proposal.creator);
         let proposed_subspace_id =
             Space::gen_id(network_ids::GEO, &remove_subspace_proposal.subspace);
 
@@ -204,7 +204,7 @@ impl EventHandler {
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space_id = Space::gen_id(network_ids::GEO, &publish_edit_proposal.dao_address);
-        let creator_id = Account::gen_id(&publish_edit_proposal.creator);
+        let creator_id = account::gen_id(&publish_edit_proposal.creator);
 
         let proposal = EditProposal::new(
             Proposal {
