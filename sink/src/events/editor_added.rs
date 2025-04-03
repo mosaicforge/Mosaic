@@ -16,7 +16,7 @@ impl EventHandler {
         {
             // Create editor account and space editor relation
             let editor = account::new(editor_added.editor_address.clone());
-            let editor_relation = SpaceEditor::new(&editor.id, &space.id);
+            let editor_relation = SpaceEditor::new(editor.id(), &space.id);
 
             // Insert editor account
             editor

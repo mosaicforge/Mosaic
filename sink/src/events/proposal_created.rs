@@ -218,7 +218,7 @@ impl EventHandler {
             publish_edit_proposal.content_uri.clone(),
         );
 
-        let proposal_id = proposal.id.clone();
+        let proposal_id = proposal.id().to_string();
 
         // Insert Proposal
         proposal
@@ -251,7 +251,7 @@ impl EventHandler {
         creator_id: &str,
         proposed_account_id: &str,
     ) -> Result<(), DatabaseError> {
-        let proposal_id = proposal.id.clone();
+        let proposal_id = proposal.id().to_string();
 
         // Insert Proposal
         proposal
@@ -286,7 +286,7 @@ impl EventHandler {
         creator_id: &str,
         proposed_subspace_id: &str,
     ) -> Result<(), DatabaseError> {
-        let proposal_id = proposal.id.clone();
+        let proposal_id = proposal.id().to_string();
 
         // Insert Proposal
         proposal

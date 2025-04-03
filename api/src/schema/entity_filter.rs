@@ -2,9 +2,7 @@ use juniper::GraphQLInputObject;
 
 use grc20_core::{
     mapping::{
-        entity_node::{self},
-        query_utils::{edge_filter::EdgeFilter, prop_filter, PropFilter},
-        relation_node,
+        self, query_utils::{edge_filter::EdgeFilter, prop_filter, PropFilter}, relation_node
     },
     system_ids,
 };
@@ -65,8 +63,8 @@ impl EntityFilter {
         filter
     }
 
-    fn types_filter(&self) -> entity_node::EntityRelationFilter {
-        let mut filter = entity_node::EntityRelationFilter::default();
+    fn types_filter(&self) -> mapping::EntityRelationFilter {
+        let mut filter = mapping::EntityRelationFilter::default();
 
         // if let Some(types) = &self.types {
         //     filter = filter.to_id(EdgeFilter::default().to_id(prop_filter::value_in(types.clone())));
@@ -97,10 +95,10 @@ impl EntityFilter {
     }
 }
 
-impl From<EntityFilter> for entity_node::EntityFilter {
+impl From<EntityFilter> for mapping::EntityFilter {
     fn from(filter: EntityFilter) -> Self {
         // TODO: Add types filter
-        entity_node::EntityFilter::default()
+        mapping::EntityFilter::default()
             .id(filter.id_filter())
             .relations(filter.types_filter())
             .attributes(

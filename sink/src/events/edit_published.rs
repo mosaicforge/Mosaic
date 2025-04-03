@@ -115,7 +115,7 @@ impl EventHandler {
                     name: edit.name,
                     content_uri: edit_published.content_uri.clone(),
                     proposal_id: edit.id,
-                    space_id: space.id.to_string(),
+                    space_id: space.id().to_string(),
                     space_plugin_address: space
                         .attributes
                         .space_plugin_address
@@ -129,7 +129,7 @@ impl EventHandler {
                 let import = deserialize::<pb::ipfs::Import>(&bytes)?;
                 stream::iter(import.edits)
                     .map(|edit_uri| {
-                        let space_id = space.id.clone();
+                        let space_id = space.id().to_string();
                         let space_plugin_address = space
                             .attributes
                             .space_plugin_address
@@ -244,7 +244,7 @@ impl EventHandler {
         space_id: &str,
         proposal_id: &str,
     ) -> Result<(), DatabaseError> {
-        let edit_id = edit.id.clone();
+        let edit_id = edit.id().to_string();
 
         // Insert edit
         edit.insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")

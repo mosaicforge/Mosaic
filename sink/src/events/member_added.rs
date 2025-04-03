@@ -50,7 +50,7 @@ impl EventHandler {
             space::find_entity_by_dao_address(&self.neo4j, &member_added.dao_address).await?
         {
             let member = account::new(member_added.member_address.clone());
-            let member_rel = SpaceMember::new(&member.id, &space.id);
+            let member_rel = SpaceMember::new(member.id(), &space.id);
 
             // Add geo account
             member

@@ -20,7 +20,7 @@ impl EventHandler {
                 .try_for_each(|editor_address| async move {
                     // Create editor account and relation
                     let editor = account::new(editor_address.clone());
-                    let editor_rel = SpaceEditor::new(&editor.id, &space.id);
+                    let editor_rel = SpaceEditor::new(editor.id(), &space.id);
 
                     // Insert editor account
                     editor

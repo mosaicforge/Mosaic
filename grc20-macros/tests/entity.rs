@@ -155,7 +155,7 @@ async fn test_find_one() {
         .expect("Failed to find entity")
         .expect("Entity not found");
 
-    assert_eq!(found_entity.id, "abc");
+    assert_eq!(found_entity.id(), "abc");
     assert_eq!(found_entity.attributes.name, person.name);
     assert_eq!(found_entity.attributes.nickname, person.nickname);
     assert_eq!(found_entity.attributes.age, person.age);
@@ -247,7 +247,7 @@ async fn test_find_many() {
         .expect("Failed to get next entity")
         .expect("Entity not found");
 
-    assert_eq!(found_entity.id, "abc");
+    assert_eq!(found_entity.id(), "abc");
     assert_eq!(found_entity.attributes.name, person.name);
     assert_eq!(found_entity.attributes.nickname, person.nickname);
     assert_eq!(found_entity.attributes.age, person.age);

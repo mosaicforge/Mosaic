@@ -33,7 +33,7 @@ impl Account {
 impl Account {
     /// Account ID
     fn id(&self) -> &str {
-        &self.entity.id
+        &self.entity.id()
     }
 
     /// Ethereum address of the account

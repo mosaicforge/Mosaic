@@ -3,7 +3,8 @@ use futures::{Stream, TryStreamExt};
 use grc20_core::{
     error::DatabaseError,
     mapping::{
-        entity_node::{self, EntityFilter},
+        EntityFilter,
+        entity_node,
         query_utils::{QueryStream, TypesFilter},
         EntityNode, PropFilter,
     },

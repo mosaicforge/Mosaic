@@ -1,4 +1,4 @@
-use crate::{mapping::entity_node::EntityRelationFilter, system_ids};
+use crate::{mapping::EntityRelationFilter, system_ids};
 
 use super::{prop_filter, EdgeFilter};
 

@@ -187,9 +187,9 @@ impl RootQuery {
         let mut query = entity_node::find_many(&executor.context().0);
 
         let entity_filter = if let Some(r#where) = r#where {
-            entity_node::EntityFilter::from(r#where).space_id(prop_filter::value(&space_id))
+            mapping::EntityFilter::from(r#where).space_id(prop_filter::value(&space_id))
         } else {
-            entity_node::EntityFilter::default().space_id(prop_filter::value(&space_id))
+            mapping::EntityFilter::default().space_id(prop_filter::value(&space_id))
         };
         query = query.with_filter(entity_filter);
 

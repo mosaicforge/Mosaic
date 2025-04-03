@@ -7,9 +7,9 @@ use serde::Deserialize;
 use crate::{block::BlockMetadata, error::DatabaseError, indexer_ids, pb, system_ids};
 
 use super::{
-    attributes, entity_node,
+    attributes, entity_node::{self, SystemProperties},
     query_utils::{PropFilter, Query, QueryPart, QueryStream, VersionFilter},
-    triple, AttributeNode, Attributes, Triple, Value,
+    triple, AttributeNode, Attributes, EntityFilter, Triple, Value,
 };
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
@@ -20,6 +20,10 @@ pub struct RelationNode {
     pub to: String,
     pub relation_type: String,
     pub index: AttributeNode,
+
+    /// System properties
+    #[serde(flatten)]
+    pub system_properties: SystemProperties,
 }
 
 impl RelationNode {
@@ -36,6 +40,7 @@ impl RelationNode {
             to: to.into(),
             relation_type: relation_type.into(),
             index: AttributeNode::new(system_ids::RELATION_INDEX, index),
+            system_properties: SystemProperties::default(),
         }
     }
 
@@ -132,6 +137,7 @@ impl From<pb::ipfs::Relation> for RelationNode {
             to: relation.to_entity,
             relation_type: relation.r#type,
             index: AttributeNode::new(system_ids::RELATION_INDEX, relation.index),
+            system_properties: SystemProperties::default(),
         }
     }
 }
@@ -635,7 +641,7 @@ impl FindOneQuery {
             .merge(self.space_version.clone().into_query_part("r_to"))
             .merge(self.space_version.clone().into_query_part("r_rt"))
             .merge(self.space_version.into_query_part("r_index"))
-            .return_clause("e{.id, from: from.id, to: to.id, relation_type: rt.id, index: index}")
+            .return_clause("e{.*, from: from.id, to: to.id, relation_type: rt.id, index: index}")
             .order_by_clause("index.value")
             .params("id", self.id)
             .params("space_id", self.space_id)
@@ -664,8 +670,8 @@ pub struct FindManyQuery {
     to_id: Option<PropFilter<String>>,
     relation_type: Option<PropFilter<String>>,
 
-    from_: Option<entity_node::EntityFilter>,
-    to_: Option<entity_node::EntityFilter>,
+    from_: Option<EntityFilter>,
+    to_: Option<EntityFilter>,
 
     space_id: Option<PropFilter<String>>,
     space_version: VersionFilter,
@@ -711,12 +717,12 @@ impl FindManyQuery {
         self
     }
 
-    pub fn from_(mut self, from_: entity_node::EntityFilter) -> Self {
+    pub fn from_(mut self, from_: EntityFilter) -> Self {
         self.from_ = Some(from_);
         self
     }
 
-    pub fn to_(mut self, to_: entity_node::EntityFilter) -> Self {
+    pub fn to_(mut self, to_: EntityFilter) -> Self {
         self.to_ = Some(to_);
         self
     }
@@ -763,7 +769,7 @@ impl FindManyQuery {
                 system_ids::RELATION_INDEX
             ))
             .merge(self.space_version.clone().into_query_part("r_index"))
-            .return_clause("e{.id, from: from.id, to: to.id, relation_type: rt.id, index: index}")
+            .return_clause("e{.*, from: from.id, to: to.id, relation_type: rt.id, index: index}")
             .order_by_clause("index.value")
             .limit(self.limit);
 
@@ -869,12 +875,20 @@ mod tests {
             .await
             .unwrap();
 
+        let block = &BlockMetadata::default();
+
         neo4j.run(neo4rs::query(&format!(
             r#"
             CREATE (alice:Entity {{id: "alice"}})
             CREATE (bob:Entity {{id: "bob"}})
             CREATE (knows:Entity {{id: "knows"}})
             CREATE (r:Entity:Relation {{id: "abc"}})
+            SET r += {{
+                `{CREATED_AT}`: datetime($block_timestamp),
+                `{CREATED_AT_BLOCK}`: $block_number,
+                `{UPDATED_AT}`: datetime($block_timestamp),
+                `{UPDATED_AT_BLOCK}`: $block_number
+            }}
             CREATE (r) -[:`{FROM_ENTITY}` {{space_id: "ROOT", min_version: "0"}}]-> (alice)
             CREATE (r) -[:`{TO_ENTITY}` {{space_id: "ROOT", min_version: "0"}}]-> (bob)
             CREATE (r) -[:`{RELATION_TYPE}` {{space_id: "ROOT", min_version: "0"}}]-> (knows)
@@ -884,7 +898,14 @@ mod tests {
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
             RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
             INDEX = system_ids::RELATION_INDEX,
-        )))
+            CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
+            CREATED_AT_BLOCK = indexer_ids::CREATED_AT_BLOCK,
+            UPDATED_AT = indexer_ids::UPDATED_AT_TIMESTAMP,
+            UPDATED_AT_BLOCK = indexer_ids::UPDATED_AT_BLOCK,
+        ))
+            .param("block_timestamp", block.timestamp.to_rfc3339())
+            .param("block_number", block.block_number.to_string())
+        )
             .await
             .expect("Failed to insert data");
 
@@ -969,6 +990,8 @@ mod tests {
             .await
             .unwrap();
 
+        let block = &BlockMetadata::default();
+
         neo4j.run(neo4rs::query(&format!(
             r#"
             CREATE (alice:Entity {{id: "alice"}})
@@ -976,11 +999,23 @@ mod tests {
             CREATE (charlie:Entity {{id: "charlie"}})
             CREATE (knows:Entity {{id: "knows"}})
             CREATE (r1:Entity:Relation {{id: "abc"}})
+            SET r1 += {{
+                `{CREATED_AT}`: datetime($block_timestamp),
+                `{CREATED_AT_BLOCK}`: $block_number,
+                `{UPDATED_AT}`: datetime($block_timestamp),
+                `{UPDATED_AT_BLOCK}`: $block_number
+            }}
             CREATE (r1) -[:`{FROM_ENTITY}` {{space_id: "ROOT", min_version: "0"}}]-> (alice)
             CREATE (r1) -[:`{TO_ENTITY}` {{space_id: "ROOT", min_version: "0"}}]-> (bob)
             CREATE (r1) -[:`{RELATION_TYPE}` {{space_id: "ROOT", min_version: "0"}}]-> (knows)
             CREATE (r1) -[:ATTRIBUTE {{space_id: "ROOT", min_version: "0"}}]-> (:Attribute {{id: "{INDEX}", value: "0", value_type: "TEXT"}})
             CREATE (r2:Entity:Relation {{id: "dev"}})
+            SET r2 += {{
+                `{CREATED_AT}`: datetime($block_timestamp),
+                `{CREATED_AT_BLOCK}`: $block_number,
+                `{UPDATED_AT}`: datetime($block_timestamp),
+                `{UPDATED_AT_BLOCK}`: $block_number
+            }}
             CREATE (r2) -[:`{FROM_ENTITY}` {{space_id: "ROOT", min_version: "0"}}]-> (alice)
             CREATE (r2) -[:`{TO_ENTITY}` {{space_id: "ROOT", min_version: "0"}}]-> (charlie)
             CREATE (r2) -[:`{RELATION_TYPE}` {{space_id: "ROOT", min_version: "0"}}]-> (knows)
@@ -990,7 +1025,14 @@ mod tests {
             TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
             RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
             INDEX = system_ids::RELATION_INDEX,
-        )))
+            CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
+            CREATED_AT_BLOCK = indexer_ids::CREATED_AT_BLOCK,
+            UPDATED_AT = indexer_ids::UPDATED_AT_TIMESTAMP,
+            UPDATED_AT_BLOCK = indexer_ids::UPDATED_AT_BLOCK,
+        ))
+            .param("block_timestamp", block.timestamp.to_rfc3339())
+            .param("block_number", block.block_number.to_string())
+        )
             .await
             .expect("Failed to insert data");
 

@@ -197,31 +197,29 @@ pub async fn find_by_personal_plugin_address(
     stream.next().await.transpose()
 }
 
-impl Space {
-    /// Find all members of a space
-    pub fn members(neo4j: &neo4rs::Graph, space_id: &str) -> SpaceMembersQuery {
-        SpaceMembersQuery::new(neo4j.clone(), space_id.to_string())
-    }
+/// Find all members of a space
+pub fn members(neo4j: &neo4rs::Graph, space_id: &str) -> SpaceMembersQuery {
+    SpaceMembersQuery::new(neo4j.clone(), space_id.to_string())
+}
 
-    /// Find all editors of a space
-    pub fn editors(neo4j: &neo4rs::Graph, space_id: &str) -> SpaceEditorsQuery {
-        SpaceEditorsQuery::new(neo4j.clone(), space_id.to_string())
-    }
+/// Find all editors of a space
+pub fn editors(neo4j: &neo4rs::Graph, space_id: &str) -> SpaceEditorsQuery {
+    SpaceEditorsQuery::new(neo4j.clone(), space_id.to_string())
+}
 
-    /// Find all parent spaces of a given space
-    pub fn parent_spaces(neo4j: &neo4rs::Graph, space_id: &str) -> ParentSpacesQuery {
-        ParentSpacesQuery::new(neo4j.clone(), space_id.to_string())
-    }
+/// Find all parent spaces of a given space
+pub fn parent_spaces(neo4j: &neo4rs::Graph, space_id: &str) -> ParentSpacesQuery {
+    ParentSpacesQuery::new(neo4j.clone(), space_id.to_string())
+}
 
-    /// Find all subspaces of a given space
-    pub fn subspaces(neo4j: &neo4rs::Graph, space_id: &str) -> SubspacesQuery {
-        SubspacesQuery::new(neo4j.clone(), space_id.to_string())
-    }
+/// Find all subspaces of a given space
+pub fn subspaces(neo4j: &neo4rs::Graph, space_id: &str) -> SubspacesQuery {
+    SubspacesQuery::new(neo4j.clone(), space_id.to_string())
+}
 
-    /// Find all types defined in a space
-    pub fn types(neo4j: &neo4rs::Graph, space_id: &str) -> SpaceTypesQuery {
-        SpaceTypesQuery::new(neo4j.clone(), space_id.to_string())
-    }
+/// Find all types defined in a space
+pub fn types(neo4j: &neo4rs::Graph, space_id: &str) -> SpaceTypesQuery {
+    SpaceTypesQuery::new(neo4j.clone(), space_id.to_string())
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

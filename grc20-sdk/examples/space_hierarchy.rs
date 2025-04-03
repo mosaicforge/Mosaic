@@ -1,6 +1,6 @@
 use futures::{pin_mut, StreamExt};
 use grc20_core::{mapping::query_utils::QueryStream, neo4rs};
-use grc20_sdk::models::space::Space;
+use grc20_sdk::models::space;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -13,7 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let neo4j = neo4rs::Graph::new("bolt://localhost:7687", "neo4j", "password").await?;
 
     // Create and execute subspaces query using Space helper
-    let query = Space::subspaces(&neo4j, &space_id)
+    let query = space::subspaces(&neo4j, &space_id)
         .max_depth(Some(10)) // Get all subspaces at any depth
         .limit(100); // Limit to 100 results
 

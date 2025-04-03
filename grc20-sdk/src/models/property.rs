@@ -25,26 +25,6 @@ pub struct Property {
     description: Option<String>,
 }
 
-// impl Property {
-//     pub async fn value_type(&self, neo4j: &neo4rs::Graph) -> Option<Entity<BaseEntity>> {
-//         let value_type = get_outbound_relations(
-//             &neo4j,
-//             system_ids::VALUE_TYPE_ATTRIBUTE,
-//             &self.id,
-//             &space_id,
-//             None,
-//             Some(1),
-//             None,
-//             false,
-//         )
-//         .await?
-//         .try_collect::<Vec<_>>()
-//         .await?;
-
-//         base_entity::find_one(neo4j, id, space_id)
-//     }
-// }
-
 #[derive(Clone, Debug)]
 pub enum AggregationDirection {
     Up,
