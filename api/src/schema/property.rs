@@ -13,13 +13,15 @@ pub struct Property {
 }
 
 impl Property {
-    pub fn new(node: EntityNode, space_id: String, space_version: Option<String>, strict: bool) -> Self {
-        Self {entity: Entity::new(
-            node,
-            space_id,
-            space_version,
-            strict,
-        )}
+    pub fn new(
+        node: EntityNode,
+        space_id: String,
+        space_version: Option<String>,
+        strict: bool,
+    ) -> Self {
+        Self {
+            entity: Entity::new(node, space_id, space_version, strict),
+        }
     }
 }
 
@@ -149,7 +151,8 @@ impl Property {
             Some(1),
             None,
             self.entity.strict,
-        ).await?
+        )
+        .await?
         .try_collect::<Vec<_>>()
         .await?;
 
@@ -184,7 +187,10 @@ impl Property {
         //     .limit(1)
         //     .send()
         //     .await?;
-        tracing::info!("Fetching relation value type for property {}", self.entity.id());
+        tracing::info!(
+            "Fetching relation value type for property {}",
+            self.entity.id()
+        );
 
         let rel_value_type = property::get_outbound_relations(
             &executor.context().0,
@@ -195,7 +201,8 @@ impl Property {
             Some(1),
             None,
             self.entity.strict,
-        ).await?
+        )
+        .await?
         .try_collect::<Vec<_>>()
         .await?;
 

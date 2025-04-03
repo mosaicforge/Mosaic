@@ -68,7 +68,10 @@ impl TryFrom<mapping::Value> for VoteType {
         match (value.value_type, value.value.as_str()) {
             (mapping::ValueType::Text, "ACCEPT") => Ok(Self::Accept),
             (mapping::ValueType::Text, "REJECT") => Ok(Self::Reject),
-            (value_type, _) => Err(TriplesConversionError::InvalidValue(format!("Invalid vote type value_type: {:?}", value_type))),
+            (value_type, _) => Err(TriplesConversionError::InvalidValue(format!(
+                "Invalid vote type value_type: {:?}",
+                value_type
+            ))),
         }
     }
 }

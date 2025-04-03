@@ -27,7 +27,12 @@ pub struct Entity {
 }
 
 impl Entity {
-    pub fn new(node: EntityNode, space_id: String, space_version: Option<String>, strict: bool) -> Self {
+    pub fn new(
+        node: EntityNode,
+        space_id: String,
+        space_version: Option<String>,
+        strict: bool,
+    ) -> Self {
         Self {
             node,
             space_id,
@@ -89,10 +94,10 @@ impl Entity {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Option<String>> {
         Ok(property::get_triple(
-            &executor.context().0, 
-            system_ids::NAME_ATTRIBUTE, 
-            &self.node.id, 
-            &self.space_id, 
+            &executor.context().0,
+            system_ids::NAME_ATTRIBUTE,
+            &self.node.id,
+            &self.space_id,
             self.space_version.clone(),
             self.strict,
         )
@@ -106,10 +111,10 @@ impl Entity {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Option<String>> {
         Ok(property::get_triple(
-            &executor.context().0, 
-            system_ids::DESCRIPTION_ATTRIBUTE, 
-            &self.node.id, 
-            &self.space_id, 
+            &executor.context().0,
+            system_ids::DESCRIPTION_ATTRIBUTE,
+            &self.node.id,
+            &self.space_id,
             self.space_version.clone(),
             self.strict,
         )
@@ -123,10 +128,10 @@ impl Entity {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Option<String>> {
         Ok(property::get_triple(
-            &executor.context().0, 
-            system_ids::COVER_ATTRIBUTE, 
-            &self.node.id, 
-            &self.space_id, 
+            &executor.context().0,
+            system_ids::COVER_ATTRIBUTE,
+            &self.node.id,
+            &self.space_id,
             self.space_version.clone(),
             self.strict,
         )
@@ -158,7 +163,14 @@ impl Entity {
             ))
             .send()
             .await?
-            .map_ok(|node| Entity::new(node, self.space_id.clone(), self.space_version.clone(), self.strict))
+            .map_ok(|node| {
+                Entity::new(
+                    node,
+                    self.space_id.clone(),
+                    self.space_version.clone(),
+                    self.strict,
+                )
+            })
             .try_collect::<Vec<_>>()
             .await?)
     }
@@ -187,7 +199,14 @@ impl Entity {
             ))
             .send()
             .await?
-            .map_ok(|node| Entity::new(node, self.space_id.clone(), self.space_version.clone(), self.strict))
+            .map_ok(|node| {
+                Entity::new(
+                    node,
+                    self.space_id.clone(),
+                    self.space_version.clone(),
+                    self.strict,
+                )
+            })
             .try_collect::<Vec<_>>()
             .await?)
     }
@@ -235,7 +254,12 @@ impl Entity {
             .send()
             .await?
             .map_ok(|relation| {
-                Relation::new(relation, self.space_id.clone(), self.space_version.clone(), self.strict)
+                Relation::new(
+                    relation,
+                    self.space_id.clone(),
+                    self.space_version.clone(),
+                    self.strict,
+                )
             })
             .try_collect::<Vec<_>>()
             .await?)

@@ -56,15 +56,16 @@ impl QueryStream<EntityNode> for SpaceTypesQuery {
         self,
     ) -> Result<impl Stream<Item = Result<EntityNode, DatabaseError>>, DatabaseError> {
         let mut spaces = vec![self.space_id.clone()];
-        
+
         if !self.strict {
-            let parent_spaces: Vec<String> = ParentSpacesQuery::new(self.neo4j.clone(), self.space_id.clone())
-                .max_depth(None)
-                .send()
-                .await?
-                .map_ok(|(space, _)| space)
-                .try_collect()
-                .await?;
+            let parent_spaces: Vec<String> =
+                ParentSpacesQuery::new(self.neo4j.clone(), self.space_id.clone())
+                    .max_depth(None)
+                    .send()
+                    .await?
+                    .map_ok(|(space, _)| space)
+                    .try_collect()
+                    .await?;
 
             spaces.extend(parent_spaces);
         }

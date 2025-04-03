@@ -14,7 +14,7 @@ use grc20_sdk::models::{space, Space as SdkSpace};
 
 use crate::context::KnowledgeGraph;
 
-use super::{SchemaType, Account};
+use super::{Account, SchemaType};
 
 pub struct Space {
     entity: mapping::Entity<SdkSpace>,
@@ -143,10 +143,8 @@ impl Space {
     async fn members<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-        #[graphql(default = 100)]
-        first: i32,
-        #[graphql(default = 0)]
-        skip: i32,
+        #[graphql(default = 100)] first: i32,
+        #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<super::Account>> {
         let query = SdkSpace::members(&executor.context().0, &self.entity.id);
 
@@ -168,10 +166,8 @@ impl Space {
     async fn editors<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-        #[graphql(default = 100)]
-        first: i32,
-        #[graphql(default = 0)]
-        skip: i32,
+        #[graphql(default = 100)] first: i32,
+        #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<super::Account>> {
         let query = SdkSpace::editors(&executor.context().0, &self.entity.id);
 
@@ -193,10 +189,8 @@ impl Space {
     async fn parent_spaces<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-        #[graphql(default = 100)]
-        first: i32,
-        #[graphql(default = 0)]
-        skip: i32,
+        #[graphql(default = 100)] first: i32,
+        #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<Space>> {
         let query = SdkSpace::parent_spaces(&executor.context().0, &self.entity.id);
 
@@ -219,10 +213,8 @@ impl Space {
     async fn subspaces<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-        #[graphql(default = 100)]
-        first: i32,
-        #[graphql(default = 0)]
-        skip: i32,
+        #[graphql(default = 100)] first: i32,
+        #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<Space>> {
         let query = SdkSpace::subspaces(&executor.context().0, &self.entity.id);
 
@@ -244,12 +236,9 @@ impl Space {
     async fn types<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-        #[graphql(default = 100)]
-        first: i32,
-        #[graphql(default = 0)]
-        skip: i32,
-        #[graphql(default = true)]
-        strict: bool,
+        #[graphql(default = 100)] first: i32,
+        #[graphql(default = 0)] skip: i32,
+        #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Vec<SchemaType>> {
         let types = SdkSpace::types(&executor.context().0, &self.entity.id)
             .strict(strict)

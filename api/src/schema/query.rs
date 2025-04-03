@@ -39,10 +39,8 @@ impl RootQuery {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         where_: Option<SpaceFilter>,
-        #[graphql(default = 100)]
-        first: i32,
-        #[graphql(default = 0)]
-        skip: i32,
+        #[graphql(default = 100)] first: i32,
+        #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<Space>> {
         let mut query = space::find_many(&executor.context().0, indexer_ids::INDEXER_SPACE_ID);
 
@@ -129,10 +127,8 @@ impl RootQuery {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         where_: Option<AccountFilter>,
-        #[graphql(default = 100)]
-        first: i32,
-        #[graphql(default = 0)]
-        skip: i32,
+        #[graphql(default = 100)] first: i32,
+        #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<Account>> {
         let mut query = account::find_many(&executor.context().0, indexer_ids::INDEXER_SPACE_ID);
 
@@ -164,8 +160,7 @@ impl RootQuery {
         id: String,
         space_id: String,
         version_id: Option<String>,
-        #[graphql(default = true)]
-        strict: bool,
+        #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Option<Entity>> {
         let version_index = if let Some(version_id) = version_id {
             mapping::get_version_index(&executor.context().0, version_id).await?
@@ -185,12 +180,9 @@ impl RootQuery {
         order_by: Option<String>,
         order_direction: Option<OrderDirection>,
         r#where: Option<EntityFilter>,
-        #[graphql(default = 100)]
-        first: i32,
-        #[graphql(default = 0)]
-        skip: i32,
-        #[graphql(default = true)]
-        strict: bool,
+        #[graphql(default = 100)] first: i32,
+        #[graphql(default = 0)] skip: i32,
+        #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Vec<Entity>> {
         let mut query = entity_node::find_many(&executor.context().0);
 
@@ -232,8 +224,7 @@ impl RootQuery {
         id: String,
         space_id: String,
         version_id: Option<String>,
-        #[graphql(default = true)]
-        strict: bool,
+        #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Option<Relation>> {
         let version_index = if let Some(version_id) = version_id {
             mapping::get_version_index(&executor.context().0, version_id).await?
@@ -254,12 +245,9 @@ impl RootQuery {
         _order_by: Option<String>,
         _order_direction: Option<OrderDirection>,
         r#where: Option<RelationFilter>,
-        #[graphql(default = 100)]
-        first: i32,
-        #[graphql(default = 0)]
-        skip: i32,
-        #[graphql(default = true)]
-        strict: bool,
+        #[graphql(default = 100)] first: i32,
+        #[graphql(default = 0)] skip: i32,
+        #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Vec<Relation>> {
         let mut query = relation_node::find_many(&executor.context().0);
 
@@ -290,8 +278,7 @@ impl RootQuery {
         attribute_id: String,
         space_id: String,
         version_id: Option<String>,
-        #[graphql(default = true)]
-        strict: bool,
+        #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Option<Triple>> {
         let version_index = if let Some(version_id) = version_id {
             mapping::get_version_index(&executor.context().0, version_id).await?

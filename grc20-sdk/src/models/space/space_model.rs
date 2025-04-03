@@ -7,7 +7,9 @@ use grc20_core::{
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
-        entity, entity_node, prop_filter, query_utils::{AttributeFilter, PropFilter, Query, QueryStream}, relation, Entity, EntityNode, Relation, TriplesConversionError, Value
+        entity, entity_node, prop_filter,
+        query_utils::{AttributeFilter, PropFilter, Query, QueryStream},
+        relation, Entity, EntityNode, Relation, TriplesConversionError, Value,
     },
     neo4rs, network_ids, system_ids,
 };

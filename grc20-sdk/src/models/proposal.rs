@@ -8,7 +8,11 @@ use grc20_core::{
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
-        self, attributes::{FromAttributes, IntoAttributes}, entity, query_utils::{AttributeFilter, PropFilter, QueryStream}, Entity, Relation, TriplesConversionError, Value
+        self,
+        attributes::{FromAttributes, IntoAttributes},
+        entity,
+        query_utils::{AttributeFilter, PropFilter, QueryStream},
+        Entity, Relation, TriplesConversionError, Value,
     },
     neo4rs, pb,
 };
@@ -170,7 +174,10 @@ impl TryFrom<Value> for ProposalStatus {
             "Rejected" => Ok(Self::Rejected),
             "Canceled" => Ok(Self::Canceled),
             "Executed" => Ok(Self::Executed),
-            _ => Err(TriplesConversionError::InvalidValue(format!("Invalid proposal status: {}", value.value))),
+            _ => Err(TriplesConversionError::InvalidValue(format!(
+                "Invalid proposal status: {}",
+                value.value
+            ))),
         }
     }
 }

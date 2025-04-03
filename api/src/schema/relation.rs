@@ -18,7 +18,12 @@ pub struct Relation {
 }
 
 impl Relation {
-    pub fn new(node: RelationNode, space_id: String, space_version: Option<String>, strict: bool) -> Self {
+    pub fn new(
+        node: RelationNode,
+        space_id: String,
+        space_version: Option<String>,
+        strict: bool,
+    ) -> Self {
         Self {
             node,
             space_id,

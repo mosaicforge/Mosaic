@@ -7,8 +7,9 @@ use grc20_core::{
     pb::geo,
 };
 use grc20_sdk::models::{
+    account,
     proposal::{ProposalStatus, ProposedAccount, ProposedSubspace},
-    account, AddEditorProposal, AddMemberProposal, AddSubspaceProposal, EditProposal, Proposal,
+    AddEditorProposal, AddMemberProposal, AddSubspaceProposal, EditProposal, Proposal,
     ProposalCreator, Proposals, RemoveEditorProposal, RemoveMemberProposal, RemoveSubspaceProposal,
     Space,
 };

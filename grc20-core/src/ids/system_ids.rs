@@ -268,9 +268,5 @@ pub const VISION_ATTRIBUTE: &str = "AAMDNTaJtS2i4aWp59zEAk";
 
 pub const ROOT_SPACE_ID: &str = "25omwWh6HYgeRQKCaSpVpa";
 
-
-
-
-
 // Added by me
 pub const AGGREGATION_DIRECTION: &str = "6zd9BPJNdUpcKenuK7LjCh";

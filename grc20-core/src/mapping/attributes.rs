@@ -45,10 +45,7 @@ impl Attributes {
     {
         self.0
             .remove(attribute_id)
-            .map(|attr| {
-                attr.value
-                    .try_into()
-            })
+            .map(|attr| attr.value.try_into())
             .transpose()
     }
 
@@ -70,11 +67,7 @@ impl Attributes {
     {
         self.0
             .get(attribute_id)
-            .map(|attr| {
-                attr.value
-                    .clone()
-                    .try_into()
-            })
+            .map(|attr| attr.value.clone().try_into())
             .transpose()
     }
 

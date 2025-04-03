@@ -280,7 +280,7 @@ impl FindManyQuery {
         query_part.merge_mut(
             self.filter
                 .space_id(self.space_id.clone())
-                .into_query_part("e")
+                .into_query_part("e"),
         );
 
         if let Some(order_by) = self.order_by {

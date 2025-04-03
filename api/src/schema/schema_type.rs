@@ -147,7 +147,8 @@ impl SchemaType {
             Some(first as usize),
             Some(skip as usize),
             self.entity.strict,
-        ).await?
+        )
+        .await?
         .try_collect::<Vec<_>>()
         .await?;
 
