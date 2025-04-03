@@ -1,5 +1,5 @@
 use grc20_core::{block::BlockMetadata, pb::geo};
-use grc20_sdk::models::{account, Space, SpaceEditor};
+use grc20_sdk::models::{account, space, SpaceEditor};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -10,13 +10,13 @@ impl EventHandler {
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space =
-            Space::find_entity_by_dao_address(&self.neo4j, &editor_removed.dao_address).await?;
+            space::find_entity_by_dao_address(&self.neo4j, &editor_removed.dao_address).await?;
 
         if let Some(space) = space {
             SpaceEditor::remove(
                 &self.neo4j,
                 block,
-                &account::gen_id(&editor_removed.editor_address),
+                &account::new_id(&editor_removed.editor_address),
                 &space.id,
             )
             .await?;

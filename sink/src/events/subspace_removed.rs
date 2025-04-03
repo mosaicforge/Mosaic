@@ -1,5 +1,5 @@
 use grc20_core::{block::BlockMetadata, network_ids, pb::geo};
-use grc20_sdk::models::{space::ParentSpace, Space};
+use grc20_sdk::models::{space::ParentSpace, space};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -9,13 +9,13 @@ impl EventHandler {
         subspace_removed: &geo::SubspaceRemoved,
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space = Space::find_entity_by_space_plugin_address(
+        let space = space::find_entity_by_space_plugin_address(
             &self.neo4j,
             &subspace_removed.plugin_address,
         )
         .await?;
 
-        let subspace_id = Space::gen_id(network_ids::GEO, &subspace_removed.subspace);
+        let subspace_id = space::new_id(network_ids::GEO, &subspace_removed.subspace);
 
         if let Some(space) = space {
             ParentSpace::remove(&self.neo4j, block, &subspace_id, &space.id).await?;

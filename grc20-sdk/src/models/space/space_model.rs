@@ -49,154 +49,155 @@ pub struct Space {
     pub personal_space_admin_plugin: Option<String>,
 }
 
-impl Space {
-    pub fn gen_id(network: &str, address: &str) -> String {
-        ids::create_id_from_unique_string(format!("{network}:{}", checksum_address(address)))
-    }
+/// Generates a unique ID for a space based on its network and DAO contract address.
+pub fn new_id(network: &str, address: &str) -> String {
+    ids::create_id_from_unique_string(format!("{network}:{}", checksum_address(address)))
+}
 
-    pub fn builder(id: &str, dao_contract_address: &str) -> SpaceBuilder {
-        SpaceBuilder::new(id, dao_contract_address)
-    }
+pub fn builder(id: &str, dao_contract_address: &str) -> SpaceBuilder {
+    SpaceBuilder::new(id, dao_contract_address)
+}
 
-    /// Find a space by its DAO contract address.
-    pub async fn find_by_dao_address(
-        neo4j: &neo4rs::Graph,
-        dao_contract_address: &str,
-    ) -> Result<Option<Entity<Self>>, DatabaseError> {
-        entity::find_one(
-            neo4j,
-            Space::gen_id(network_ids::GEO, dao_contract_address),
-            indexer_ids::INDEXER_SPACE_ID,
-            None,
-        )
+/// Find a space by its DAO contract address.
+pub async fn find_by_dao_address(
+    neo4j: &neo4rs::Graph,
+    dao_contract_address: &str,
+) -> Result<Option<Entity<Space>>, DatabaseError> {
+    entity::find_one(
+        neo4j,
+        new_id(network_ids::GEO, dao_contract_address),
+        indexer_ids::INDEXER_SPACE_ID,
+        None,
+    )
+    .send()
+    .await
+}
+
+pub async fn find_entity_by_dao_address(
+    neo4j: &neo4rs::Graph,
+    dao_contract_address: &str,
+) -> Result<Option<EntityNode>, DatabaseError> {
+    entity_node::find_one(neo4j, new_id(network_ids::GEO, dao_contract_address))
         .send()
         .await
-    }
+}
 
-    pub async fn find_entity_by_dao_address(
-        neo4j: &neo4rs::Graph,
-        dao_contract_address: &str,
-    ) -> Result<Option<EntityNode>, DatabaseError> {
-        entity_node::find_one(neo4j, Space::gen_id(network_ids::GEO, dao_contract_address))
-            .send()
-            .await
-    }
+/// Find a space by its space plugin address.
+pub async fn find_by_space_plugin_address(
+    neo4j: &neo4rs::Graph,
+    space_plugin_address: &str,
+) -> Result<Option<Entity<Space>>, DatabaseError> {
+    let stream = entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
+        .attribute(
+            AttributeFilter::new(indexer_ids::SPACE_PLUGIN_ADDRESS)
+                .value(PropFilter::default().value(checksum_address(space_plugin_address))),
+        )
+        .limit(1)
+        .send()
+        .await?;
 
-    /// Find a space by its space plugin address.
-    pub async fn find_by_space_plugin_address(
-        neo4j: &neo4rs::Graph,
-        space_plugin_address: &str,
-    ) -> Result<Option<Entity<Self>>, DatabaseError> {
-        let stream = entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
-            .attribute(
-                AttributeFilter::new(indexer_ids::SPACE_PLUGIN_ADDRESS)
-                    .value(PropFilter::default().value(checksum_address(space_plugin_address))),
-            )
-            .limit(1)
-            .send()
-            .await?;
+    pin_mut!(stream);
 
-        pin_mut!(stream);
+    stream.next().await.transpose()
+}
 
-        stream.next().await.transpose()
-    }
+pub async fn find_entity_by_space_plugin_address(
+    neo4j: &neo4rs::Graph,
+    space_plugin_address: &str,
+) -> Result<Option<EntityNode>, DatabaseError> {
+    let stream = entity_node::find_many(neo4j)
+        .attribute(
+            AttributeFilter::new(indexer_ids::SPACE_PLUGIN_ADDRESS)
+                .space_id(prop_filter::value(indexer_ids::INDEXER_SPACE_ID))
+                .value(prop_filter::value(checksum_address(space_plugin_address))),
+        )
+        .limit(1)
+        .send()
+        .await?;
 
-    pub async fn find_entity_by_space_plugin_address(
-        neo4j: &neo4rs::Graph,
-        space_plugin_address: &str,
-    ) -> Result<Option<EntityNode>, DatabaseError> {
-        let stream = entity_node::find_many(neo4j)
-            .attribute(
-                AttributeFilter::new(indexer_ids::SPACE_PLUGIN_ADDRESS)
-                    .space_id(prop_filter::value(indexer_ids::INDEXER_SPACE_ID))
-                    .value(prop_filter::value(checksum_address(space_plugin_address))),
-            )
-            .limit(1)
-            .send()
-            .await?;
+    pin_mut!(stream);
 
-        pin_mut!(stream);
+    stream.next().await.transpose()
+}
 
-        stream.next().await.transpose()
-    }
+/// Find a space by its voting plugin address.
+pub async fn find_by_voting_plugin_address(
+    neo4j: &neo4rs::Graph,
+    voting_plugin_address: &str,
+) -> Result<Option<Entity<Space>>, DatabaseError> {
+    let stream = entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
+        .attribute(
+            AttributeFilter::new(indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS)
+                .value(PropFilter::default().value(checksum_address(voting_plugin_address))),
+        )
+        .limit(1)
+        .send()
+        .await?;
 
-    /// Find a space by its voting plugin address.
-    pub async fn find_by_voting_plugin_address(
-        neo4j: &neo4rs::Graph,
-        voting_plugin_address: &str,
-    ) -> Result<Option<Entity<Self>>, DatabaseError> {
-        let stream = entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
-            .attribute(
-                AttributeFilter::new(indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS)
-                    .value(PropFilter::default().value(checksum_address(voting_plugin_address))),
-            )
-            .limit(1)
-            .send()
-            .await?;
+    pin_mut!(stream);
 
-        pin_mut!(stream);
+    stream.next().await.transpose()
+}
 
-        stream.next().await.transpose()
-    }
+pub async fn find_entity_by_voting_plugin_address(
+    neo4j: &neo4rs::Graph,
+    voting_plugin_address: &str,
+) -> Result<Option<EntityNode>, DatabaseError> {
+    let stream = entity_node::find_many(neo4j)
+        .attribute(
+            AttributeFilter::new(indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS)
+                .space_id(prop_filter::value(indexer_ids::INDEXER_SPACE_ID))
+                .value(prop_filter::value(checksum_address(voting_plugin_address))),
+        )
+        .limit(1)
+        .send()
+        .await?;
 
-    pub async fn find_entity_by_voting_plugin_address(
-        neo4j: &neo4rs::Graph,
-        voting_plugin_address: &str,
-    ) -> Result<Option<EntityNode>, DatabaseError> {
-        let stream = entity_node::find_many(neo4j)
-            .attribute(
-                AttributeFilter::new(indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS)
-                    .space_id(prop_filter::value(indexer_ids::INDEXER_SPACE_ID))
-                    .value(prop_filter::value(checksum_address(voting_plugin_address))),
-            )
-            .limit(1)
-            .send()
-            .await?;
+    pin_mut!(stream);
 
-        pin_mut!(stream);
+    stream.next().await.transpose()
+}
 
-        stream.next().await.transpose()
-    }
+/// Find a space by its member access plugin address.
+pub async fn find_by_member_access_plugin(
+    neo4j: &neo4rs::Graph,
+    member_access_plugin: &str,
+) -> Result<Option<Entity<Space>>, DatabaseError> {
+    let stream = entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
+        .attribute(
+            AttributeFilter::new(indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS)
+                .value(PropFilter::default().value(checksum_address(member_access_plugin))),
+        )
+        .limit(1)
+        .send()
+        .await?;
 
-    /// Find a space by its member access plugin address.
-    pub async fn find_by_member_access_plugin(
-        neo4j: &neo4rs::Graph,
-        member_access_plugin: &str,
-    ) -> Result<Option<Entity<Self>>, DatabaseError> {
-        let stream = entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
-            .attribute(
-                AttributeFilter::new(indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS)
-                    .value(PropFilter::default().value(checksum_address(member_access_plugin))),
-            )
-            .limit(1)
-            .send()
-            .await?;
+    pin_mut!(stream);
 
-        pin_mut!(stream);
+    stream.next().await.transpose()
+}
 
-        stream.next().await.transpose()
-    }
+/// Find a space by its personal space admin plugin address.
+pub async fn find_by_personal_plugin_address(
+    neo4j: &neo4rs::Graph,
+    personal_space_admin_plugin: &str,
+) -> Result<Option<Entity<Space>>, DatabaseError> {
+    let stream = entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
+        .attribute(
+            AttributeFilter::new(indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS).value(
+                PropFilter::default().value(checksum_address(personal_space_admin_plugin)),
+            ),
+        )
+        .limit(1)
+        .send()
+        .await?;
 
-    /// Find a space by its personal space admin plugin address.
-    pub async fn find_by_personal_plugin_address(
-        neo4j: &neo4rs::Graph,
-        personal_space_admin_plugin: &str,
-    ) -> Result<Option<Entity<Self>>, DatabaseError> {
-        let stream = entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
-            .attribute(
-                AttributeFilter::new(indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS).value(
-                    PropFilter::default().value(checksum_address(personal_space_admin_plugin)),
-                ),
-            )
-            .limit(1)
-            .send()
-            .await?;
+    pin_mut!(stream);
 
-        pin_mut!(stream);
+    stream.next().await.transpose()
+}
 
-        stream.next().await.transpose()
-    }
-
+impl Space {
     /// Find all members of a space
     pub fn members(neo4j: &neo4rs::Graph, space_id: &str) -> SpaceMembersQuery {
         SpaceMembersQuery::new(neo4j.clone(), space_id.to_string())

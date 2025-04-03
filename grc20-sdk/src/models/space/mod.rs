@@ -9,6 +9,6 @@ pub mod subspaces_query;
 pub use parent_spaces_query::ParentSpacesQuery;
 pub use space_editors_query::SpaceEditorsQuery;
 pub use space_members_query::SpaceMembersQuery;
-pub use space_model::{find_many, find_one, ParentSpace, Space, SpaceBuilder, SpaceGovernanceType};
+pub use space_model::*;
 pub use space_types_query::SpaceTypesQuery;
 pub use subspaces_query::SubspacesQuery;

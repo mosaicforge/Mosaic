@@ -9,7 +9,7 @@ use grc20_core::{
 use grc20_sdk::models::{
     self,
     edit::{Edits, ProposedEdit},
-    Proposal, Space,
+    Proposal, space,
 };
 use ipfs::deserialize;
 use web3_utils::checksum_address;
@@ -76,7 +76,7 @@ impl EventHandler {
     ) -> Result<Vec<Edit>, HandlerError> {
         // TODO: (optimization) Check if need to fetch entire space
         let space = if let Some(space) =
-            Space::find_by_dao_address(&self.neo4j, &edit_published.dao_address)
+            space::find_by_dao_address(&self.neo4j, &edit_published.dao_address)
                 .await
                 .map_err(|e| {
                     HandlerError::Other(

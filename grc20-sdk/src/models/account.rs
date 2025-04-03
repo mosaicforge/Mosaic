@@ -10,7 +10,7 @@ pub struct Account {
     pub address: String,
 }
 
-pub fn gen_id(address: &str) -> String {
+pub fn new_id(address: &str) -> String {
     ids::create_id_from_unique_string(checksum_address(address))
 }
 
@@ -18,7 +18,7 @@ pub fn new(address: String) -> Entity<Account> {
     let checksummed_address = checksum_address(&address);
 
     Entity::new(
-        gen_id(&checksummed_address),
+        new_id(&checksummed_address),
         Account {
             address: checksummed_address,
         },
