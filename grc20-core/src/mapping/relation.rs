@@ -1,9 +1,9 @@
 use futures::{Stream, StreamExt, TryStreamExt};
 
-use crate::{block::BlockMetadata, error::DatabaseError, mapping::AttributeNode, system_ids};
+use crate::{block::BlockMetadata, error::DatabaseError, mapping::{AttributeNode, EntityNode}, system_ids};
 
 use super::{
-    attributes::{self, IntoAttributes}, entity_node, prop_filter, query_utils::{query_part, Query, QueryPart, VersionFilter}, relation_node, EntityFilter, FromAttributes, PropFilter, QueryStream, RelationNode, Value
+    attributes::{self, IntoAttributes}, entity_node, prop_filter, query_utils::{query_part, Query, QueryPart, VersionFilter}, relation_node, Entity, EntityFilter, FromAttributes, PropFilter, QueryStream, RelationFilter, RelationNode, Value
 };
 
 /// High level model encapsulating a relation and its attributes.
@@ -162,12 +162,7 @@ impl<T: FromAttributes>  Query<Option<Relation<T>>> for FindOneQuery {
 pub struct FindManyQuery {
     neo4j: neo4rs::Graph,
     id: Option<PropFilter<String>>,
-    from_id: Option<PropFilter<String>>,
-    to_id: Option<PropFilter<String>>,
-    relation_type: Option<PropFilter<String>>,
-
-    from_: Option<EntityFilter>,
-    to_: Option<EntityFilter>,
+    filter: RelationFilter,
 
     space_id: Option<PropFilter<String>>,
     version: VersionFilter,
@@ -181,11 +176,7 @@ impl FindManyQuery {
         Self {
             neo4j: neo4j.clone(),
             id: None,
-            relation_type: None,
-            from_id: None,
-            to_id: None,
-            from_: None,
-            to_: None,
+            filter: RelationFilter::default(),
             space_id: None,
             version: VersionFilter::default(),
             limit: 100,
@@ -198,28 +189,8 @@ impl FindManyQuery {
         self
     }
 
-    pub fn from_id(mut self, from_id: PropFilter<String>) -> Self {
-        self.from_id = Some(from_id);
-        self
-    }
-
-    pub fn to_id(mut self, to_id: PropFilter<String>) -> Self {
-        self.to_id = Some(to_id);
-        self
-    }
-
-    pub fn relation_type(mut self, relation_type: PropFilter<String>) -> Self {
-        self.relation_type = Some(relation_type);
-        self
-    }
-
-    pub fn from_(mut self, from_: EntityFilter) -> Self {
-        self.from_ = Some(from_);
-        self
-    }
-
-    pub fn to_(mut self, to_: EntityFilter) -> Self {
-        self.to_ = Some(to_);
+    pub fn filter(mut self, filter: RelationFilter) -> Self {
+        self.filter = filter;
         self
     }
 
@@ -248,69 +219,15 @@ impl FindManyQuery {
     fn into_query_part(self) -> QueryPart {
         let mut query_part = QueryPart::default()
             .match_clause("(e:Entity:Relation)")
-            .match_clause(format!(
-                "(e) -[r_from:`{}`]-> (from:Entity)",
-                system_ids::RELATION_FROM_ATTRIBUTE
-            ))
-            .match_clause(format!(
-                "(e) -[r_to:`{}`]-> (to:Entity)",
-                system_ids::RELATION_TO_ATTRIBUTE
-            ))
-            .match_clause(format!(
-                "(e) -[r_rt:`{}`]-> (rt:Entity)",
-                system_ids::RELATION_TYPE_ATTRIBUTE
-            ))
-            .match_clause(format!(
-                r#"(e) -[r_index:ATTRIBUTE]-> (index:Attribute {{id: "{}"}})"#,
-                system_ids::RELATION_INDEX
-            ))
-            .merge(self.version.clone().into_query_part("r_index"))
+            .merge(self.filter.into_query_part("e"))
             .order_by_clause("index.value")
-            .limit(self.limit)
-            .with_clause("e, from, to, rt, index", {
-                let mut query_part = QueryPart::default()
-                    .match_clause("(e) -[r:ATTRIBUTE]-> (n:Attribute)")
-                    .merge(self.version.clone().into_query_part("r"));
+            .limit(self.limit);
 
-                if let Some(space_id) = &self.space_id {
-                    query_part.merge_mut(space_id.clone().into_query_part("r", "space_id"));
-                }
-                query_part
-                    .with_clause(
-                        "e, from, to, rt, index, collect(n{.*}) AS attrs",
-                        query_part::return_query("e{.*, from: from.id, to: to.id, relation_type: rt.id, index: index, attributes: attrs}")
-                    )
-            });
-
-        if let Some(id_filter) = self.id {
-            query_part.merge_mut(id_filter.into_query_part("e", "id"));
-        }
-
-        if let Some(from_id) = self.from_id {
-            query_part = query_part
-                .merge(from_id.into_query_part("from", "id"))
-                .merge(self.version.clone().into_query_part("r_from"));
-        }
-
-        if let Some(to_id) = self.to_id {
-            query_part = query_part
-                .merge(to_id.into_query_part("to", "id"))
-                .merge(self.version.clone().into_query_part("r_to"));
-        }
-
-        if let Some(relation_type) = self.relation_type {
-            query_part = query_part
-                .merge(relation_type.into_query_part("rt", "id"))
-                .merge(self.version.clone().into_query_part("r_rt"));
-        }
-
-        if let Some(from_filter) = self.from_ {
-            query_part = query_part.merge(from_filter.into_query_part("from"));
-        }
-
-        if let Some(to_filter) = self.to_ {
-            query_part = query_part.merge(to_filter.into_query_part("to"));
-        }
+        query_part = query_part
+            .merge(self.version.clone().into_query_part("r_from"))
+            .merge(self.version.clone().into_query_part("r_to"))
+            .merge(self.version.clone().into_query_part("r_rt"))
+            .merge(self.version.clone().into_query_part("r_index"));
 
         if let Some(space_id) = &self.space_id {
             query_part = query_part
@@ -325,6 +242,67 @@ impl FindManyQuery {
         }
 
         query_part
+            .with_clause("e, from, to, rt, index", {
+                let mut query_part = QueryPart::default()
+                    .match_clause("(e) -[r:ATTRIBUTE]-> (n:Attribute)")
+                    .merge(self.version.clone().into_query_part("r"));
+
+                if let Some(space_id) = &self.space_id {
+                    query_part.merge_mut(space_id.clone().into_query_part("r", "space_id"));
+                }
+                query_part
+                    .with_clause(
+                        "e, from, to, rt, index, collect(n{.*}) AS attrs",
+                        query_part::return_query("e{.*, from: from.id, to: to.id, relation_type: rt.id, index: index, attributes: attrs}")
+                    )
+            })
+    }
+
+    pub fn select_to(self) -> FindManyToQuery {
+        let mut query_part = QueryPart::default()
+            .match_clause("(e:Entity:Relation)")
+            .merge(self.filter.into_query_part("e"))
+            .order_by_clause("index.value")
+            .limit(self.limit);
+
+        query_part = query_part
+            .merge(self.version.clone().into_query_part("r_from"))
+            .merge(self.version.clone().into_query_part("r_to"))
+            .merge(self.version.clone().into_query_part("r_rt"))
+            .merge(self.version.clone().into_query_part("r_index"));
+
+        if let Some(space_id) = &self.space_id {
+            query_part = query_part
+                .merge(space_id.clone().into_query_part("r_from", "space_id"))
+                .merge(space_id.clone().into_query_part("r_to", "space_id"))
+                .merge(space_id.clone().into_query_part("r_rt", "space_id"))
+                .merge(space_id.clone().into_query_part("r_index", "space_id"));
+        }
+
+        if let Some(skip) = self.skip {
+            query_part = query_part.skip(skip);
+        }
+
+        query_part = query_part
+            .with_clause("DISTINCT to", {
+                let mut query_part = QueryPart::default()
+                    .match_clause("(to) -[r:ATTRIBUTE]-> (n:Attribute)")
+                    .merge(self.version.clone().into_query_part("r"));
+
+                if let Some(space_id) = &self.space_id {
+                    query_part.merge_mut(space_id.clone().into_query_part("r", "space_id"));
+                }
+                query_part
+                .with_clause(
+                    "to, collect(n{.*}) AS attrs",
+                    query_part::return_query("to{.*, attributes: attrs}"),
+                )
+            });
+
+        FindManyToQuery {
+            neo4j: self.neo4j.clone(),
+            query_part,
+        }
     }
 }
 
@@ -360,6 +338,52 @@ impl<T: FromAttributes> QueryStream<Relation<T>> for FindManyQuery {
                         .map(|attributes| Relation {
                             relation: row.node,
                             attributes,
+                            types: vec![],
+                        })
+                        .map_err(DatabaseError::from)
+                })
+            });
+
+        Ok(stream)
+    }
+}
+
+pub struct FindManyToQuery {
+    neo4j: neo4rs::Graph,
+    query_part: QueryPart,
+}
+
+impl<T: FromAttributes> QueryStream<Entity<T>> for FindManyToQuery {
+    async fn send(
+        self,
+    ) -> Result<impl Stream<Item = Result<Entity<T>, DatabaseError>>, DatabaseError> {
+        let neo4j = self.neo4j.clone();
+
+        let query = if cfg!(debug_assertions) || cfg!(test) {
+            tracing::info!("relation::FindManyToQuery:\n{}", self.query_part);
+            self.query_part.build()
+        } else {
+            self.query_part.build()
+        };
+        
+        #[derive(Debug, serde::Deserialize)]
+        struct RowResult {
+            #[serde(flatten)]
+            node: EntityNode,
+            attributes: Vec<AttributeNode>,
+        }
+
+        let stream = neo4j
+            .execute(query)
+            .await?
+            .into_stream_as::<RowResult>()
+            .map_err(DatabaseError::from)
+            .map(|row_result| {
+                row_result.and_then(|row| {
+                    T::from_attributes(row.attributes.into())
+                        .map(|data| Entity {
+                            node: row.node,
+                            attributes: data,
                             types: vec![],
                         })
                         .map_err(DatabaseError::from)
@@ -633,7 +657,11 @@ mod tests {
 
         let stream = FindManyQuery::new(&neo4j)
             .space_id(prop_filter::value::<String>("ROOT"))
-            .relation_type(prop_filter::value::<String>("relation_type"))
+            .filter(RelationFilter::default()
+                .relation_type(EntityFilter::default()
+                    .id(prop_filter::value("relation_type"))
+                )
+            )
             .limit(1)
             .send()
             .await

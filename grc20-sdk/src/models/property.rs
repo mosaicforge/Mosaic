@@ -16,13 +16,82 @@ use super::{base_entity, space::SubspacesQuery, BaseEntity};
 #[grc20(schema_type = system_ids::ATTRIBUTE)]
 pub struct Property {
     #[grc20(attribute = system_ids::AGGREGATION_DIRECTION)]
-    aggregation_direction: Option<AggregationDirection>,
+    pub aggregation_direction: Option<AggregationDirection>,
 
     #[grc20(attribute = system_ids::NAME_ATTRIBUTE)]
-    name: Option<String>,
+    pub name: Option<String>,
 
     #[grc20(attribute = system_ids::DESCRIPTION_ATTRIBUTE)]
-    description: Option<String>,
+    pub description: Option<String>,
+
+    #[grc20(attribute = system_ids::COVER_ATTRIBUTE)]
+    pub cover: Option<String>,
+}
+
+pub async fn value_type(
+    neo4j: &neo4rs::Graph,
+    property_id: impl Into<String>,
+    space_id: impl Into<String>,
+    space_version: Option<String>,
+    strict: bool,
+) -> Result<Option<Entity<BaseEntity>>, DatabaseError> {
+    let property_id = property_id.into();
+    let space_id = space_id.into();
+
+    let value_type_rel = get_outbound_relations(
+        neo4j,
+        system_ids::VALUE_TYPE_ATTRIBUTE,
+        &property_id,
+        &space_id,
+        space_version,
+        Some(1),
+        None,
+        strict,
+    )
+    .await?
+    .try_collect::<Vec<_>>()
+    .await?;
+
+    if let Some(value_type_rel) = value_type_rel.first() {
+        base_entity::find_one(neo4j, &value_type_rel.to, &space_id)
+            .send()
+            .await
+    } else {
+        Ok(None)
+    }
+}
+
+pub async fn relation_value_type(
+    neo4j: &neo4rs::Graph,
+    property_id: impl Into<String>,
+    space_id: impl Into<String>,
+    space_version: Option<String>,
+    strict: bool,
+) -> Result<Option<Entity<BaseEntity>>, DatabaseError> {
+    let property_id = property_id.into();
+    let space_id = space_id.into();
+
+    let value_type_rel = get_outbound_relations(
+        neo4j,
+        system_ids::RELATION_VALUE_RELATIONSHIP_TYPE,
+        &property_id,
+        &space_id,
+        space_version,
+        Some(1),
+        None,
+        strict,
+    )
+    .await?
+    .try_collect::<Vec<_>>()
+    .await?;
+
+    if let Some(value_type_rel) = value_type_rel.first() {
+        base_entity::find_one(neo4j, &value_type_rel.to, &space_id)
+            .send()
+            .await
+    } else {
+        Ok(None)
+    }
 }
 
 #[derive(Clone, Debug)]

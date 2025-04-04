@@ -29,8 +29,9 @@ impl RootQuery {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         id: String,
+        version: Option<String>,
     ) -> FieldResult<Option<Space>> {
-        Ok(Space::load(&executor.context().0, id).await?)
+        Ok(Space::load(&executor.context().0, id, version).await?)
     }
 
     /// Returns multiple spaces according to the provided filter
@@ -38,14 +39,15 @@ impl RootQuery {
     async fn spaces<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-        where_: Option<SpaceFilter>,
+        r#where: Option<SpaceFilter>,
+        version: Option<String>,
         #[graphql(default = 100)] first: i32,
         #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<Space>> {
         let mut query = space::find_many(&executor.context().0, indexer_ids::INDEXER_SPACE_ID);
 
         // Apply filters if provided
-        if let Some(where_) = &where_ {
+        if let Some(where_) = &r#where {
             // Network filter
             if let Some(network_filter) = where_.network_filter() {
                 query = query.network(network_filter);
@@ -93,7 +95,7 @@ impl RootQuery {
             .skip(skip as usize)
             .send()
             .await?
-            .map_ok(Space::new)
+            .map_ok(|entity| Space::new(entity, version.clone()))
             .try_collect::<Vec<_>>()
             .await?)
     }

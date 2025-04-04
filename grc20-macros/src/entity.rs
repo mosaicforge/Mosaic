@@ -285,6 +285,11 @@ pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
                 self.version = Some(version.into());
                 self
             }
+
+            pub fn version_opt(mut self, version: Option<String>) -> Self {
+                self.version = version;
+                self
+            }
         }
 
         impl grc20_core::mapping::query_utils::Query<Option<grc20_core::mapping::Entity<#struct_name>>> for FindOneQuery {
@@ -413,6 +418,7 @@ pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
         /// Query to find multiple persons with filters
         pub struct FindManyQuery {
             neo4j: grc20_core::neo4rs::Graph,
+            id: Option<grc20_core::mapping::query_utils::PropFilter<String>>,
             #(#find_many_fields)*
             space_id: String,
             version: Option<String>,
@@ -424,10 +430,11 @@ pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
             fn new(neo4j: grc20_core::neo4rs::Graph, space_id: String) -> Self {
                 let mut query = Self {
                     neo4j,
-                    space_id,
+                    id: None,
                     #(
                         #field_names: None,
                     )*
+                    space_id,
                     version: None,
                     limit: 100,
                     skip: None,
@@ -436,10 +443,20 @@ pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
                 query
             }
 
+            pub fn id(mut self, id: grc20_core::mapping::query_utils::PropFilter<String>) -> Self {
+                self.id = Some(id);
+                self
+            }
+
             #(#find_many_methods)*
 
             pub fn version(mut self, version: impl Into<String>) -> Self {
                 self.version = Some(version.into());
+                self
+            }
+
+            pub fn version_opt(mut self, version: Option<String>) -> Self {
+                self.version = version;
                 self
             }
 

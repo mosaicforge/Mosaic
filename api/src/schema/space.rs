@@ -5,8 +5,7 @@ use grc20_core::{
     error::DatabaseError,
     indexer_ids,
     mapping::{
-        self,
-        query_utils::{Query, QueryStream},
+        self, entity_node, prop_filter, query_utils::{Query, QueryStream}
     },
     neo4rs,
 };
@@ -14,27 +13,29 @@ use grc20_sdk::models::{self, space, Space as SdkSpace};
 
 use crate::context::KnowledgeGraph;
 
-use super::{Account, SchemaType};
+use super::{entity_order_by::OrderDirection, Account, Entity, EntityFilter, SchemaType};
 
 pub struct Space {
     entity: mapping::Entity<SdkSpace>,
+    version: Option<String>,
 }
 
 impl Space {
-    pub fn new(entity: mapping::Entity<SdkSpace>) -> Self {
-        Self { entity }
+    pub fn new(entity: mapping::Entity<SdkSpace>, version: Option<String>) -> Self {
+        Self { entity, version }
     }
 
     pub async fn load(
         neo4j: &neo4rs::Graph,
         id: impl Into<String>,
+        version: Option<String>,
     ) -> Result<Option<Self>, DatabaseError> {
         let id = id.into();
 
         Ok(space::find_one(neo4j, &id, indexer_ids::INDEXER_SPACE_ID)
             .send()
             .await?
-            .map(Space::new))
+            .map(|entity| Space::new(entity, version)))
     }
 }
 
@@ -203,7 +204,7 @@ impl Space {
             .skip(skip as usize)
             .send()
             .await?
-            .and_then(|(space_id, _)| Space::load(&executor.context().0, space_id))
+            .and_then(|(space_id, _)| Space::load(&executor.context().0, space_id, None))
             .filter_map(|space| async move { space.transpose() })
             .try_collect::<Vec<_>>()
             .await?)
@@ -227,7 +228,7 @@ impl Space {
             .skip(skip as usize)
             .send()
             .await?
-            .and_then(|(space_id, _)| Space::load(&executor.context().0, space_id))
+            .and_then(|(space_id, _)| Space::load(&executor.context().0, space_id, None))
             .filter_map(|space| async move { space.transpose() })
             .try_collect::<Vec<_>>()
             .await?)
@@ -250,6 +251,49 @@ impl Space {
         Ok(types
             .map_ok(|node| SchemaType::new(node, self.entity.id().to_string(), None, strict))
             .try_collect()
+            .await?)
+    }
+
+    async fn entities<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        order_by: Option<String>,
+        order_direction: Option<OrderDirection>,
+        r#where: Option<EntityFilter>,
+        #[graphql(default = 100)] first: i32,
+        #[graphql(default = 0)] skip: i32,
+        #[graphql(default = true)] strict: bool,
+    ) -> FieldResult<Vec<Entity>> {
+        let mut query = entity_node::find_many(&executor.context().0);
+
+        let entity_filter = if let Some(r#where) = r#where {
+            mapping::EntityFilter::from(r#where).space_id(prop_filter::value(self.id()))
+        } else {
+            mapping::EntityFilter::default().space_id(prop_filter::value(self.id()))
+        };
+        query = query.with_filter(entity_filter);
+
+        match (order_by, order_direction) {
+            (Some(order_by), Some(OrderDirection::Asc) | None) => {
+                query.order_by_mut(mapping::order_by::asc(order_by));
+            }
+            (Some(order_by), Some(OrderDirection::Desc)) => {
+                query.order_by_mut(mapping::order_by::desc(order_by));
+            }
+            _ => {}
+        }
+
+        if first > 1000 {
+            return Err("Cannot query more than 1000 relations at once".into());
+        }
+
+        Ok(query
+            .limit(first as usize)
+            .skip(skip as usize)
+            .send()
+            .await?
+            .map_ok(|entity| Entity::new(entity, self.id().to_owned(), self.version.clone(), strict))
+            .try_collect::<Vec<_>>()
             .await?)
     }
 }
