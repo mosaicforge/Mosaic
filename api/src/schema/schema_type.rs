@@ -131,8 +131,8 @@ impl SchemaType {
 
     /// Properties of the Type
     async fn properties<'a, S: ScalarValue>(
-        &self,
-        executor: &Executor<'_, '_, KnowledgeGraph, S>,
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         #[graphql(default = 100)] first: i32,
         #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<Property>> {

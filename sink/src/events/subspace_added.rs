@@ -1,6 +1,6 @@
 use futures::join;
 use grc20_core::{block::BlockMetadata, indexer_ids, mapping::query_utils::Query, pb::geo};
-use grc20_sdk::models::{space::ParentSpace, space};
+use grc20_sdk::models::{space, space::ParentSpace};
 use web3_utils::checksum_address;
 
 use super::{handler::HandlerError, EventHandler};

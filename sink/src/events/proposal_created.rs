@@ -9,9 +9,8 @@ use grc20_core::{
 use grc20_sdk::models::{
     account,
     proposal::{ProposalStatus, ProposedAccount, ProposedSubspace},
-    AddEditorProposal, AddMemberProposal, AddSubspaceProposal, EditProposal, Proposal,
+    space, AddEditorProposal, AddMemberProposal, AddSubspaceProposal, EditProposal, Proposal,
     ProposalCreator, Proposals, RemoveEditorProposal, RemoveMemberProposal, RemoveSubspaceProposal,
-    space,
 };
 use web3_utils::checksum_address;
 

@@ -15,10 +15,10 @@ pub use cursor::Cursor;
 pub use edit::Edit;
 pub use editor::SpaceEditor;
 pub use member::SpaceMember;
+pub use property::Property;
 pub use proposal::{
     AddEditorProposal, AddMemberProposal, AddSubspaceProposal, EditProposal, Proposal,
     ProposalCreator, Proposals, RemoveEditorProposal, RemoveMemberProposal, RemoveSubspaceProposal,
 };
-pub use property::Property;
 pub use space::{Space, SpaceBuilder, SpaceGovernanceType};
 pub use vote::{VoteCast, VoteType};

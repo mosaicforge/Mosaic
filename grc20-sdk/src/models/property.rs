@@ -223,6 +223,7 @@ pub async fn get_triple(
     Ok(None)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn get_outbound_relations(
     neo4j: &neo4rs::Graph,
     property_id: impl Into<String>,
@@ -266,7 +267,7 @@ pub async fn get_outbound_relations(
     //     }
     // };
 
-    Ok(relation_node::FindManyQuery::new(&neo4j)
+    relation_node::FindManyQuery::new(&neo4j)
         .from_id(prop_filter::value(entity_id.clone()))
         .space_id(prop_filter::value_in(spaces))
         .relation_type(prop_filter::value(property_id.clone()))
@@ -274,7 +275,7 @@ pub async fn get_outbound_relations(
         .limit(limit.unwrap_or(100))
         .skip(skip.unwrap_or(0))
         .send()
-        .await?)
+        .await
 }
 
 /// Returns the spaces from which the property is inherited

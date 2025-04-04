@@ -3,9 +3,14 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use crate::{block::BlockMetadata, error::DatabaseError, ids, mapping::AttributeNode, system_ids};
 
 use super::{
-    attributes::{self, FromAttributes, IntoAttributes}, entity_node::SystemProperties, order_by::FieldOrderBy, prop_filter, query_utils::{
+    attributes::{self, FromAttributes, IntoAttributes},
+    entity_node::SystemProperties,
+    order_by::FieldOrderBy,
+    prop_filter,
+    query_utils::{
         query_part, AttributeFilter, PropFilter, Query, QueryPart, QueryStream, VersionFilter,
-    }, relation, relation_node, EntityFilter, EntityNode, RelationFilter, RelationNode
+    },
+    relation, relation_node, EntityFilter, EntityNode, RelationFilter, RelationNode,
 };
 
 /// High level model encapsulating an entity and its attributes.
@@ -53,10 +58,10 @@ impl<T> Entity<T> {
         space_version: Option<String>,
     ) -> relation::FindManyQuery {
         relation::FindManyQuery::new(neo4j)
-            .filter(RelationFilter::default()
-                .from_(EntityFilter::default()
-                    .id(prop_filter::value(&self.node.id))
-            ))
+            .filter(
+                RelationFilter::default()
+                    .from_(EntityFilter::default().id(prop_filter::value(&self.node.id))),
+            )
             .space_id(prop_filter::value(space_id.into()))
             .version(space_version)
     }
@@ -68,10 +73,10 @@ impl<T> Entity<T> {
         space_version: Option<String>,
     ) -> relation::FindManyQuery {
         relation::FindManyQuery::new(neo4j)
-            .filter(RelationFilter::default()
-                .to_(EntityFilter::default()
-                    .id(prop_filter::value(&self.node.id))
-            ))
+            .filter(
+                RelationFilter::default()
+                    .to_(EntityFilter::default().id(prop_filter::value(&self.node.id))),
+            )
             .space_id(prop_filter::value(space_id.into()))
             .version(space_version)
     }

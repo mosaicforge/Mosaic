@@ -7,7 +7,8 @@ use serde::Deserialize;
 use crate::{block::BlockMetadata, error::DatabaseError, indexer_ids, pb, system_ids};
 
 use super::{
-    attributes, entity_node::{self, SystemProperties},
+    attributes,
+    entity_node::{self, SystemProperties},
     query_utils::{PropFilter, Query, QueryPart, QueryStream, VersionFilter},
     triple, AttributeNode, Attributes, EntityFilter, Triple, Value,
 };

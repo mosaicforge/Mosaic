@@ -9,7 +9,7 @@ use grc20_core::{
 use grc20_sdk::models::{
     self,
     edit::{Edits, ProposedEdit},
-    Proposal, space,
+    space, Proposal,
 };
 use ipfs::deserialize;
 use web3_utils::checksum_address;

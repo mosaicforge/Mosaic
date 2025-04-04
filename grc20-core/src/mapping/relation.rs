@@ -1,9 +1,18 @@
 use futures::{Stream, StreamExt, TryStreamExt};
 
-use crate::{block::BlockMetadata, error::DatabaseError, mapping::{AttributeNode, EntityNode}, system_ids};
+use crate::{
+    block::BlockMetadata,
+    error::DatabaseError,
+    mapping::{AttributeNode, EntityNode},
+    system_ids,
+};
 
 use super::{
-    attributes::{self, IntoAttributes}, entity_node, prop_filter, query_utils::{query_part, Query, QueryPart, VersionFilter}, relation_node, Entity, EntityFilter, FromAttributes, PropFilter, QueryStream, RelationFilter, RelationNode, Value
+    attributes::{self, IntoAttributes},
+    entity_node, prop_filter,
+    query_utils::{query_part, Query, QueryPart, VersionFilter},
+    relation_node, Entity, FromAttributes, PropFilter, QueryStream, RelationFilter, RelationNode,
+    Value,
 };
 
 /// High level model encapsulating a relation and its attributes.
@@ -53,6 +62,19 @@ impl<T> Relation<T> {
     }
 }
 
+pub fn find_one(
+    neo4j: &neo4rs::Graph,
+    id: impl Into<String>,
+    space_id: impl Into<String>,
+    version: Option<String>,
+) -> FindOneQuery {
+    FindOneQuery::new(neo4j, id.into(), space_id.into(), version)
+}
+
+pub fn find_many(neo4j: &neo4rs::Graph) -> FindManyQuery {
+    FindManyQuery::new(neo4j)
+}
+
 pub fn delete_one(
     neo4j: &neo4rs::Graph,
     block: &BlockMetadata,
@@ -77,12 +99,7 @@ pub struct FindOneQuery {
 }
 
 impl FindOneQuery {
-    fn new(
-        neo4j: &neo4rs::Graph,
-        id: String,
-        space_id: String,
-        version: Option<String>,
-    ) -> Self {
+    fn new(neo4j: &neo4rs::Graph, id: String, space_id: String, version: Option<String>) -> Self {
         Self {
             neo4j: neo4j.clone(),
             id,
@@ -130,7 +147,7 @@ impl FindOneQuery {
     }
 }
 
-impl<T: FromAttributes>  Query<Option<Relation<T>>> for FindOneQuery {
+impl<T: FromAttributes> Query<Option<Relation<T>>> for FindOneQuery {
     async fn send(self) -> Result<Option<Relation<T>>, DatabaseError> {
         let neo4j = self.neo4j.clone();
         let query = self.into_query_part().build();
@@ -283,21 +300,19 @@ impl FindManyQuery {
             query_part = query_part.skip(skip);
         }
 
-        query_part = query_part
-            .with_clause("DISTINCT to", {
-                let mut query_part = QueryPart::default()
-                    .match_clause("(to) -[r:ATTRIBUTE]-> (n:Attribute)")
-                    .merge(self.version.clone().into_query_part("r"));
+        query_part = query_part.with_clause("DISTINCT to", {
+            let mut query_part = QueryPart::default()
+                .match_clause("(to) -[r:ATTRIBUTE]-> (n:Attribute)")
+                .merge(self.version.clone().into_query_part("r"));
 
-                if let Some(space_id) = &self.space_id {
-                    query_part.merge_mut(space_id.clone().into_query_part("r", "space_id"));
-                }
-                query_part
-                .with_clause(
-                    "to, collect(n{.*}) AS attrs",
-                    query_part::return_query("to{.*, attributes: attrs}"),
-                )
-            });
+            if let Some(space_id) = &self.space_id {
+                query_part.merge_mut(space_id.clone().into_query_part("r", "space_id"));
+            }
+            query_part.with_clause(
+                "to, collect(n{.*}) AS attrs",
+                query_part::return_query("to{.*, attributes: attrs}"),
+            )
+        });
 
         FindManyToQuery {
             neo4j: self.neo4j.clone(),
@@ -319,7 +334,7 @@ impl<T: FromAttributes> QueryStream<Relation<T>> for FindManyQuery {
         } else {
             self.into_query_part().build()
         };
-        
+
         #[derive(Debug, serde::Deserialize)]
         struct RowResult {
             #[serde(flatten)]
@@ -365,7 +380,7 @@ impl<T: FromAttributes> QueryStream<Entity<T>> for FindManyToQuery {
         } else {
             self.query_part.build()
         };
-        
+
         #[derive(Debug, serde::Deserialize)]
         struct RowResult {
             #[serde(flatten)]
@@ -501,7 +516,7 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::mapping::{self, triple, Triple};
+    use crate::mapping::{self, triple, EntityFilter, Triple};
 
     use super::*;
 
@@ -577,14 +592,7 @@ mod tests {
             .await
             .expect("Failed to insert triples");
 
-        let relation = Relation::new(
-            "rel_abc",
-            "from_id",
-            "to_id",
-            "relation_type",
-            0u64,
-            foo,
-        );
+        let relation = Relation::new("rel_abc", "from_id", "to_id", "relation_type", 0u64, foo);
 
         relation
             .clone()
@@ -639,14 +647,7 @@ mod tests {
             .await
             .expect("Failed to insert triples");
 
-        let relation = Relation::new(
-            "rel_abc",
-            "from_id",
-            "to_id",
-            "relation_type",
-            0u64,
-            foo,
-        );
+        let relation = Relation::new("rel_abc", "from_id", "to_id", "relation_type", 0u64, foo);
 
         relation
             .clone()
@@ -657,10 +658,9 @@ mod tests {
 
         let stream = FindManyQuery::new(&neo4j)
             .space_id(prop_filter::value::<String>("ROOT"))
-            .filter(RelationFilter::default()
-                .relation_type(EntityFilter::default()
-                    .id(prop_filter::value("relation_type"))
-                )
+            .filter(
+                RelationFilter::default()
+                    .relation_type(EntityFilter::default().id(prop_filter::value("relation_type"))),
             )
             .limit(1)
             .send()

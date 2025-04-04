@@ -12,7 +12,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
-    
+
     // Get space ID from command line args
     let space_id = std::env::args()
         .nth(1)

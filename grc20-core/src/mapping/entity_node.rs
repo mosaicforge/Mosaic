@@ -6,10 +6,12 @@ use serde::{Deserialize, Serialize};
 use crate::{block::BlockMetadata, error::DatabaseError, indexer_ids};
 
 use super::{
-    attributes, entity_version, query_utils::{
-        order_by::FieldOrderBy, prop_filter, AttributeFilter, PropFilter,
-        Query, QueryPart, QueryStream,
-    }, relation_node, triple, AttributeNode, EntityFilter, Triple
+    attributes, entity_version,
+    query_utils::{
+        order_by::FieldOrderBy, prop_filter, AttributeFilter, PropFilter, Query, QueryPart,
+        QueryStream,
+    },
+    relation_node, triple, AttributeNode, EntityFilter, Triple,
 };
 
 /// Neo4j model of an Entity

@@ -1,6 +1,9 @@
 use crate::system_ids;
 
-use super::{query_utils::{EdgeFilter, QueryPart}, AttributeFilter, PropFilter};
+use super::{
+    query_utils::{EdgeFilter, QueryPart},
+    AttributeFilter, PropFilter,
+};
 
 #[derive(Clone, Debug, Default)]
 pub struct EntityFilter {

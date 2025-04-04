@@ -2,7 +2,9 @@ use juniper::GraphQLInputObject;
 
 use grc20_core::{
     mapping::{
-        self, query_utils::{edge_filter::EdgeFilter, prop_filter, PropFilter}, relation_node
+        self,
+        query_utils::{edge_filter::EdgeFilter, prop_filter, PropFilter},
+        relation_node,
     },
     system_ids,
 };

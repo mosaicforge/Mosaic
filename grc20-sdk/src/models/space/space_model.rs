@@ -184,9 +184,8 @@ pub async fn find_by_personal_plugin_address(
 ) -> Result<Option<Entity<Space>>, DatabaseError> {
     let stream = entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
         .attribute(
-            AttributeFilter::new(indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS).value(
-                PropFilter::default().value(checksum_address(personal_space_admin_plugin)),
-            ),
+            AttributeFilter::new(indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS)
+                .value(PropFilter::default().value(checksum_address(personal_space_admin_plugin))),
         )
         .limit(1)
         .send()

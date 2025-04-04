@@ -5,7 +5,8 @@ use grc20_core::{
     error::DatabaseError,
     indexer_ids,
     mapping::{
-        self, entity_node, prop_filter, query_utils::{Query, QueryStream}
+        self, entity_node, prop_filter,
+        query_utils::{Query, QueryStream},
     },
     neo4rs,
 };
@@ -83,7 +84,7 @@ impl From<&SpaceGovernanceType> for grc20_sdk::models::space::SpaceGovernanceTyp
 impl Space {
     /// Space ID
     fn id(&self) -> &str {
-        &self.entity.id()
+        self.entity.id()
     }
 
     /// Network of the space
@@ -147,7 +148,7 @@ impl Space {
         #[graphql(default = 100)] first: i32,
         #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<super::Account>> {
-        let query = models::space::members(&executor.context().0, &self.entity.id());
+        let query = models::space::members(&executor.context().0, self.entity.id());
 
         if first > 1000 {
             return Err("Cannot query more than 1000 relations at once".into());
@@ -170,7 +171,7 @@ impl Space {
         #[graphql(default = 100)] first: i32,
         #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<super::Account>> {
-        let query = models::space::editors(&executor.context().0, &self.entity.id());
+        let query = models::space::editors(&executor.context().0, self.entity.id());
 
         if first > 1000 {
             return Err("Cannot query more than 1000 relations at once".into());
@@ -193,7 +194,7 @@ impl Space {
         #[graphql(default = 100)] first: i32,
         #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<Space>> {
-        let query = models::space::parent_spaces(&executor.context().0, &self.entity.id());
+        let query = models::space::parent_spaces(&executor.context().0, self.entity.id());
 
         if first > 1000 {
             return Err("Cannot query more than 1000 relations at once".into());
@@ -217,7 +218,7 @@ impl Space {
         #[graphql(default = 100)] first: i32,
         #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<Space>> {
-        let query = models::space::subspaces(&executor.context().0, &self.entity.id());
+        let query = models::space::subspaces(&executor.context().0, self.entity.id());
 
         if first > 1000 {
             return Err("Cannot query more than 1000 relations at once".into());
@@ -241,7 +242,7 @@ impl Space {
         #[graphql(default = 0)] skip: i32,
         #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Vec<SchemaType>> {
-        let types = models::space::types(&executor.context().0, &self.entity.id())
+        let types = models::space::types(&executor.context().0, self.entity.id())
             .strict(strict)
             .limit(first as usize)
             .skip(skip as usize)
@@ -254,6 +255,7 @@ impl Space {
             .await?)
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn entities<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
@@ -292,7 +294,9 @@ impl Space {
             .skip(skip as usize)
             .send()
             .await?
-            .map_ok(|entity| Entity::new(entity, self.id().to_owned(), self.version.clone(), strict))
+            .map_ok(|entity| {
+                Entity::new(entity, self.id().to_owned(), self.version.clone(), strict)
+            })
             .try_collect::<Vec<_>>()
             .await?)
     }
