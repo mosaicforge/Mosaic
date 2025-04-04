@@ -247,7 +247,7 @@ pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
     let find_one_fn = quote! {
         /// Find a person by its id
         pub fn find_one(
-            neo4j: &neo4rs::Graph,
+            neo4j: &grc20_core::neo4rs::Graph,
             id: impl Into<String>,
             space_id: impl Into<String>,
         ) -> FindOneQuery {
@@ -257,7 +257,7 @@ pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
 
     let find_many_fn = quote! {
         /// Find multiple persons with filters
-        pub fn find_many(neo4j: &neo4rs::Graph, space_id: impl Into<String>) -> FindManyQuery {
+        pub fn find_many(neo4j: &grc20_core::neo4rs::Graph, space_id: impl Into<String>) -> FindManyQuery {
             FindManyQuery::new(neo4j.clone(), space_id.into())
         }
     };
@@ -265,14 +265,14 @@ pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
     let find_one_query_struct = quote! {
         /// Query to find a single person
         pub struct FindOneQuery {
-            neo4j: neo4rs::Graph,
+            neo4j: grc20_core::neo4rs::Graph,
             id: String,
             space_id: String,
             version: Option<String>,
         }
 
         impl FindOneQuery {
-            fn new(neo4j: neo4rs::Graph, id: String, space_id: String) -> Self {
+            fn new(neo4j: grc20_core::neo4rs::Graph, id: String, space_id: String) -> Self {
                 Self {
                     neo4j,
                     id,
@@ -283,6 +283,11 @@ pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
 
             pub fn version(mut self, version: impl Into<String>) -> Self {
                 self.version = Some(version.into());
+                self
+            }
+
+            pub fn version_opt(mut self, version: Option<String>) -> Self {
+                self.version = version;
                 self
             }
         }
@@ -412,7 +417,8 @@ pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
     let find_many_query_struct = quote! {
         /// Query to find multiple persons with filters
         pub struct FindManyQuery {
-            neo4j: neo4rs::Graph,
+            neo4j: grc20_core::neo4rs::Graph,
+            id: Option<grc20_core::mapping::query_utils::PropFilter<String>>,
             #(#find_many_fields)*
             space_id: String,
             version: Option<String>,
@@ -421,13 +427,14 @@ pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
         }
 
         impl FindManyQuery {
-            fn new(neo4j: neo4rs::Graph, space_id: String) -> Self {
+            fn new(neo4j: grc20_core::neo4rs::Graph, space_id: String) -> Self {
                 let mut query = Self {
                     neo4j,
-                    space_id,
+                    id: None,
                     #(
                         #field_names: None,
                     )*
+                    space_id,
                     version: None,
                     limit: 100,
                     skip: None,
@@ -436,10 +443,20 @@ pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
                 query
             }
 
+            pub fn id(mut self, id: grc20_core::mapping::query_utils::PropFilter<String>) -> Self {
+                self.id = Some(id);
+                self
+            }
+
             #(#find_many_methods)*
 
             pub fn version(mut self, version: impl Into<String>) -> Self {
                 self.version = Some(version.into());
+                self
+            }
+
+            pub fn version_opt(mut self, version: Option<String>) -> Self {
+                self.version = version;
                 self
             }
 

@@ -7,10 +7,10 @@ use grc20_core::{
     pb::geo,
 };
 use grc20_sdk::models::{
+    account,
     proposal::{ProposalStatus, ProposedAccount, ProposedSubspace},
-    Account, AddEditorProposal, AddMemberProposal, AddSubspaceProposal, EditProposal, Proposal,
+    space, AddEditorProposal, AddMemberProposal, AddSubspaceProposal, EditProposal, Proposal,
     ProposalCreator, Proposals, RemoveEditorProposal, RemoveMemberProposal, RemoveSubspaceProposal,
-    Space,
 };
 use web3_utils::checksum_address;
 
@@ -22,9 +22,9 @@ impl EventHandler {
         add_member_proposal: &geo::AddMemberProposalCreated,
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space_id = Space::gen_id(network_ids::GEO, &add_member_proposal.dao_address);
-        let creator_id = Account::gen_id(&add_member_proposal.creator);
-        let proposed_account_id = Account::gen_id(&add_member_proposal.member);
+        let space_id = space::new_id(network_ids::GEO, &add_member_proposal.dao_address);
+        let creator_id = account::new_id(&add_member_proposal.creator);
+        let proposed_account_id = account::new_id(&add_member_proposal.member);
 
         // Create proposal
         let proposal = AddMemberProposal::new(Proposal {
@@ -52,9 +52,9 @@ impl EventHandler {
         remove_member_proposal: &geo::RemoveMemberProposalCreated,
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space_id = Space::gen_id(network_ids::GEO, &remove_member_proposal.dao_address);
-        let creator_id = Account::gen_id(&remove_member_proposal.creator);
-        let proposed_account_id = Account::gen_id(&remove_member_proposal.member);
+        let space_id = space::new_id(network_ids::GEO, &remove_member_proposal.dao_address);
+        let creator_id = account::new_id(&remove_member_proposal.creator);
+        let proposed_account_id = account::new_id(&remove_member_proposal.member);
 
         // Create proposal
         let proposal = RemoveMemberProposal::new(Proposal {
@@ -82,9 +82,9 @@ impl EventHandler {
         add_editor_proposal: &geo::AddEditorProposalCreated,
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space_id = Space::gen_id(network_ids::GEO, &add_editor_proposal.dao_address);
-        let creator_id = Account::gen_id(&add_editor_proposal.creator);
-        let proposed_account_id = Account::gen_id(&add_editor_proposal.editor);
+        let space_id = space::new_id(network_ids::GEO, &add_editor_proposal.dao_address);
+        let creator_id = account::new_id(&add_editor_proposal.creator);
+        let proposed_account_id = account::new_id(&add_editor_proposal.editor);
 
         // Create proposal
         let proposal = AddEditorProposal::new(Proposal {
@@ -112,9 +112,9 @@ impl EventHandler {
         remove_editor_proposal: &geo::RemoveEditorProposalCreated,
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space_id = Space::gen_id(network_ids::GEO, &remove_editor_proposal.dao_address);
-        let creator_id = Account::gen_id(&remove_editor_proposal.creator);
-        let proposed_account_id = Account::gen_id(&remove_editor_proposal.editor);
+        let space_id = space::new_id(network_ids::GEO, &remove_editor_proposal.dao_address);
+        let creator_id = account::new_id(&remove_editor_proposal.creator);
+        let proposed_account_id = account::new_id(&remove_editor_proposal.editor);
 
         // Create proposal
         let proposal = RemoveEditorProposal::new(Proposal {
@@ -142,9 +142,9 @@ impl EventHandler {
         add_subspace_proposal: &geo::AddSubspaceProposalCreated,
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space_id = Space::gen_id(network_ids::GEO, &add_subspace_proposal.dao_address);
-        let creator_id = Account::gen_id(&add_subspace_proposal.creator);
-        let proposed_subspace_id = Space::gen_id(network_ids::GEO, &add_subspace_proposal.subspace);
+        let space_id = space::new_id(network_ids::GEO, &add_subspace_proposal.dao_address);
+        let creator_id = account::new_id(&add_subspace_proposal.creator);
+        let proposed_subspace_id = space::new_id(network_ids::GEO, &add_subspace_proposal.subspace);
 
         // Create proposal
         let proposal = AddSubspaceProposal::new(Proposal {
@@ -172,10 +172,10 @@ impl EventHandler {
         remove_subspace_proposal: &geo::RemoveSubspaceProposalCreated,
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space_id = Space::gen_id(network_ids::GEO, &remove_subspace_proposal.dao_address);
-        let creator_id = Account::gen_id(&remove_subspace_proposal.creator);
+        let space_id = space::new_id(network_ids::GEO, &remove_subspace_proposal.dao_address);
+        let creator_id = account::new_id(&remove_subspace_proposal.creator);
         let proposed_subspace_id =
-            Space::gen_id(network_ids::GEO, &remove_subspace_proposal.subspace);
+            space::new_id(network_ids::GEO, &remove_subspace_proposal.subspace);
 
         // Create proposal
         let proposal = RemoveSubspaceProposal::new(Proposal {
@@ -203,8 +203,8 @@ impl EventHandler {
         publish_edit_proposal: &geo::PublishEditProposalCreated,
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space_id = Space::gen_id(network_ids::GEO, &publish_edit_proposal.dao_address);
-        let creator_id = Account::gen_id(&publish_edit_proposal.creator);
+        let space_id = space::new_id(network_ids::GEO, &publish_edit_proposal.dao_address);
+        let creator_id = account::new_id(&publish_edit_proposal.creator);
 
         let proposal = EditProposal::new(
             Proposal {
@@ -217,7 +217,7 @@ impl EventHandler {
             publish_edit_proposal.content_uri.clone(),
         );
 
-        let proposal_id = proposal.id.clone();
+        let proposal_id = proposal.id().to_string();
 
         // Insert Proposal
         proposal
@@ -250,7 +250,7 @@ impl EventHandler {
         creator_id: &str,
         proposed_account_id: &str,
     ) -> Result<(), DatabaseError> {
-        let proposal_id = proposal.id.clone();
+        let proposal_id = proposal.id().to_string();
 
         // Insert Proposal
         proposal
@@ -285,7 +285,7 @@ impl EventHandler {
         creator_id: &str,
         proposed_subspace_id: &str,
     ) -> Result<(), DatabaseError> {
-        let proposal_id = proposal.id.clone();
+        let proposal_id = proposal.id().to_string();
 
         // Insert Proposal
         proposal

@@ -1,4 +1,5 @@
 use futures::TryStreamExt;
+use grc20_sdk::models::property;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use grc20_core::{
@@ -19,17 +20,24 @@ use super::{AttributeFilter, EntityRelationFilter, EntityVersion};
 
 #[derive(Debug)]
 pub struct Entity {
-    node: EntityNode,
-    space_id: String,
-    space_version: Option<String>,
+    pub node: EntityNode,
+    pub space_id: String,
+    pub space_version: Option<String>,
+    pub strict: bool,
 }
 
 impl Entity {
-    pub fn new(node: EntityNode, space_id: String, space_version: Option<String>) -> Self {
+    pub fn new(
+        node: EntityNode,
+        space_id: String,
+        space_version: Option<String>,
+        strict: bool,
+    ) -> Self {
         Self {
             node,
             space_id,
             space_version,
+            strict,
         }
     }
 
@@ -38,6 +46,7 @@ impl Entity {
         id: impl Into<String>,
         space_id: impl Into<String>,
         space_version: Option<String>,
+        strict: bool,
     ) -> FieldResult<Option<Self>> {
         let id = id.into();
         let space_id = space_id.into();
@@ -45,7 +54,7 @@ impl Entity {
         Ok(entity_node::find_one(neo4j, id)
             .send()
             .await?
-            .map(|node| Entity::new(node, space_id, space_version)))
+            .map(|node| Entity::new(node, space_id, space_version, strict)))
     }
 }
 
@@ -54,66 +63,84 @@ impl Entity {
 /// Entity object
 impl Entity {
     /// Entity ID
-    fn id(&self) -> &str {
+    pub fn id(&self) -> &str {
         &self.node.id
     }
 
+    /// The space ID of the entity (note: the same entity can exist in multiple spaces)
+    pub fn space_id(&self) -> &str {
+        &self.space_id
+    }
+
+    pub fn created_at(&self) -> String {
+        self.node.system_properties.created_at.to_rfc3339()
+    }
+
+    pub fn created_at_block(&self) -> &str {
+        &self.node.system_properties.created_at_block
+    }
+
+    pub fn updated_at(&self) -> String {
+        self.node.system_properties.updated_at.to_rfc3339()
+    }
+
+    pub fn updated_at_block(&self) -> &str {
+        &self.node.system_properties.updated_at_block
+    }
+
     /// Entity name (if available)
-    async fn name<'a, S: ScalarValue>(
+    pub async fn name<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-    ) -> Option<String> {
-        triple::find_one(
+    ) -> FieldResult<Option<String>> {
+        Ok(property::get_triple(
             &executor.context().0,
             system_ids::NAME_ATTRIBUTE,
             &self.node.id,
             &self.space_id,
             self.space_version.clone(),
+            self.strict,
         )
-        .send()
-        .await
-        .expect("Failed to find name")
-        .map(|triple| triple.value.value)
+        .await?
+        .map(|triple| triple.value.value))
     }
 
     /// Entity description (if available)
-    async fn description<'a, S: ScalarValue>(
+    pub async fn description<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-    ) -> Option<String> {
-        triple::find_one(
+    ) -> FieldResult<Option<String>> {
+        Ok(property::get_triple(
             &executor.context().0,
             system_ids::DESCRIPTION_ATTRIBUTE,
             &self.node.id,
             &self.space_id,
             self.space_version.clone(),
+            self.strict,
         )
-        .send()
-        .await
-        .expect("Failed to find name")
-        .map(|triple| triple.value.value)
+        .await?
+        .map(|triple| triple.value.value))
     }
 
     /// Entity cover (if available)
-    async fn cover<'a, S: ScalarValue>(
+    pub async fn cover<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-    ) -> Option<String> {
-        triple::find_one(
+    ) -> FieldResult<Option<String>> {
+        Ok(property::get_triple(
             &executor.context().0,
             system_ids::COVER_ATTRIBUTE,
             &self.node.id,
             &self.space_id,
             self.space_version.clone(),
+            self.strict,
         )
-        .send()
-        .await
-        .expect("Failed to find name")
-        .map(|triple| triple.value.value)
+        .await?
+        .map(|triple| triple.value.value))
     }
 
     /// Entity blocks (if available)
-    async fn blocks<'a, S: ScalarValue>(
+    pub async fn blocks<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Vec<Entity>> {
@@ -136,13 +163,20 @@ impl Entity {
             ))
             .send()
             .await?
-            .map_ok(|node| Entity::new(node, self.space_id.clone(), self.space_version.clone()))
+            .map_ok(|node| {
+                Entity::new(
+                    node,
+                    self.space_id.clone(),
+                    self.space_version.clone(),
+                    self.strict,
+                )
+            })
             .try_collect::<Vec<_>>()
             .await?)
     }
 
     /// Types of the entity (which are entities themselves)
-    async fn types<'a, S: ScalarValue>(
+    pub async fn types<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Vec<Entity>> {
@@ -165,38 +199,24 @@ impl Entity {
             ))
             .send()
             .await?
-            .map_ok(|node| Entity::new(node, self.space_id.clone(), self.space_version.clone()))
+            .map_ok(|node| {
+                Entity::new(
+                    node,
+                    self.space_id.clone(),
+                    self.space_version.clone(),
+                    self.strict,
+                )
+            })
             .try_collect::<Vec<_>>()
             .await?)
     }
 
-    /// The space ID of the entity (note: the same entity can exist in multiple spaces)
-    fn space_id(&self) -> &str {
-        &self.space_id
-    }
-
-    fn created_at(&self) -> String {
-        self.node.system_properties.created_at.to_rfc3339()
-    }
-
-    fn created_at_block(&self) -> &str {
-        &self.node.system_properties.created_at_block
-    }
-
-    fn updated_at(&self) -> String {
-        self.node.system_properties.updated_at.to_rfc3339()
-    }
-
-    fn updated_at_block(&self) -> &str {
-        &self.node.system_properties.updated_at_block
-    }
-
     // TODO: Add entity attributes filtering
     /// Attributes of the entity
-    async fn attributes<S: ScalarValue>(
+    pub async fn attributes<S: ScalarValue>(
         &self,
-        _filter: Option<AttributeFilter>,
         executor: &'_ Executor<'_, '_, KnowledgeGraph, S>,
+        _filter: Option<AttributeFilter>,
     ) -> FieldResult<Vec<Triple>> {
         let mut query = triple::find_many(&executor.context().0)
             .entity_id(prop_filter::value(&self.node.id))
@@ -215,10 +235,10 @@ impl Entity {
     }
 
     /// Relations outgoing from the entity
-    async fn relations<'a, S: ScalarValue>(
+    pub async fn relations<'a, S: ScalarValue>(
         &'a self,
-        r#where: Option<EntityRelationFilter>,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        r#where: Option<EntityRelationFilter>,
     ) -> FieldResult<Vec<Relation>> {
         let mut base_query = self.node.get_outbound_relations(
             &executor.context().0,
@@ -234,7 +254,12 @@ impl Entity {
             .send()
             .await?
             .map_ok(|relation| {
-                Relation::new(relation, self.space_id.clone(), self.space_version.clone())
+                Relation::new(
+                    relation,
+                    self.space_id.clone(),
+                    self.space_version.clone(),
+                    self.strict,
+                )
             })
             .try_collect::<Vec<_>>()
             .await?)
@@ -242,7 +267,7 @@ impl Entity {
 
     // TODO: Add version filtering (e.g.: time range, edit author)
     /// Versions of the entity, ordered chronologically
-    async fn versions<'a, S: ScalarValue>(
+    pub async fn versions<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Vec<EntityVersion>> {

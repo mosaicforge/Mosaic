@@ -12,7 +12,7 @@ use grc20_core::{
         attributes::{FromAttributes, IntoAttributes},
         entity,
         query_utils::{AttributeFilter, PropFilter, QueryStream},
-        Entity, Relation, Value,
+        Entity, Relation, TriplesConversionError, Value,
     },
     neo4rs, pb,
 };
@@ -165,7 +165,7 @@ impl From<ProposalStatus> for Value {
 }
 
 impl TryFrom<Value> for ProposalStatus {
-    type Error = String;
+    type Error = TriplesConversionError;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
         match value.value.as_str() {
@@ -174,7 +174,10 @@ impl TryFrom<Value> for ProposalStatus {
             "Rejected" => Ok(Self::Rejected),
             "Canceled" => Ok(Self::Canceled),
             "Executed" => Ok(Self::Executed),
-            _ => Err(format!("Invalid proposal status: {}", value.value)),
+            _ => Err(TriplesConversionError::InvalidValue(format!(
+                "Invalid proposal status: {}",
+                value.value
+            ))),
         }
     }
 }

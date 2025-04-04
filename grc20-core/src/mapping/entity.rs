@@ -4,19 +4,19 @@ use crate::{block::BlockMetadata, error::DatabaseError, ids, mapping::AttributeN
 
 use super::{
     attributes::{self, FromAttributes, IntoAttributes},
-    entity_node::EntityFilter,
+    entity_node::SystemProperties,
     order_by::FieldOrderBy,
     prop_filter,
     query_utils::{
         query_part, AttributeFilter, PropFilter, Query, QueryPart, QueryStream, VersionFilter,
     },
-    relation_node, RelationNode,
+    relation, relation_node, EntityFilter, EntityNode, RelationFilter, RelationNode,
 };
 
 /// High level model encapsulating an entity and its attributes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Entity<T> {
-    pub id: String,
+    pub(crate) node: EntityNode,
     pub attributes: T,
     pub types: Vec<String>,
 }
@@ -24,10 +24,21 @@ pub struct Entity<T> {
 impl<T> Entity<T> {
     pub fn new(id: impl Into<String>, attributes: T) -> Self {
         Entity {
-            id: id.into(),
+            node: EntityNode {
+                id: id.into(),
+                system_properties: SystemProperties::default(),
+            },
             attributes,
             types: vec![],
         }
+    }
+
+    pub fn id(&self) -> &str {
+        &self.node.id
+    }
+
+    pub fn system_properties(&self) -> &SystemProperties {
+        &self.node.system_properties
     }
 
     pub fn with_type(mut self, r#type: impl Into<String>) -> Self {
@@ -38,6 +49,36 @@ impl<T> Entity<T> {
     pub fn with_types(mut self, types: impl IntoIterator<Item = String>) -> Self {
         self.types.extend(types);
         self
+    }
+
+    pub fn get_outbound_relations(
+        &self,
+        neo4j: &neo4rs::Graph,
+        space_id: impl Into<String>,
+        space_version: Option<String>,
+    ) -> relation::FindManyQuery {
+        relation::FindManyQuery::new(neo4j)
+            .filter(
+                RelationFilter::default()
+                    .from_(EntityFilter::default().id(prop_filter::value(&self.node.id))),
+            )
+            .space_id(prop_filter::value(space_id.into()))
+            .version(space_version)
+    }
+
+    pub fn get_inbound_relations(
+        &self,
+        neo4j: &neo4rs::Graph,
+        space_id: impl Into<String>,
+        space_version: Option<String>,
+    ) -> relation::FindManyQuery {
+        relation::FindManyQuery::new(neo4j)
+            .filter(
+                RelationFilter::default()
+                    .to_(EntityFilter::default().id(prop_filter::value(&self.node.id))),
+            )
+            .space_id(prop_filter::value(space_id.into()))
+            .version(space_version)
     }
 
     pub fn insert(
@@ -111,7 +152,7 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
         attributes::insert_one(
             &self.neo4j,
             &self.block,
-            &self.entity.id,
+            &self.entity.node.id,
             &self.space_id,
             &self.space_version,
             self.entity.attributes,
@@ -129,11 +170,11 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
                     ids::create_id_from_unique_string(format!(
                         "{}:{}:{}:{}",
                         self.space_id,
-                        self.entity.id,
+                        self.entity.node.id,
                         system_ids::TYPES_ATTRIBUTE,
                         t,
                     )),
-                    &self.entity.id,
+                    &self.entity.node.id,
                     t,
                     system_ids::TYPES_ATTRIBUTE,
                     "0",
@@ -186,9 +227,9 @@ impl<T: FromAttributes> Query<Option<Entity<T>>> for FindOneQuery {
         .await?;
 
         let types = relation_node::find_many(&self.neo4j)
-            .space_id(PropFilter::default().value(self.space_id.clone()))
-            .from_id(PropFilter::default().value(self.entity_id.clone()))
-            .relation_type(PropFilter::default().value(system_ids::TYPES_ATTRIBUTE))
+            .space_id(prop_filter::value(self.space_id.clone()))
+            .from_id(prop_filter::value(self.entity_id.clone()))
+            .relation_type(prop_filter::value(system_ids::TYPES_ATTRIBUTE))
             .send()
             .await?
             .try_collect::<Vec<_>>()
@@ -277,7 +318,11 @@ impl FindManyQuery {
             .match_clause("(e:Entity)")
             .limit(self.limit);
 
-        query_part.merge_mut(self.filter.into_query_part("e"));
+        query_part.merge_mut(
+            self.filter
+                .space_id(self.space_id.clone())
+                .into_query_part("e"),
+        );
 
         if let Some(order_by) = self.order_by {
             query_part.merge_mut(order_by.into_query_part("e"));
@@ -287,14 +332,14 @@ impl FindManyQuery {
             query_part = query_part.skip(skip);
         }
 
-        query_part.with_clause("e", {
+        query_part.with_clause("DISTINCT e", {
             QueryPart::default()
                 .match_clause("(e) -[r:ATTRIBUTE]-> (n:Attribute)")
                 .merge(self.space_id.into_query_part("r", "space_id"))
                 .merge(self.version.into_query_part("r"))
                 .with_clause(
                     "e, collect(n{.*}) AS attrs",
-                    query_part::return_query("e{.id, attributes: attrs}"),
+                    query_part::return_query("e{.*, attributes: attrs}"),
                 )
         })
     }
@@ -316,7 +361,8 @@ impl<T: FromAttributes> QueryStream<Entity<T>> for FindManyQuery {
 
         #[derive(Debug, serde::Deserialize)]
         struct RowResult {
-            id: String,
+            #[serde(flatten)]
+            node: EntityNode,
             attributes: Vec<AttributeNode>,
         }
 
@@ -325,10 +371,14 @@ impl<T: FromAttributes> QueryStream<Entity<T>> for FindManyQuery {
             .await?
             .into_stream_as::<RowResult>()
             .map_err(DatabaseError::from)
-            .map(|attrs| {
-                attrs.and_then(|attrs| {
-                    T::from_attributes(attrs.attributes.into())
-                        .map(|data| Entity::new(attrs.id, data))
+            .map(|row_result| {
+                row_result.and_then(|row| {
+                    T::from_attributes(row.attributes.into())
+                        .map(|data| Entity {
+                            node: row.node,
+                            attributes: data,
+                            types: vec![],
+                        })
                         .map_err(DatabaseError::from)
                 })
             });
@@ -490,7 +540,7 @@ mod tests {
             .expect("Failed to get next entity")
             .expect("Entity not found");
 
-        assert_eq!(found_entity.id, entity.id);
+        assert_eq!(found_entity.node.id, entity.node.id);
         assert_eq!(found_entity.attributes, entity.attributes);
     }
 }

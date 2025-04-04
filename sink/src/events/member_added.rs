@@ -1,5 +1,5 @@
 use grc20_core::{block::BlockMetadata, indexer_ids, mapping::query_utils::Query, pb::geo};
-use grc20_sdk::models::{Account, Space, SpaceMember};
+use grc20_sdk::models::{account, space, SpaceMember};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -10,18 +10,18 @@ impl EventHandler {
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         // match try_join!(
-        //     Space::find_by_voting_plugin_address(
+        //     space::find_by_voting_plugin_address(
         //         &self.neo4j,
         //         &member_added.main_voting_plugin_address
         //     ),
-        //     Space::find_by_personal_plugin_address(
+        //     space::find_by_personal_plugin_address(
         //         &self.neo4j,
         //         &member_added.main_voting_plugin_address
         //     )
         // )? {
         //     // Space found
         //     (Some(space), _) | (None, Some(space)) => {
-        //         let member = Account::new(member_added.member_address.clone());
+        //         let member = account::new(member_added.member_address.clone());
         //         let member_rel = SpaceMember::new(&member.id, &space.id);
 
         //         // Add geo account
@@ -47,10 +47,10 @@ impl EventHandler {
         // };
 
         if let Some(space) =
-            Space::find_entity_by_dao_address(&self.neo4j, &member_added.dao_address).await?
+            space::find_entity_by_dao_address(&self.neo4j, &member_added.dao_address).await?
         {
-            let member = Account::new(member_added.member_address.clone());
-            let member_rel = SpaceMember::new(&member.id, &space.id);
+            let member = account::new(member_added.member_address.clone());
+            let member_rel = SpaceMember::new(member.id(), &space.id);
 
             // Add geo account
             member

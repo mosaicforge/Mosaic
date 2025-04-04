@@ -2,7 +2,7 @@
 
 use grc20_core::{
     ids, indexer_ids,
-    mapping::{self, Relation},
+    mapping::{self, Relation, TriplesConversionError},
 };
 
 /// A vote cast by a user on a proposal.
@@ -62,13 +62,16 @@ impl From<VoteType> for mapping::Value {
 }
 
 impl TryFrom<mapping::Value> for VoteType {
-    type Error = String;
+    type Error = TriplesConversionError;
 
     fn try_from(value: mapping::Value) -> Result<Self, Self::Error> {
         match (value.value_type, value.value.as_str()) {
             (mapping::ValueType::Text, "ACCEPT") => Ok(Self::Accept),
             (mapping::ValueType::Text, "REJECT") => Ok(Self::Reject),
-            (value_type, _) => Err(format!("Invalid vote type value_type: {:?}", value_type)),
+            (value_type, _) => Err(TriplesConversionError::InvalidValue(format!(
+                "Invalid vote type value_type: {:?}",
+                value_type
+            ))),
         }
     }
 }

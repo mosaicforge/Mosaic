@@ -938,6 +938,7 @@ dependencies = [
  "grc20-core",
  "proc-macro2",
  "quote",
+ "stringcase",
  "syn 2.0.96",
  "testcontainers",
  "tokio",
@@ -949,11 +950,14 @@ dependencies = [
 name = "grc20-sdk"
 version = "0.1.0"
 dependencies = [
+ "async-stream",
  "chrono",
  "futures",
  "grc20-core",
  "serde",
  "serde_json",
+ "tokio",
+ "tracing-subscriber",
  "web3-utils",
 ]
 
@@ -2668,6 +2672,12 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "stringcase"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72abeda133c49d7bddece6c154728f83eec8172380c80ab7096da9487e20d27c"
 
 [[package]]
 name = "strsim"

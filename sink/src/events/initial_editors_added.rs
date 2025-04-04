@@ -1,6 +1,6 @@
 use futures::{stream, StreamExt, TryStreamExt};
 use grc20_core::{block::BlockMetadata, indexer_ids, mapping::query_utils::Query, pb::geo};
-use grc20_sdk::models::{Account, Space, SpaceEditor};
+use grc20_sdk::models::{account, space, SpaceEditor};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -11,7 +11,7 @@ impl EventHandler {
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space =
-            Space::find_entity_by_dao_address(&self.neo4j, &initial_editor_added.dao_address)
+            space::find_entity_by_dao_address(&self.neo4j, &initial_editor_added.dao_address)
                 .await?;
 
         if let Some(space) = &space {
@@ -19,8 +19,8 @@ impl EventHandler {
                 .map(Result::<_, HandlerError>::Ok)
                 .try_for_each(|editor_address| async move {
                     // Create editor account and relation
-                    let editor = Account::new(editor_address.clone());
-                    let editor_rel = SpaceEditor::new(&editor.id, &space.id);
+                    let editor = account::new(editor_address.clone());
+                    let editor_rel = SpaceEditor::new(editor.id(), &space.id);
 
                     // Insert editor account
                     editor

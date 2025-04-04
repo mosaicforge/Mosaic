@@ -17,11 +17,11 @@ pub use query_part::QueryPart;
 pub use types_filter::TypesFilter;
 pub use version_filter::VersionFilter;
 
-pub trait Query<T> {
+pub trait Query<T>: Sized {
     fn send(self) -> impl std::future::Future<Output = Result<T, DatabaseError>>;
 }
 
-pub trait QueryStream<T> {
+pub trait QueryStream<T>: Sized {
     fn send(
         self,
     ) -> impl std::future::Future<

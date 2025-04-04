@@ -4,7 +4,7 @@ use grc20_core::{
     mapping::{entity_node, query_utils::Query},
     pb::geo,
 };
-use grc20_sdk::models::{Account, Proposal, VoteCast};
+use grc20_sdk::models::{account, Proposal, VoteCast};
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -16,8 +16,8 @@ impl EventHandler {
     ) -> Result<(), HandlerError> {
         // // TODO: (optimization) Merge the two queries into one OR query
         // match join!(
-        //     Space::find_by_voting_plugin_address(&self.neo4j, &vote.plugin_address),
-        //     Space::find_by_member_access_plugin(&self.neo4j, &vote.plugin_address)
+        //     space::find_by_voting_plugin_address(&self.neo4j, &vote.plugin_address),
+        //     space::find_by_member_access_plugin(&self.neo4j, &vote.plugin_address)
         // ) {
         //     // Space found
         //     (Ok(Some(_space)), Ok(_)) | (Ok(None), Ok(Some(_space))) => {
@@ -97,7 +97,7 @@ impl EventHandler {
             .send()
             .await?;
 
-        let maybe_account = entity_node::find_one(&self.neo4j, Account::gen_id(&vote.voter))
+        let maybe_account = entity_node::find_one(&self.neo4j, account::new_id(&vote.voter))
             .send()
             .await?;
 

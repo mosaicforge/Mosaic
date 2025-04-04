@@ -5,7 +5,7 @@ use grc20_core::{
     network_ids,
     pb::{self, geo},
 };
-use grc20_sdk::models::{Account, Space, SpaceGovernanceType};
+use grc20_sdk::models::{account, space, SpaceGovernanceType};
 
 use web3_utils::checksum_address;
 
@@ -41,13 +41,13 @@ impl EventHandler {
                                 block.block_number,
                                 block.timestamp,
                                 checksum_address(&space_created.space_address),
-                                Space::gen_id(
+                                space::new_id(
                                     &import.previous_network,
                                     &import.previous_contract_address,
                                 )
                             );
 
-                            Some(Space::gen_id(
+                            Some(space::new_id(
                                 &import.previous_network,
                                 &import.previous_contract_address,
                             ))
@@ -62,7 +62,7 @@ impl EventHandler {
         };
 
         let space_id = maybe_existing_space_id
-            .unwrap_or_else(|| Space::gen_id(network_ids::GEO, &space_created.dao_address));
+            .unwrap_or_else(|| space::new_id(network_ids::GEO, &space_created.dao_address));
 
         tracing::info!(
             "Block #{} ({}): Creating space {}",
@@ -71,7 +71,7 @@ impl EventHandler {
             space_id
         );
 
-        Space::builder(&space_id, &space_created.dao_address)
+        space::builder(&space_id, &space_created.dao_address)
             .network(network_ids::GEO.to_string())
             .space_plugin_address(&space_created.space_address)
             .build()
@@ -88,7 +88,7 @@ impl EventHandler {
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space =
-            Space::find_entity_by_dao_address(&self.neo4j, &personal_space_created.dao_address)
+            space::find_entity_by_dao_address(&self.neo4j, &personal_space_created.dao_address)
                 .await?;
 
         if let Some(space) = &space {
@@ -112,7 +112,7 @@ impl EventHandler {
                 .await?;
 
             // Add initial editors to the personal space
-            let editor = Account::new(personal_space_created.initial_editor.clone());
+            let editor = account::new(personal_space_created.initial_editor.clone());
 
             editor
                 .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
@@ -124,7 +124,7 @@ impl EventHandler {
                 block.block_number,
                 block.timestamp,
                 space.id,
-                Account::gen_id(&personal_space_created.initial_editor),
+                account::new_id(&personal_space_created.initial_editor),
             );
         } else {
             tracing::warn!(
@@ -144,7 +144,7 @@ impl EventHandler {
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space =
-            Space::find_entity_by_dao_address(&self.neo4j, &governance_plugin_created.dao_address)
+            space::find_entity_by_dao_address(&self.neo4j, &governance_plugin_created.dao_address)
                 .await?;
 
         if let Some(space) = space {
