@@ -254,6 +254,24 @@ impl Space {
             .try_collect()
             .await?)
     }
+    
+    async fn r#type<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        id: String,
+        #[graphql(default = true)] strict: bool,
+    ) -> FieldResult<Option<SchemaType>> {
+        let type_ = models::space::r#type(&executor.context().0, self.entity.id(), &id)
+            .strict(strict)
+            .send()
+            .await?;
+
+        if let Some(type_) = type_ {
+            return Ok(Some(SchemaType::new(type_, self.entity.id().to_string(), None, strict)));
+        } else {
+            return Ok(None);
+        }
+    }
 
     #[allow(clippy::too_many_arguments)]
     async fn entities<'a, S: ScalarValue>(

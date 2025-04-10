@@ -10,5 +10,5 @@ pub use parent_spaces_query::ParentSpacesQuery;
 pub use space_editors_query::SpaceEditorsQuery;
 pub use space_members_query::SpaceMembersQuery;
 pub use space_model::*;
-pub use space_types_query::SpaceTypesQuery;
+pub use space_types_query::{FindSpaceTypeQuery, FindSpaceTypesQuery};
 pub use subspaces_query::SubspacesQuery;

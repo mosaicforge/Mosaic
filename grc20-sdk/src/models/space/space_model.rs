@@ -15,7 +15,7 @@ use grc20_core::{
 };
 
 use super::{
-    ParentSpacesQuery, SpaceEditorsQuery, SpaceMembersQuery, SpaceTypesQuery, SubspacesQuery,
+    FindSpaceTypeQuery, FindSpaceTypesQuery, ParentSpacesQuery, SpaceEditorsQuery, SpaceMembersQuery, SubspacesQuery
 };
 
 #[derive(Clone)]
@@ -217,8 +217,13 @@ pub fn subspaces(neo4j: &neo4rs::Graph, space_id: &str) -> SubspacesQuery {
 }
 
 /// Find all types defined in a space
-pub fn types(neo4j: &neo4rs::Graph, space_id: &str) -> SpaceTypesQuery {
-    SpaceTypesQuery::new(neo4j.clone(), space_id.to_string())
+pub fn types(neo4j: &neo4rs::Graph, space_id: &str) -> FindSpaceTypesQuery {
+    FindSpaceTypesQuery::new(neo4j.clone(), space_id.to_string())
+}
+
+/// Find a single type defined in a space
+pub fn r#type(neo4j: &neo4rs::Graph, space_id: &str, id: &str) -> FindSpaceTypeQuery {
+    FindSpaceTypeQuery::new(neo4j.clone(), space_id.to_string(), id.to_string())
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
