@@ -66,7 +66,7 @@ impl Relation {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Entity> {
         Ok(Entity::load(
-            &executor.context().0,
+            &executor.context().neo4j,
             &self.node.id,
             self.space_id.clone(),
             self.space_version.clone(),
@@ -82,7 +82,7 @@ impl Relation {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Entity> {
         Ok(Entity::load(
-            &executor.context().0,
+            &executor.context().neo4j,
             &self.node.relation_type,
             self.space_id.clone(),
             self.space_version.clone(),
@@ -98,7 +98,7 @@ impl Relation {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Entity> {
         Ok(Entity::load(
-            &executor.context().0,
+            &executor.context().neo4j,
             &self.node.from,
             self.space_id.clone(),
             self.space_version.clone(),
@@ -114,7 +114,7 @@ impl Relation {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Entity> {
         Ok(Entity::load(
-            &executor.context().0,
+            &executor.context().neo4j,
             &self.node.to,
             self.space_id.clone(),
             self.space_version.clone(),

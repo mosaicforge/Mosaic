@@ -1,4 +1,4 @@
-use futures::{pin_mut, Stream, TryStreamExt};
+use futures::{Stream, TryStreamExt};
 
 use grc20_core::{
     error::DatabaseError,

@@ -132,7 +132,7 @@ impl Property {
         //     .entity
         //     .node
         //     .get_outbound_relations(
-        //         &executor.context().0,
+        //         &executor.context().neo4j,
         //         self.space_id(),
         //         self.entity.space_version.clone(),
         //     )
@@ -143,7 +143,7 @@ impl Property {
         tracing::info!("Fetching value type for property {}", self.entity.id());
 
         let value_type = property::get_outbound_relations(
-            &executor.context().0,
+            &executor.context().neo4j,
             system_ids::VALUE_TYPE_ATTRIBUTE,
             self.entity.id(),
             self.space_id(),
@@ -158,7 +158,7 @@ impl Property {
 
         if let Some(value_type) = value_type.first() {
             Ok(Entity::load(
-                &executor.context().0,
+                &executor.context().neo4j,
                 &value_type.to,
                 self.space_id().to_string(),
                 self.entity.space_version.clone(),
@@ -179,7 +179,7 @@ impl Property {
         //     .entity
         //     .node
         //     .get_outbound_relations(
-        //         &executor.context().0,
+        //         &executor.context().neo4j,
         //         self.space_id(),
         //         self.entity.space_version.clone(),
         //     )
@@ -193,7 +193,7 @@ impl Property {
         );
 
         let rel_value_type = property::get_outbound_relations(
-            &executor.context().0,
+            &executor.context().neo4j,
             system_ids::RELATION_VALUE_RELATIONSHIP_TYPE,
             self.entity.id(),
             self.space_id(),
@@ -210,7 +210,7 @@ impl Property {
 
         if let Some(value_type) = rel_value_type.first() {
             Ok(Entity::load(
-                &executor.context().0,
+                &executor.context().neo4j,
                 &value_type.to,
                 self.space_id().to_string(),
                 self.entity.space_version.clone(),

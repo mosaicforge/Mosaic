@@ -50,7 +50,7 @@ async fn main() -> anyhow::Result<()> {
 
     println!("Neo4J database reset");
 
-    let sink = EventHandler::new(neo4j);
+    let sink = EventHandler::new(neo4j, "".to_string(), 3600)?;
 
     let block = BlockMetadata::default();
 

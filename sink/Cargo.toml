@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.89"
 chrono = "0.4.38"
-clap = { version = "4.5.20", features = ["derive"] }
+clap = { version = "4.5.20", features = ["derive", "env"] }
 futures = "0.3.31"
 heck = "0.5.0"
 md-5 = "0.10.6"
@@ -29,6 +29,7 @@ grc20-core = { version = "0.1.0", path = "../grc20-core" }
 grc20-sdk = { version = "0.1.0", path = "../grc20-sdk" }
 ipfs = { version = "0.1.0", path = "../ipfs" }
 web3-utils = { version = "0.1.0", path = "../web3-utils" }
+cache = { version = "0.1.0", path = "../cache" }
 tracing-appender = "0.2.3"
 serde_yaml = "0.9.34"
 

@@ -9,6 +9,9 @@ use prost::Message;
 use substreams_utils::pb::sf::substreams::rpc::v2::BlockScopedData;
 
 use crate::{blacklist, metrics};
+use cache::{CacheConfig, KgCache};
+use std::sync::Arc;
+use std::time::Duration;
 
 #[derive(thiserror::Error, Debug)]
 pub enum HandlerError {
@@ -21,6 +24,9 @@ pub enum HandlerError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] DatabaseError),
 
+    #[error("Cache error: {0}")]
+    CacheError(#[from] cache::CacheError),
+
     // #[error("KG error: {0}")]
     // KgError(#[from] kg::Error),
     #[error("Error processing event: {0}")]
@@ -30,14 +36,20 @@ pub enum HandlerError {
 pub struct EventHandler {
     pub(crate) ipfs: IpfsClient,
     pub(crate) neo4j: neo4rs::Graph,
+    pub(crate) cache: Arc<KgCache>,
     pub(crate) spaces_blacklist: Vec<String>,
 }
 
 impl EventHandler {
-    pub fn new(neo4j: neo4rs::Graph) -> Self {
-        Self {
+    pub fn new(neo4j: neo4rs::Graph, memcache_uri: String, memcache_default_expiry: u64) -> Result<Self, HandlerError> {
+        let cache_config = CacheConfig::new(vec![memcache_uri])
+            .with_default_expiry(Duration::from_secs(memcache_default_expiry));
+        let cache = KgCache::new(cache_config)?;
+
+        Ok(Self {
             ipfs: IpfsClient::from_url("https://gateway.lighthouse.storage/ipfs/"),
             neo4j,
+            cache: Arc::new(cache),
             spaces_blacklist: match blacklist::load() {
                 Ok(Some(blacklist)) => {
                     tracing::info!("Blacklisting spaces: {}", blacklist.spaces.join(", "));
@@ -52,7 +64,7 @@ impl EventHandler {
                     vec![]
                 }
             },
-        }
+        })
     }
 }
 

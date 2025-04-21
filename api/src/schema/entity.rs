@@ -94,7 +94,7 @@ impl Entity {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Option<String>> {
         Ok(property::get_triple(
-            &executor.context().0,
+            &executor.context().neo4j,
             system_ids::NAME_ATTRIBUTE,
             &self.node.id,
             &self.space_id,
@@ -111,7 +111,7 @@ impl Entity {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Option<String>> {
         Ok(property::get_triple(
-            &executor.context().0,
+            &executor.context().neo4j,
             system_ids::DESCRIPTION_ATTRIBUTE,
             &self.node.id,
             &self.space_id,
@@ -128,7 +128,7 @@ impl Entity {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Option<String>> {
         Ok(property::get_triple(
-            &executor.context().0,
+            &executor.context().neo4j,
             system_ids::COVER_ATTRIBUTE,
             &self.node.id,
             &self.space_id,
@@ -147,7 +147,7 @@ impl Entity {
         let types_rel = self
             .node
             .get_outbound_relations(
-                &executor.context().0,
+                &executor.context().neo4j,
                 &self.space_id,
                 self.space_version.clone(),
             )
@@ -157,7 +157,7 @@ impl Entity {
             .try_collect::<Vec<_>>()
             .await?;
 
-        Ok(entity_node::find_many(&executor.context().0)
+        Ok(entity_node::find_many(&executor.context().neo4j)
             .id(prop_filter::value_in(
                 types_rel.into_iter().map(|rel| rel.to).collect(),
             ))
@@ -183,7 +183,7 @@ impl Entity {
         let types_rel = self
             .node
             .get_outbound_relations(
-                &executor.context().0,
+                &executor.context().neo4j,
                 &self.space_id,
                 self.space_version.clone(),
             )
@@ -193,7 +193,7 @@ impl Entity {
             .try_collect::<Vec<_>>()
             .await?;
 
-        Ok(entity_node::find_many(&executor.context().0)
+        Ok(entity_node::find_many(&executor.context().neo4j)
             .id(prop_filter::value_in(
                 types_rel.into_iter().map(|rel| rel.to).collect(),
             ))
@@ -218,7 +218,7 @@ impl Entity {
         executor: &'_ Executor<'_, '_, KnowledgeGraph, S>,
         _filter: Option<AttributeFilter>,
     ) -> FieldResult<Vec<Triple>> {
-        let mut query = triple::find_many(&executor.context().0)
+        let mut query = triple::find_many(&executor.context().neo4j)
             .entity_id(prop_filter::value(&self.node.id))
             .space_id(prop_filter::value(&self.space_id));
 
@@ -241,7 +241,7 @@ impl Entity {
         r#where: Option<EntityRelationFilter>,
     ) -> FieldResult<Vec<Relation>> {
         let mut base_query = self.node.get_outbound_relations(
-            &executor.context().0,
+            &executor.context().neo4j,
             &self.space_id,
             self.space_version.clone(),
         );
@@ -273,7 +273,7 @@ impl Entity {
     ) -> FieldResult<Vec<EntityVersion>> {
         Ok(self
             .node
-            .versions(&executor.context().0)
+            .versions(&executor.context().neo4j)
             .space_id(prop_filter::value(&self.space_id))
             .send()
             .await?
