@@ -254,7 +254,7 @@ impl Space {
             .try_collect()
             .await?)
     }
-    
+
     async fn r#type<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
@@ -267,9 +267,14 @@ impl Space {
             .await?;
 
         if let Some(type_) = type_ {
-            return Ok(Some(SchemaType::new(type_, self.entity.id().to_string(), None, strict)));
+            Ok(Some(SchemaType::new(
+                type_,
+                self.entity.id().to_string(),
+                None,
+                strict,
+            )))
         } else {
-            return Ok(None);
+            Ok(None)
         }
     }
 

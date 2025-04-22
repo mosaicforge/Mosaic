@@ -1,11 +1,15 @@
 use futures::{Stream, StreamExt, TryStreamExt};
 
 use crate::{
-    block::BlockMetadata, error::DatabaseError, indexer_ids, mapping::{AttributeNode, EntityNode}, system_ids
+    block::BlockMetadata,
+    error::DatabaseError,
+    indexer_ids,
+    mapping::{AttributeNode, EntityNode},
+    system_ids,
 };
 
 use super::{
-    attributes::{self, IntoAttributes},
+    attributes::IntoAttributes,
     entity_node, prop_filter,
     query_utils::{query_part, Query, QueryPart, VersionFilter},
     relation_node, Entity, FromAttributes, PropFilter, QueryStream, RelationFilter, RelationNode,

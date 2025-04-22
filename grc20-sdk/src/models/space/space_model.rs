@@ -14,7 +14,8 @@ use grc20_core::{
 };
 
 use super::{
-    FindSpaceTypeQuery, FindSpaceTypesQuery, ParentSpacesQuery, SpaceEditorsQuery, SpaceMembersQuery, SubspacesQuery
+    FindSpaceTypeQuery, FindSpaceTypesQuery, ParentSpacesQuery, SpaceEditorsQuery,
+    SpaceMembersQuery, SubspacesQuery,
 };
 
 #[derive(Clone, PartialEq)]

@@ -1,3 +1,4 @@
+use super::{handler::HandlerError, EventHandler};
 use grc20_core::{
     block::BlockMetadata,
     indexer_ids,
@@ -5,7 +6,6 @@ use grc20_core::{
     pb::geo,
 };
 use grc20_sdk::models::{proposal::ProposalStatus, Proposal};
-use super::{handler::HandlerError, EventHandler};
 
 impl EventHandler {
     pub async fn handle_proposal_executed(

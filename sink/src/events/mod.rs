@@ -9,5 +9,5 @@ mod space_created;
 mod subspaces;
 mod vote_cast;
 
-pub use handler::{EventHandler, HandlerError};
 pub use edit_published::Edit;
+pub use handler::{EventHandler, HandlerError};

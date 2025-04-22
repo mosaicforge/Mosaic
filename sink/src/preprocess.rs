@@ -1,5 +1,5 @@
-use grc20_core::{block::BlockMetadata, pb::geo::{self, GeoOutput}};
 use crate::events::Edit;
+use grc20_core::{block::BlockMetadata, pb::geo};
 
 pub struct EventData {
     pub block: BlockMetadata,

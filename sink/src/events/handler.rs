@@ -8,7 +8,10 @@ use ipfs::IpfsClient;
 use prost::Message;
 use substreams_utils::pb::sf::substreams::rpc::v2::BlockScopedData;
 
-use crate::{blacklist, metrics, preprocess::{self, EventData}};
+use crate::{
+    blacklist, metrics,
+    preprocess::{self, EventData},
+};
 use cache::KgCache;
 use std::sync::Arc;
 
@@ -35,6 +38,7 @@ pub enum HandlerError {
 pub struct EventHandler {
     pub(crate) ipfs: IpfsClient,
     pub(crate) neo4j: neo4rs::Graph,
+    #[allow(dead_code)]
     pub(crate) cache: Option<Arc<KgCache>>,
     pub(crate) spaces_blacklist: Vec<String>,
 }
@@ -98,16 +102,23 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
         &self,
         raw_block: &BlockScopedData,
     ) -> Result<preprocess::EventData, Self::Error> {
-        let output = raw_block.output.as_ref().unwrap().map_output.as_ref().unwrap();
+        let output = raw_block
+            .output
+            .as_ref()
+            .unwrap()
+            .map_output
+            .as_ref()
+            .unwrap();
 
-        let block =
-            get_block_metadata(raw_block).map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
+        let block = get_block_metadata(raw_block)
+            .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
 
         let data = GeoOutput::decode(output.value.as_slice())?;
 
         let prefetched_edits = stream::iter(data.edits_published)
             .then(|edit_event| async {
-                let edit = self.fetch_edit(&edit_event)
+                let edit = self
+                    .fetch_edit(&edit_event)
                     .await
                     .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
                 Result::<_, Self::Error>::Ok((edit_event, edit))
@@ -141,14 +152,17 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
         })
     }
 
-    async fn process_block_scoped_data(&self, _raw_block: &BlockScopedData, data: preprocess::EventData) -> Result<(), Self::Error> {
+    async fn process_block_scoped_data(
+        &self,
+        _raw_block: &BlockScopedData,
+        data: preprocess::EventData,
+    ) -> Result<(), Self::Error> {
         let _timer = metrics::BLOCK_PROCESSING_TIME.start_timer();
 
         let drift = chrono::Utc::now().timestamp() - data.block.timestamp.timestamp();
         metrics::HEAD_BLOCK_TIME_DRIFT.set(drift as f64);
         metrics::HEAD_BLOCK_NUMBER.set(data.block.block_number as f64);
         metrics::HEAD_BLOCK_TIMESTAMP.set(data.block.timestamp.timestamp() as f64);
-
 
         // Handle new space creation
         if !data.spaces_created.is_empty() {
@@ -178,7 +192,9 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
         }
         stream::iter(&data.personal_plugins_created)
             .map(Ok)
-            .try_for_each(|event| async { self.handle_personal_space_created(event, &data.block).await })
+            .try_for_each(|event| async {
+                self.handle_personal_space_created(event, &data.block).await
+            })
             .await?;
 
         // Handle new governance plugin creation
@@ -193,7 +209,8 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
         stream::iter(&data.governance_plugins_created)
             .map(Ok)
             .try_for_each(|event| async {
-                self.handle_governance_plugin_created(event, &data.block).await
+                self.handle_governance_plugin_created(event, &data.block)
+                    .await
             })
             .await?;
 
@@ -208,7 +225,8 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
         stream::iter(&data.initial_editors_added)
             .map(Ok)
             .try_for_each(|event| async {
-                self.handle_initial_space_editors_added(event, &data.block).await
+                self.handle_initial_space_editors_added(event, &data.block)
+                    .await
             })
             .await?;
 
@@ -301,7 +319,8 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
         stream::iter(&data.proposed_added_members)
             .map(Ok)
             .try_for_each(|event| async {
-                self.handle_add_member_proposal_created(event, &data.block).await
+                self.handle_add_member_proposal_created(event, &data.block)
+                    .await
             })
             .await?;
 
@@ -332,7 +351,8 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
         stream::iter(&data.proposed_added_editors)
             .map(Ok)
             .try_for_each(|event| async {
-                self.handle_add_editor_proposal_created(event, &data.block).await
+                self.handle_add_editor_proposal_created(event, &data.block)
+                    .await
             })
             .await?;
 

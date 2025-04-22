@@ -1,6 +1,6 @@
+use cache::KgCache;
 use grc20_core::neo4rs;
 use std::sync::Arc;
-use cache::KgCache;
 
 #[derive(Clone)]
 pub struct KnowledgeGraph {

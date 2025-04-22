@@ -1,4 +1,6 @@
-use grc20_core::{block::BlockMetadata, indexer_ids, mapping::query_utils::Query, network_ids, pb::geo};
+use grc20_core::{
+    block::BlockMetadata, indexer_ids, mapping::query_utils::Query, network_ids, pb::geo,
+};
 use grc20_sdk::models::{space, space::ParentSpace};
 use web3_utils::checksum_address;
 
@@ -16,8 +18,8 @@ impl EventHandler {
             block.timestamp,
             checksum_address(&subspace_added.plugin_address)
         );
-        let subspace_id = &space::new_id(network_ids::GEO, &subspace_added.subspace); 
-        let parent_space_id = &space::new_id(network_ids::GEO, &subspace_added.dao_address);
+        let subspace_id = space::new_id(network_ids::GEO, &subspace_added.subspace);
+        let parent_space_id = space::new_id(network_ids::GEO, &subspace_added.dao_address);
 
         ParentSpace::new(&subspace_id, &parent_space_id)
             .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")

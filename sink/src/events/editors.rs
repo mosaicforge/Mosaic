@@ -1,5 +1,7 @@
 use futures::{stream, StreamExt, TryStreamExt};
-use grc20_core::{block::BlockMetadata, indexer_ids, mapping::query_utils::Query, network_ids, pb::geo};
+use grc20_core::{
+    block::BlockMetadata, indexer_ids, mapping::query_utils::Query, network_ids, pb::geo,
+};
 use grc20_sdk::models::{account, space, SpaceEditor};
 
 use super::{handler::HandlerError, EventHandler};
@@ -89,7 +91,7 @@ impl EventHandler {
             initial_editor_added.addresses.len(),
             space_id,
         );
-        
+
         Ok(())
     }
 }

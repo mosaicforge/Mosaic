@@ -1,9 +1,4 @@
-use grc20_core::{
-    block::BlockMetadata,
-    indexer_ids,
-    mapping::query_utils::Query,
-    pb::geo,
-};
+use grc20_core::{block::BlockMetadata, indexer_ids, mapping::query_utils::Query, pb::geo};
 use grc20_sdk::models::{account, Proposal, VoteCast};
 
 use super::{handler::HandlerError, EventHandler};

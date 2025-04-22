@@ -1,9 +1,12 @@
+use grc20_core::{
+    mapping::{triple, Query},
+    neo4rs,
+};
 use testcontainers::{
     core::{IntoContainerPort, WaitFor},
     runners::AsyncRunner,
     GenericImage, ImageExt,
 };
-use grc20_core::{mapping::{triple, Query}, neo4rs};
 
 const BOLT_PORT: u16 = 7687;
 const HTTP_PORT: u16 = 7474;
@@ -41,7 +44,7 @@ pub async fn setup_neo4j() -> (testcontainers::ContainerAsync<GenericImage>, neo
         ))
         .await
         .unwrap();
-    
+
     // Give time to neo4j to create the indices
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 

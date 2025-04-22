@@ -132,7 +132,8 @@ impl RootQuery {
         #[graphql(default = 100)] first: i32,
         #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<Account>> {
-        let mut query = account::find_many(&executor.context().neo4j, indexer_ids::INDEXER_SPACE_ID);
+        let mut query =
+            account::find_many(&executor.context().neo4j, indexer_ids::INDEXER_SPACE_ID);
 
         // Apply filters if provided
         if let Some(where_) = &where_ {
@@ -170,7 +171,14 @@ impl RootQuery {
             None
         };
 
-        Entity::load(&executor.context().neo4j, id, space_id, version_index, strict).await
+        Entity::load(
+            &executor.context().neo4j,
+            id,
+            space_id,
+            version_index,
+            strict,
+        )
+        .await
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -234,7 +242,14 @@ impl RootQuery {
             None
         };
 
-        Relation::load(&executor.context().neo4j, id, space_id, version_index, strict).await
+        Relation::load(
+            &executor.context().neo4j,
+            id,
+            space_id,
+            version_index,
+            strict,
+        )
+        .await
     }
 
     // TODO: Add order_by and order_direction

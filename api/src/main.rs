@@ -8,12 +8,12 @@ use axum::{
     routing::{get, on, MethodFilter},
     Extension, Router,
 };
+use cache::{CacheConfig, KgCache};
 use clap::{Args, Parser};
 use grc20_core::neo4rs;
 use juniper::{EmptyMutation, EmptySubscription, RootNode};
-use cache::{CacheConfig, KgCache};
-use std::time::Duration;
 use juniper_axum::{extract::JuniperRequest, graphiql, playground, response::JuniperResponse};
+use std::time::Duration;
 use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};

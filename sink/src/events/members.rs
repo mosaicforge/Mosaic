@@ -1,4 +1,6 @@
-use grc20_core::{block::BlockMetadata, indexer_ids, mapping::query_utils::Query, network_ids, pb::geo};
+use grc20_core::{
+    block::BlockMetadata, indexer_ids, mapping::query_utils::Query, network_ids, pb::geo,
+};
 use grc20_sdk::models::{account, space, SpaceMember};
 
 use super::{handler::HandlerError, EventHandler};
@@ -10,7 +12,7 @@ impl EventHandler {
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
         let space_id = space::new_id(network_ids::GEO, &member_added.dao_address);
-        
+
         let member = account::new(member_added.member_address.clone());
         let member_rel = SpaceMember::new(member.id(), &space_id);
 

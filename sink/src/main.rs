@@ -3,7 +3,6 @@ use std::{env, sync::Arc};
 use anyhow::Error;
 use axum::{response::Json, routing::get, Router};
 use cache::{CacheConfig, KgCache};
-use std::time::Duration;
 use clap::{Args, Parser};
 use grc20_core::{
     block::BlockMetadata,
@@ -13,6 +12,7 @@ use grc20_core::{
 };
 use sink::bootstrap;
 use sink::{events::EventHandler, metrics};
+use std::time::Duration;
 use substreams_utils::Sink;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;

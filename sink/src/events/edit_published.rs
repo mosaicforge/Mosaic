@@ -1,6 +1,11 @@
 use futures::{stream, StreamExt, TryStreamExt};
 use grc20_core::{
-    block::BlockMetadata, error::DatabaseError, indexer_ids, mapping::{self, query_utils::Query, relation_node, triple, Entity}, network_ids, pb::{self, geo}
+    block::BlockMetadata,
+    error::DatabaseError,
+    indexer_ids,
+    mapping::{self, query_utils::Query, relation_node, triple, Entity},
+    network_ids,
+    pb::{self, geo},
 };
 use grc20_sdk::models::{
     self,
@@ -30,8 +35,7 @@ impl EventHandler {
     ) -> Result<(), HandlerError> {
         let edits = edits_published
             .into_iter()
-            .map(|(_, edits)| edits)
-            .flatten()
+            .flat_map(|(_, edits)| edits)
             .collect::<Vec<_>>();
 
         // let space_id = Space::new_id(network_ids::GEO, address)
