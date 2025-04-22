@@ -1,7 +1,9 @@
-use std::env;
+use std::{env, sync::Arc};
 
 use anyhow::Error;
 use axum::{response::Json, routing::get, Router};
+use cache::{CacheConfig, KgCache};
+use std::time::Duration;
 use clap::{Args, Parser};
 use grc20_core::{
     block::BlockMetadata,
@@ -59,7 +61,15 @@ async fn main() -> Result<(), Error> {
         migration_check(&neo4j).await?;
     }
 
-    let sink = EventHandler::new(neo4j, args.cache_args.memcache_uri, args.cache_args.memcache_default_expiry)?;
+    let cache = if let Some(uri) = args.cache_args.memcache_uri {
+        let cache_config = CacheConfig::new(vec![uri])
+            .with_default_expiry(Duration::from_secs(args.cache_args.memcache_default_expiry));
+        Some(Arc::new(KgCache::new(cache_config)?))
+    } else {
+        None
+    };
+
+    let sink = EventHandler::new(neo4j, cache)?;
 
     start_http_server().await;
 
@@ -118,9 +128,9 @@ struct Neo4jArgs {
 
 #[derive(Debug, Args)]
 struct CacheArgs {
-    /// Memcache server URI
+    /// Memcache server URI (optional)
     #[arg(long, env = "memcache_uri")]
-    memcache_uri: String,
+    memcache_uri: Option<String>,
 
     /// Default cache expiry in seconds
     #[arg(long, env = "memcache_default_expiry", default_value = "3600")]

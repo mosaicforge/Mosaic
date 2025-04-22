@@ -1,14 +1,18 @@
-version: "3"
 services:
-  memcache:
+  memcached:
     image: memcached:latest
     ports:
       - "11211:11211"
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "11211"]
+      test: echo "version" | (exec 3<>/dev/tcp/localhost/11211; cat >&3; timeout 0.1 cat <&3; exec 3<&-)
       interval: 1s
-      timeout: 3s
-      retries: 5
+      timeout: 10s
+      retries: 20
+      start_period: 3s
+    command:
+      - --conn-limit=1024
+      - --memory-limit=64
+      - --threads=4
 
   neo4j:
     image: neo4j:latest
@@ -38,7 +42,7 @@ services:
     depends_on:
       neo4j:
         condition: service_healthy
-      memcache:
+      memcached:
         condition: service_healthy
     environment:
       neo4j_uri: neo4j://neo4j:7687
@@ -47,8 +51,8 @@ services:
       SUBSTREAMS_API_TOKEN: ${SUBSTREAMS_API_TOKEN}
       SUBSTREAMS_ENDPOINT_URL: ${SUBSTREAMS_ENDPOINT_URL}
       SUBSTREAMS_START_BLOCK: ${SUBSTREAMS_START_BLOCK}
-      memcache_uri: memcache:11211
-      memcache_default_expiry: "3600"
+      memcached_uri: memcached:11211
+      memcached_default_expiry: "3600"
   api:
     build:
       context: ..
@@ -59,11 +63,11 @@ services:
     depends_on:
       neo4j:
         condition: service_healthy
-      memcache:
+      memcached:
         condition: service_healthy
     environment:
       neo4j_uri: neo4j://neo4j:7687
       neo4j_user: neo4j
       neo4j_pass: neo4j
-      memcache_uri: memcache:11211
-      memcache_default_expiry: "3600"
+      memcached_uri: memcached:11211
+      memcached_default_expiry: "3600"

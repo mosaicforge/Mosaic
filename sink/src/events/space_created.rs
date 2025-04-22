@@ -105,7 +105,7 @@ impl EventHandler {
                         ))
                         .attribute((
                             indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS,
-                            personal_space_created.personal_admin_address.clone(),
+                            checksum_address(&personal_space_created.personal_admin_address),
                         )),
                 )
                 .send()
@@ -164,11 +164,11 @@ impl EventHandler {
                     Attributes::default()
                         .attribute((
                             indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS,
-                            governance_plugin_created.main_voting_address.clone(),
+                            checksum_address(&governance_plugin_created.main_voting_address),
                         ))
                         .attribute((
                             indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS,
-                            governance_plugin_created.member_access_address.clone(),
+                            checksum_address(&governance_plugin_created.member_access_address),
                         )),
                 )
                 .send()

@@ -1,10 +1,7 @@
 use futures::{Stream, StreamExt, TryStreamExt};
 
 use crate::{
-    block::BlockMetadata,
-    error::DatabaseError,
-    mapping::{AttributeNode, EntityNode},
-    system_ids,
+    block::BlockMetadata, error::DatabaseError, indexer_ids, mapping::{AttributeNode, EntityNode}, system_ids
 };
 
 use super::{
@@ -487,30 +484,97 @@ impl<T> InsertOneQuery<T> {
 
 impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
     async fn send(self) -> Result<(), DatabaseError> {
-        let rel_id = self.relation.relation.id.clone();
+        // let rel_id = self.relation.relation.id.clone();
 
-        // Insert the relation node
-        relation_node::insert_one(
-            &self.neo4j,
-            &self.block,
-            &self.space_id,
-            &self.space_version,
-            self.relation.relation,
-        )
-        .send()
-        .await?;
+        // // Insert the relation node
+        // relation_node::insert_one(
+        //     &self.neo4j,
+        //     &self.block,
+        //     &self.space_id,
+        //     &self.space_version,
+        //     self.relation.relation,
+        // )
+        // .send()
+        // .await?;
 
-        // Insert the relation attributes
-        attributes::insert_one(
-            &self.neo4j,
-            &self.block,
-            rel_id,
-            &self.space_id,
-            &self.space_version,
-            self.relation.attributes,
-        )
-        .send()
-        .await
+        // // Insert the relation attributes
+        // attributes::insert_one(
+        //     &self.neo4j,
+        //     &self.block,
+        //     rel_id,
+        //     &self.space_id,
+        //     &self.space_version,
+        //     self.relation.attributes,
+        // )
+        // .send()
+        // .await
+        const QUERY: &str = const_format::formatcp!(
+            r#"
+            MERGE (e:Entity:Relation {{id: $relation.id}})
+            ON CREATE SET e += {{
+                `{CREATED_AT}`: datetime($block_timestamp),
+                `{CREATED_AT_BLOCK}`: $block_number
+            }}
+            SET e += {{
+                `{UPDATED_AT}`: datetime($block_timestamp),
+                `{UPDATED_AT_BLOCK}`: $block_number
+            }}
+            WITH e
+            CALL (e) {{
+                MATCH (e) -[r_from:`{FROM_ENTITY}` {{space_id: $space_id}}]-> (:Entity)
+                WHERE r_from.max_version IS NULL AND r_from.min_version <> $space_version
+                MATCH (e) -[r_to:`{TO_ENTITY}` {{space_id: $space_id, max_version: null}}]-> (:Entity)
+                WHERE r_to.max_version IS NULL AND r_to.min_version <> $space_version
+                MATCH (e) -[r_rt:`{RELATION_TYPE}` {{space_id: $space_id, max_version: null}}]-> (:Entity)
+                WHERE r_rt.max_version IS NULL AND r_rt.min_version <> $space_version
+                MATCH (e) -[r_index:ATTRIBUTE {{space_id: $space_id, max_version: null}}]-> (:Attribute {{id: "{INDEX}"}})
+                WHERE r_index.max_version IS NULL AND r_index.min_version <> $space_version
+                SET r_from.max_version = $space_version
+                SET r_to.max_version = $space_version
+                SET r_rt.max_version = $space_version
+                SET r_index.max_version = $space_version
+            }}
+            MATCH (from:Entity {{id: $relation.from}})
+            MATCH (to:Entity {{id: $relation.to}})
+            MATCH (rt:Entity {{id: $relation.relation_type}})
+            MERGE (e) -[:`{FROM_ENTITY}` {{space_id: $space_id, min_version: $space_version}}]-> (from)
+            MERGE (e) -[:`{TO_ENTITY}` {{space_id: $space_id, min_version: $space_version}}]-> (to)
+            MERGE (e) -[:`{RELATION_TYPE}` {{space_id: $space_id, min_version: $space_version}}]-> (rt)
+            MERGE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (index:Attribute {{id: "{INDEX}"}})
+            SET index += $relation.index
+            WITH e
+            UNWIND $attributes AS attribute
+            CALL (e, attribute) {{
+                MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> (:Attribute {{id: attribute.id}})
+                WHERE r.max_version IS null AND r.min_version <> $space_version
+                SET r.max_version = $space_version
+            }}
+            CALL (e, attribute) {{
+                MERGE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m:Attribute {{id: attribute.id}})
+                SET m += attribute
+            }}
+            "#,
+            CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
+            CREATED_AT_BLOCK = indexer_ids::CREATED_AT_BLOCK,
+            UPDATED_AT = indexer_ids::UPDATED_AT_TIMESTAMP,
+            UPDATED_AT_BLOCK = indexer_ids::UPDATED_AT_BLOCK,
+            FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
+            TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
+            RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
+            INDEX = system_ids::RELATION_INDEX,
+        );
+
+        let query = neo4rs::query(QUERY)
+            .param("space_id", self.space_id)
+            .param("space_version", self.space_version)
+            .param("relation", self.relation.relation)
+            .param("attributes", self.relation.attributes.into_attributes()?)
+            .param("block_number", self.block.block_number.to_string())
+            .param("block_timestamp", self.block.timestamp.to_rfc3339());
+
+        self.neo4j.run(query).await?;
+
+        Ok(())
     }
 }
 

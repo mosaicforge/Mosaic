@@ -36,20 +36,28 @@ pub enum HandlerError {
 pub struct EventHandler {
     pub(crate) ipfs: IpfsClient,
     pub(crate) neo4j: neo4rs::Graph,
-    pub(crate) cache: Arc<KgCache>,
+    pub(crate) cache: Option<Arc<KgCache>>,
     pub(crate) spaces_blacklist: Vec<String>,
 }
 
 impl EventHandler {
-    pub fn new(neo4j: neo4rs::Graph, memcache_uri: String, memcache_default_expiry: u64) -> Result<Self, HandlerError> {
-        let cache_config = CacheConfig::new(vec![memcache_uri])
-            .with_default_expiry(Duration::from_secs(memcache_default_expiry));
-        let cache = KgCache::new(cache_config)?;
-
-        Ok(Self {
-            ipfs: IpfsClient::from_url("https://gateway.lighthouse.storage/ipfs/"),
+    pub fn new(neo4j: neo4rs::Graph, cache: Option<Arc<KgCache>>) -> Result<Self, HandlerError> {
+        Self::new_with_ipfs(
             neo4j,
-            cache: Arc::new(cache),
+            IpfsClient::from_url("https://gateway.lighthouse.storage/ipfs/"),
+            cache,
+        )
+    }
+
+    pub fn new_with_ipfs(
+        neo4j: neo4rs::Graph,
+        ipfs: IpfsClient,
+        cache: Option<Arc<KgCache>>,
+    ) -> Result<Self, HandlerError> {
+        Ok(Self {
+            ipfs,
+            neo4j,
+            cache,
             spaces_blacklist: match blacklist::load() {
                 Ok(Some(blacklist)) => {
                     tracing::info!("Blacklisting spaces: {}", blacklist.spaces.join(", "));

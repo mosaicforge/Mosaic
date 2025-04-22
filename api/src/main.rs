@@ -37,9 +37,13 @@ async fn main() -> anyhow::Result<()> {
     )
     .await?;
 
-    let cache_config = CacheConfig::new(vec![args.cache_args.memcache_uri])
-        .with_default_expiry(Duration::from_secs(args.cache_args.memcache_default_expiry));
-    let cache = KgCache::new(cache_config)?;
+    let cache = if let Some(uri) = args.cache_args.memcache_uri {
+        let cache_config = CacheConfig::new(vec![uri])
+            .with_default_expiry(Duration::from_secs(args.cache_args.memcache_default_expiry));
+        Some(Arc::new(KgCache::new(cache_config)?))
+    } else {
+        None
+    };
 
     let schema = Schema::new(
         RootQuery,
@@ -68,7 +72,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/playground", get(playground("/graphql", "/subscriptions")))
         .route("/", get(homepage))
         .layer(Extension(Arc::new(schema)))
-        .layer(Extension(KnowledgeGraph::new(Arc::new(neo4j), Arc::new(cache))))
+        .layer(Extension(KnowledgeGraph::new(Arc::new(neo4j), cache)))
         .layer(cors);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
@@ -95,9 +99,9 @@ struct AppArgs {
 
 #[derive(Debug, Args)]
 struct CacheArgs {
-    /// Memcache server URI
+    /// Memcache server URI (optional)
     #[arg(long, env = "memcache_uri")]
-    memcache_uri: String,
+    memcache_uri: Option<String>,
 
     /// Default cache expiry in seconds
     #[arg(long, env = "memcache_default_expiry", default_value = "3600")]

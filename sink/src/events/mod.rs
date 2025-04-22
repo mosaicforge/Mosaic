@@ -13,4 +13,4 @@ mod subspace_added;
 mod subspace_removed;
 mod vote_cast;
 
-pub use handler::EventHandler;
+pub use handler::{EventHandler, HandlerError};
