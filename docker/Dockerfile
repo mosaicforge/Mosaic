@@ -14,7 +14,7 @@ ENV neo4j_user ""
 ENV neo4j_pass ""
 
 RUN apt-get update && apt-get upgrade -y
-RUN apt-get install -y libssl-dev
+RUN apt-get install -y libssl-dev netcat-traditional
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Sink image

@@ -1,13 +1,17 @@
+use cache::KgCache;
 use grc20_core::neo4rs;
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub struct KnowledgeGraph(pub Arc<neo4rs::Graph>);
+pub struct KnowledgeGraph {
+    pub neo4j: Arc<neo4rs::Graph>,
+    pub cache: Option<Arc<KgCache>>,
+}
 
 impl juniper::Context for KnowledgeGraph {}
 
 impl KnowledgeGraph {
-    pub fn new(graph: Arc<neo4rs::Graph>) -> Self {
-        Self(graph)
+    pub fn new(neo4j: Arc<neo4rs::Graph>, cache: Option<Arc<KgCache>>) -> Self {
+        Self { neo4j, cache }
     }
 }

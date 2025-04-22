@@ -148,7 +148,7 @@ impl Space {
         #[graphql(default = 100)] first: i32,
         #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<super::Account>> {
-        let query = models::space::members(&executor.context().0, self.entity.id());
+        let query = models::space::members(&executor.context().neo4j, self.entity.id());
 
         if first > 1000 {
             return Err("Cannot query more than 1000 relations at once".into());
@@ -171,7 +171,7 @@ impl Space {
         #[graphql(default = 100)] first: i32,
         #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<super::Account>> {
-        let query = models::space::editors(&executor.context().0, self.entity.id());
+        let query = models::space::editors(&executor.context().neo4j, self.entity.id());
 
         if first > 1000 {
             return Err("Cannot query more than 1000 relations at once".into());
@@ -194,7 +194,7 @@ impl Space {
         #[graphql(default = 100)] first: i32,
         #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<Space>> {
-        let query = models::space::parent_spaces(&executor.context().0, self.entity.id());
+        let query = models::space::parent_spaces(&executor.context().neo4j, self.entity.id());
 
         if first > 1000 {
             return Err("Cannot query more than 1000 relations at once".into());
@@ -205,7 +205,7 @@ impl Space {
             .skip(skip as usize)
             .send()
             .await?
-            .and_then(|(space_id, _)| Space::load(&executor.context().0, space_id, None))
+            .and_then(|(space_id, _)| Space::load(&executor.context().neo4j, space_id, None))
             .filter_map(|space| async move { space.transpose() })
             .try_collect::<Vec<_>>()
             .await?)
@@ -218,7 +218,7 @@ impl Space {
         #[graphql(default = 100)] first: i32,
         #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<Space>> {
-        let query = models::space::subspaces(&executor.context().0, self.entity.id());
+        let query = models::space::subspaces(&executor.context().neo4j, self.entity.id());
 
         if first > 1000 {
             return Err("Cannot query more than 1000 relations at once".into());
@@ -229,7 +229,7 @@ impl Space {
             .skip(skip as usize)
             .send()
             .await?
-            .and_then(|(space_id, _)| Space::load(&executor.context().0, space_id, None))
+            .and_then(|(space_id, _)| Space::load(&executor.context().neo4j, space_id, None))
             .filter_map(|space| async move { space.transpose() })
             .try_collect::<Vec<_>>()
             .await?)
@@ -242,7 +242,7 @@ impl Space {
         #[graphql(default = 0)] skip: i32,
         #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Vec<SchemaType>> {
-        let types = models::space::types(&executor.context().0, self.entity.id())
+        let types = models::space::types(&executor.context().neo4j, self.entity.id())
             .strict(strict)
             .limit(first as usize)
             .skip(skip as usize)
@@ -253,6 +253,29 @@ impl Space {
             .map_ok(|node| SchemaType::new(node, self.entity.id().to_string(), None, strict))
             .try_collect()
             .await?)
+    }
+
+    async fn r#type<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        id: String,
+        #[graphql(default = true)] strict: bool,
+    ) -> FieldResult<Option<SchemaType>> {
+        let type_ = models::space::r#type(&executor.context().neo4j, self.entity.id(), &id)
+            .strict(strict)
+            .send()
+            .await?;
+
+        if let Some(type_) = type_ {
+            Ok(Some(SchemaType::new(
+                type_,
+                self.entity.id().to_string(),
+                None,
+                strict,
+            )))
+        } else {
+            Ok(None)
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -266,7 +289,7 @@ impl Space {
         #[graphql(default = 0)] skip: i32,
         #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Vec<Entity>> {
-        let mut query = entity_node::find_many(&executor.context().0);
+        let mut query = entity_node::find_many(&executor.context().neo4j);
 
         let entity_filter = if let Some(r#where) = r#where {
             mapping::EntityFilter::from(r#where).space_id(prop_filter::value(self.id()))

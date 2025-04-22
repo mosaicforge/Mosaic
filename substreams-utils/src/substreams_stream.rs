@@ -17,13 +17,13 @@ use crate::pb::sf::substreams::v1::Modules;
 
 use crate::substreams::SubstreamsEndpoint;
 
-pub enum BlockResponse {
+pub enum RawBlockResponse {
     New(BlockScopedData),
     Undo(BlockUndoSignal),
 }
 
 pub struct SubstreamsStream {
-    stream: Pin<Box<dyn Stream<Item = Result<BlockResponse, Error>> + Send>>,
+    stream: Pin<Box<dyn Stream<Item = Result<RawBlockResponse, Error>> + Send>>,
 }
 
 impl SubstreamsStream {
@@ -56,7 +56,7 @@ fn stream_blocks(
     output_module_name: String,
     start_block_num: i64,
     stop_block_num: u64,
-) -> impl Stream<Item = Result<BlockResponse, Error>> {
+) -> impl Stream<Item = Result<RawBlockResponse, Error>> {
     let mut latest_cursor = cursor.unwrap_or_default();
     let mut backoff = ExponentialBackoff::from_millis(500).max_delay(Duration::from_secs(45));
     let mut last_progress_report = Instant::now();
@@ -98,7 +98,7 @@ fn stream_blocks(
                                 backoff = ExponentialBackoff::from_millis(500).max_delay(Duration::from_secs(45));
 
                                 let cursor = block_scoped_data.cursor.clone();
-                                yield BlockResponse::New(block_scoped_data);
+                                yield RawBlockResponse::New(block_scoped_data);
 
                                 latest_cursor = cursor;
                             },
@@ -107,7 +107,7 @@ fn stream_blocks(
                                 backoff = ExponentialBackoff::from_millis(500).max_delay(Duration::from_secs(45));
 
                                 let cursor = block_undo_signal.last_valid_cursor.clone();
-                                yield BlockResponse::Undo(block_undo_signal);
+                                yield RawBlockResponse::Undo(block_undo_signal);
 
                                 latest_cursor = cursor;
                             },
@@ -239,7 +239,7 @@ async fn process_substreams_response(
 }
 
 impl Stream for SubstreamsStream {
-    type Item = Result<BlockResponse, Error>;
+    type Item = Result<RawBlockResponse, Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.stream.poll_next_unpin(cx)

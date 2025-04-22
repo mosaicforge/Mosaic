@@ -1,7 +1,7 @@
 use grc20_core::{
     block::BlockMetadata,
     indexer_ids,
-    mapping::{query_utils::Query, Attributes},
+    mapping::{attributes, query_utils::Query, Attributes},
     network_ids,
     pb::{self, geo},
 };
@@ -9,18 +9,18 @@ use grc20_sdk::models::{account, space, SpaceGovernanceType};
 
 use web3_utils::checksum_address;
 
-use super::{handler::HandlerError, EventHandler};
+use super::{handler::HandlerError, Edit, EventHandler};
 
 impl EventHandler {
     /// Handles `GeoSpaceCreated` events.
     pub async fn handle_space_created(
         &self,
         space_created: &geo::GeoSpaceCreated,
-        edits_published: &[geo::EditPublished],
+        edits_published: &[(geo::EditPublished, Vec<Edit>)],
         block: &BlockMetadata,
     ) -> Result<String, HandlerError> {
         let maybe_initial_proposal = edits_published.iter().find(|proposal| {
-            checksum_address(&proposal.plugin_address)
+            checksum_address(&proposal.0.plugin_address)
                 == checksum_address(&space_created.space_address)
         });
 
@@ -28,7 +28,7 @@ impl EventHandler {
             Some(initial_proposal) => {
                 let bytes = self
                     .ipfs
-                    .get_bytes(&initial_proposal.content_uri.replace("ipfs://", ""), true)
+                    .get_bytes(&initial_proposal.0.content_uri.replace("ipfs://", ""), true)
                     .await?;
 
                 if let Ok(metadata) = ipfs::deserialize::<pb::ipfs::IpfsMetadata>(&bytes) {
@@ -87,53 +87,42 @@ impl EventHandler {
         personal_space_created: &geo::GeoPersonalSpaceAdminPluginCreated,
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space =
-            space::find_entity_by_dao_address(&self.neo4j, &personal_space_created.dao_address)
-                .await?;
+        let space_id = space::new_id(network_ids::GEO, &personal_space_created.dao_address);
 
-        if let Some(space) = &space {
-            space
-                .set_attributes(
-                    &self.neo4j,
-                    block,
-                    indexer_ids::INDEXER_SPACE_ID,
-                    "0",
-                    Attributes::default()
-                        .attribute((
-                            indexer_ids::SPACE_GOVERNANCE_TYPE,
-                            SpaceGovernanceType::Personal,
-                        ))
-                        .attribute((
-                            indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS,
-                            personal_space_created.personal_admin_address.clone(),
-                        )),
-                )
-                .send()
-                .await?;
+        attributes::insert_one(
+            &self.neo4j,
+            block,
+            &space_id,
+            indexer_ids::INDEXER_SPACE_ID,
+            "0",
+            Attributes::default()
+                .attribute((
+                    indexer_ids::SPACE_GOVERNANCE_TYPE,
+                    SpaceGovernanceType::Personal,
+                ))
+                .attribute((
+                    indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS,
+                    checksum_address(&personal_space_created.personal_admin_address),
+                )),
+        )
+        .send()
+        .await?;
 
-            // Add initial editors to the personal space
-            let editor = account::new(personal_space_created.initial_editor.clone());
+        // Add initial editors to the personal space
+        let editor = account::new(personal_space_created.initial_editor.clone());
 
-            editor
-                .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
-                .send()
-                .await?;
+        editor
+            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
+            .send()
+            .await?;
 
-            tracing::info!(
-                "Block #{} ({}): Created personal admin space plugin for space {} with initial editor {}",
-                block.block_number,
-                block.timestamp,
-                space.id,
-                account::new_id(&personal_space_created.initial_editor),
-            );
-        } else {
-            tracing::warn!(
-                "Block #{} ({}): Could not create personal admin space plugin for unknown space with dao_address = {}",
-                block.block_number,
-                block.timestamp,
-                checksum_address(&personal_space_created.dao_address)
-            );
-        }
+        tracing::info!(
+            "Block #{} ({}): Created personal admin space plugin for space {} with initial editor {}",
+            block.block_number,
+            block.timestamp,
+            space_id,
+            account::new_id(&personal_space_created.initial_editor),
+        );
 
         Ok(())
     }
@@ -143,44 +132,33 @@ impl EventHandler {
         governance_plugin_created: &geo::GeoGovernancePluginCreated,
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let space =
-            space::find_entity_by_dao_address(&self.neo4j, &governance_plugin_created.dao_address)
-                .await?;
+        let space_id = space::new_id(network_ids::GEO, &governance_plugin_created.dao_address);
 
-        if let Some(space) = space {
-            tracing::info!(
-                "Block #{} ({}): Creating governance plugin for space {}",
-                block.block_number,
-                block.timestamp,
-                space.id
-            );
+        attributes::insert_one(
+            &self.neo4j,
+            block,
+            &space_id,
+            indexer_ids::INDEXER_SPACE_ID,
+            "0",
+            Attributes::default()
+                .attribute((
+                    indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS,
+                    checksum_address(&governance_plugin_created.main_voting_address),
+                ))
+                .attribute((
+                    indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS,
+                    checksum_address(&governance_plugin_created.member_access_address),
+                )),
+        )
+        .send()
+        .await?;
 
-            space
-                .set_attributes(
-                    &self.neo4j,
-                    block,
-                    indexer_ids::INDEXER_SPACE_ID,
-                    "0",
-                    Attributes::default()
-                        .attribute((
-                            indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS,
-                            governance_plugin_created.main_voting_address.clone(),
-                        ))
-                        .attribute((
-                            indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS,
-                            governance_plugin_created.member_access_address.clone(),
-                        )),
-                )
-                .send()
-                .await?;
-        } else {
-            tracing::warn!(
-                "Block #{} ({}): Could not create governance plugin for unknown space with dao_address = {}",
-                block.block_number,
-                block.timestamp,
-                checksum_address(&governance_plugin_created.dao_address)
-            );
-        }
+        tracing::info!(
+            "Block #{} ({}): Creating governance plugin for space {}",
+            block.block_number,
+            block.timestamp,
+            space_id
+        );
 
         Ok(())
     }

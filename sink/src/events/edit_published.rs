@@ -3,7 +3,8 @@ use grc20_core::{
     block::BlockMetadata,
     error::DatabaseError,
     indexer_ids,
-    mapping::{self, entity_node, query_utils::Query, relation_node, triple, Entity},
+    mapping::{self, query_utils::Query, relation_node, triple, Entity},
+    network_ids,
     pb::{self, geo},
 };
 use grc20_sdk::models::{
@@ -12,7 +13,6 @@ use grc20_sdk::models::{
     space, Proposal,
 };
 use ipfs::deserialize;
-use web3_utils::checksum_address;
 
 use super::{handler::HandlerError, EventHandler};
 
@@ -29,20 +29,13 @@ pub struct Edit {
 impl EventHandler {
     pub async fn handle_edits_published(
         &self,
-        edits_published: &[geo::EditPublished],
+        edits_published: Vec<(geo::EditPublished, Vec<Edit>)>,
         _created_space_ids: &[String],
         block: &BlockMetadata,
     ) -> Result<(), HandlerError> {
-        let proposals = stream::iter(edits_published)
-            .then(|proposal| async {
-                let edits = self.fetch_edit(proposal).await?;
-                anyhow::Ok(edits)
-            })
-            .try_collect::<Vec<_>>()
-            .await
-            .map_err(|e| HandlerError::Other(format!("{e:?}").into()))? // TODO: Convert anyhow::Error to HandlerError properly
+        let edits = edits_published
             .into_iter()
-            .flatten()
+            .flat_map(|(_, edits)| edits)
             .collect::<Vec<_>>();
 
         // let space_id = Space::new_id(network_ids::GEO, address)
@@ -50,7 +43,7 @@ impl EventHandler {
         // TODO: Create "synthetic" proposals for newly created spaces and
         // personal spaces
 
-        stream::iter(proposals)
+        stream::iter(edits)
             .enumerate()
             .map(Ok) // Need to wrap the proposal in a Result to use try_for_each
             .try_for_each(|(idx, proposal)| async move {
@@ -74,27 +67,7 @@ impl EventHandler {
         &self,
         edit_published: &geo::EditPublished,
     ) -> Result<Vec<Edit>, HandlerError> {
-        // TODO: (optimization) Check if need to fetch entire space
-        let space = if let Some(space) =
-            space::find_by_dao_address(&self.neo4j, &edit_published.dao_address)
-                .await
-                .map_err(|e| {
-                    HandlerError::Other(
-                        format!(
-                            "Error querying space with plugin address {} {e:?}",
-                            checksum_address(&edit_published.plugin_address)
-                        )
-                        .into(),
-                    )
-                })? {
-            space
-        } else {
-            tracing::warn!(
-                "Matching space in edit not found for plugin address {}",
-                edit_published.plugin_address
-            );
-            return Ok(vec![]);
-        };
+        let space_id = space::new_id(network_ids::GEO, &edit_published.dao_address);
 
         let bytes = self
             .ipfs
@@ -115,12 +88,8 @@ impl EventHandler {
                     name: edit.name,
                     content_uri: edit_published.content_uri.clone(),
                     proposal_id: edit.id,
-                    space_id: space.id().to_string(),
-                    space_plugin_address: space
-                        .attributes
-                        .space_plugin_address
-                        .clone()
-                        .expect("Space plugin address not found"),
+                    space_id: space_id.clone(),
+                    space_plugin_address: edit_published.plugin_address.clone(),
                     creator: edit.authors[0].clone(),
                     ops: edit.ops,
                 }])
@@ -129,12 +98,8 @@ impl EventHandler {
                 let import = deserialize::<pb::ipfs::Import>(&bytes)?;
                 stream::iter(import.edits)
                     .map(|edit_uri| {
-                        let space_id = space.id().to_string();
-                        let space_plugin_address = space
-                            .attributes
-                            .space_plugin_address
-                            .clone()
-                            .expect("Space plugin address not found");
+                        let space_id = space_id.clone();
+                        let space_plugin_address = edit_published.plugin_address.clone();
 
                         async move {
                             let hash = edit_uri.replace("ipfs://", "");
@@ -151,7 +116,7 @@ impl EventHandler {
                             })
                         }
                     })
-                    .buffer_unordered(10)
+                    .buffered(16)
                     .try_collect::<Vec<_>>()
                     .await
             }
@@ -252,21 +217,10 @@ impl EventHandler {
             .await?;
 
         // Create relation between proposal and edit
-        if let Some(proposal) = entity_node::find_one(&self.neo4j, proposal_id)
+        ProposedEdit::new(proposal_id, &edit_id)
+            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
             .send()
-            .await?
-        {
-            ProposedEdit::new(proposal.id, &edit_id)
-                .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
-                .send()
-                .await?;
-        } else {
-            tracing::warn!(
-                "Block #{} ({}): Proposal {proposal_id} not found for edit {edit_id}",
-                block.block_number,
-                block.timestamp,
-            );
-        }
+            .await?;
 
         // Create relation between space and edit
         Edits::new(space_id, edit_id)

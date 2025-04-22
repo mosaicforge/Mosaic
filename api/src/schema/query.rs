@@ -31,7 +31,7 @@ impl RootQuery {
         id: String,
         version: Option<String>,
     ) -> FieldResult<Option<Space>> {
-        Ok(Space::load(&executor.context().0, id, version).await?)
+        Ok(Space::load(&executor.context().neo4j, id, version).await?)
     }
 
     /// Returns multiple spaces according to the provided filter
@@ -44,7 +44,7 @@ impl RootQuery {
         #[graphql(default = 100)] first: i32,
         #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<Space>> {
-        let mut query = space::find_many(&executor.context().0, indexer_ids::INDEXER_SPACE_ID);
+        let mut query = space::find_many(&executor.context().neo4j, indexer_ids::INDEXER_SPACE_ID);
 
         // Apply filters if provided
         if let Some(where_) = &r#where {
@@ -106,7 +106,7 @@ impl RootQuery {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         id: String,
     ) -> FieldResult<Option<Account>> {
-        Account::load(&executor.context().0, id).await
+        Account::load(&executor.context().neo4j, id).await
     }
 
     /// Returns a single account by address
@@ -116,7 +116,7 @@ impl RootQuery {
         address: String,
     ) -> FieldResult<Option<Account>> {
         let query = account::find_one(
-            &executor.context().0,
+            &executor.context().neo4j,
             &address,
             indexer_ids::INDEXER_SPACE_ID,
         );
@@ -132,7 +132,8 @@ impl RootQuery {
         #[graphql(default = 100)] first: i32,
         #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<Account>> {
-        let mut query = account::find_many(&executor.context().0, indexer_ids::INDEXER_SPACE_ID);
+        let mut query =
+            account::find_many(&executor.context().neo4j, indexer_ids::INDEXER_SPACE_ID);
 
         // Apply filters if provided
         if let Some(where_) = &where_ {
@@ -165,12 +166,19 @@ impl RootQuery {
         #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Option<Entity>> {
         let version_index = if let Some(version_id) = version_id {
-            mapping::get_version_index(&executor.context().0, version_id).await?
+            mapping::get_version_index(&executor.context().neo4j, version_id).await?
         } else {
             None
         };
 
-        Entity::load(&executor.context().0, id, space_id, version_index, strict).await
+        Entity::load(
+            &executor.context().neo4j,
+            id,
+            space_id,
+            version_index,
+            strict,
+        )
+        .await
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -186,7 +194,7 @@ impl RootQuery {
         #[graphql(default = 0)] skip: i32,
         #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Vec<Entity>> {
-        let mut query = entity_node::find_many(&executor.context().0);
+        let mut query = entity_node::find_many(&executor.context().neo4j);
 
         let entity_filter = if let Some(r#where) = r#where {
             mapping::EntityFilter::from(r#where).space_id(prop_filter::value(&space_id))
@@ -229,12 +237,19 @@ impl RootQuery {
         #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Option<Relation>> {
         let version_index = if let Some(version_id) = version_id {
-            mapping::get_version_index(&executor.context().0, version_id).await?
+            mapping::get_version_index(&executor.context().neo4j, version_id).await?
         } else {
             None
         };
 
-        Relation::load(&executor.context().0, id, space_id, version_index, strict).await
+        Relation::load(
+            &executor.context().neo4j,
+            id,
+            space_id,
+            version_index,
+            strict,
+        )
+        .await
     }
 
     // TODO: Add order_by and order_direction
@@ -251,7 +266,7 @@ impl RootQuery {
         #[graphql(default = 0)] skip: i32,
         #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Vec<Relation>> {
-        let mut query = relation_node::find_many(&executor.context().0);
+        let mut query = relation_node::find_many(&executor.context().neo4j);
 
         if let Some(r#where) = r#where {
             query = r#where.apply_filter(query);
@@ -283,13 +298,13 @@ impl RootQuery {
         #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Option<Triple>> {
         let version_index = if let Some(version_id) = version_id {
-            mapping::get_version_index(&executor.context().0, version_id).await?
+            mapping::get_version_index(&executor.context().neo4j, version_id).await?
         } else {
             None
         };
 
         Ok(property::get_triple(
-            &executor.context().0,
+            &executor.context().neo4j,
             &attribute_id,
             &entity_id,
             &space_id,

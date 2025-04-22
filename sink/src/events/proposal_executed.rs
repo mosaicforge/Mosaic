@@ -1,13 +1,11 @@
+use super::{handler::HandlerError, EventHandler};
 use grc20_core::{
     block::BlockMetadata,
     indexer_ids,
-    mapping::{entity_node, Query, Triple},
+    mapping::{Query, Triple},
     pb::geo,
 };
 use grc20_sdk::models::{proposal::ProposalStatus, Proposal};
-use web3_utils::checksum_address;
-
-use super::{handler::HandlerError, EventHandler};
 
 impl EventHandler {
     pub async fn handle_proposal_executed(
@@ -16,33 +14,20 @@ impl EventHandler {
         block: &BlockMetadata,
         _index: usize,
     ) -> Result<(), HandlerError> {
-        let plugin_address = checksum_address(&proposal_executed.plugin_address);
         let proposal_id = Proposal::gen_id(
             &proposal_executed.plugin_address,
             &proposal_executed.proposal_id,
         );
 
-        let maybe_proposal = entity_node::find_one(&self.neo4j, &proposal_id)
-            .send()
-            .await?;
-
-        if let Some(proposal) = maybe_proposal {
-            // Update proposal status
-            Triple::new(
-                &proposal.id,
-                "status", // TODO: Change to GRC20 id
-                ProposalStatus::Executed,
-            )
-            .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
-            .send()
-            .await?;
-        } else {
-            tracing::warn!(
-                "Block #{} ({}): Proposal {proposal_id} not found for space plugin address {plugin_address}",
-                block.block_number,
-                block.timestamp,
-            );
-        }
+        // Update proposal status
+        Triple::new(
+            &proposal_id,
+            "status", // TODO: Change to GRC20 id
+            ProposalStatus::Executed,
+        )
+        .insert(&self.neo4j, block, indexer_ids::INDEXER_SPACE_ID, "0")
+        .send()
+        .await?;
 
         Ok(())
     }

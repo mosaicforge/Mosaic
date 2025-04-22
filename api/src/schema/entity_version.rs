@@ -45,7 +45,7 @@ impl EntityVersion {
         _filter: Option<AttributeFilter>,
         executor: &'_ Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Vec<Triple>> {
-        let query = triple::find_many(&executor.context().0)
+        let query = triple::find_many(&executor.context().neo4j)
             .entity_id(prop_filter::value(&self.entity_id))
             .space_version(&self.index);
 

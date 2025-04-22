@@ -1,16 +1,13 @@
 pub mod handler;
 
 mod edit_published;
-mod editor_added;
-mod editor_removed;
-mod initial_editors_added;
-mod member_added;
-mod member_removed;
+mod editors;
+mod members;
 mod proposal_created;
 mod proposal_executed;
 mod space_created;
-mod subspace_added;
-mod subspace_removed;
+mod subspaces;
 mod vote_cast;
 
-pub use handler::EventHandler;
+pub use edit_published::Edit;
+pub use handler::{EventHandler, HandlerError};

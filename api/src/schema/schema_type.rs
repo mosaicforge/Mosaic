@@ -139,7 +139,7 @@ impl SchemaType {
         tracing::info!("Fetching properties for type {}", self.entity.id());
 
         let properties = property::get_outbound_relations(
-            &executor.context().0,
+            &executor.context().neo4j,
             system_ids::PROPERTIES,
             self.entity.id(),
             self.space_id(),
@@ -155,7 +155,7 @@ impl SchemaType {
         if properties.is_empty() {
             Ok(Vec::new())
         } else {
-            Ok(entity_node::find_many(&executor.context().0)
+            Ok(entity_node::find_many(&executor.context().neo4j)
                 .id(prop_filter::value_in(
                     properties.into_iter().map(|rel| rel.to).collect(),
                 ))

@@ -1,5 +1,4 @@
 use futures::{pin_mut, StreamExt};
-use serde::{Deserialize, Serialize};
 use web3_utils::checksum_address;
 
 use grc20_core::{
@@ -15,10 +14,11 @@ use grc20_core::{
 };
 
 use super::{
-    ParentSpacesQuery, SpaceEditorsQuery, SpaceMembersQuery, SpaceTypesQuery, SubspacesQuery,
+    FindSpaceTypeQuery, FindSpaceTypesQuery, ParentSpacesQuery, SpaceEditorsQuery,
+    SpaceMembersQuery, SubspacesQuery,
 };
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 #[grc20_core::entity]
 #[grc20(schema_type = system_ids::SPACE_TYPE)]
 pub struct Space {
@@ -217,11 +217,16 @@ pub fn subspaces(neo4j: &neo4rs::Graph, space_id: &str) -> SubspacesQuery {
 }
 
 /// Find all types defined in a space
-pub fn types(neo4j: &neo4rs::Graph, space_id: &str) -> SpaceTypesQuery {
-    SpaceTypesQuery::new(neo4j.clone(), space_id.to_string())
+pub fn types(neo4j: &neo4rs::Graph, space_id: &str) -> FindSpaceTypesQuery {
+    FindSpaceTypesQuery::new(neo4j.clone(), space_id.to_string())
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+/// Find a single type defined in a space
+pub fn r#type(neo4j: &neo4rs::Graph, space_id: &str, id: &str) -> FindSpaceTypeQuery {
+    FindSpaceTypeQuery::new(neo4j.clone(), space_id.to_string(), id.to_string())
+}
+
+#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum SpaceGovernanceType {
     #[default]
     Public,

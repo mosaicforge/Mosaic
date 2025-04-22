@@ -1,13 +1,24 @@
-use grc20_core::{block::BlockMetadata, neo4rs, pb::geo};
+use std::env;
+
+use grc20_core::{
+    block::BlockMetadata,
+    mapping::{triple, Query},
+    neo4rs,
+};
 use sink::events::EventHandler;
+use substreams_utils::sink::Sink;
 use testcontainers::{
     core::{IntoContainerPort, WaitFor},
     runners::AsyncRunner,
     GenericImage, ImageExt,
 };
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 const BOLT_PORT: u16 = 7687;
 const HTTP_PORT: u16 = 7474;
+
+const PKG_FILE: &str = "geo-substream.spkg";
+const MODULE_NAME: &str = "geo_out";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -25,6 +36,15 @@ async fn main() -> anyhow::Result<()> {
         .start()
         .await
         .expect("Failed to start Neo 4J container");
+
+    // Setup tracing
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "stdout=info".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
     println!("Neo4J container started");
 
@@ -48,34 +68,23 @@ async fn main() -> anyhow::Result<()> {
         .await?;
     tokio::time::sleep(std::time::Duration::from_secs(10)).await; // Give time to neo4j to create the indices
 
+    // Bootstrap the database
+    let block = BlockMetadata::default();
+    triple::insert_many(&neo4j, &block, "ROOT", "0")
+        .triples(sink::bootstrap::boostrap_indexer::triples())
+        .send()
+        .await
+        .expect("Failed to bootstrap indexer");
+
     println!("Neo4J database reset");
 
     let sink = EventHandler::new(neo4j, None)?;
 
-    let block = BlockMetadata::default();
+    let endpoint_url =
+        env::var("SUBSTREAMS_ENDPOINT_URL").expect("SUBSTREAMS_ENDPOINT_URL not set");
 
-    let space_created_event = geo::GeoSpaceCreated {
-        space_address: "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97".to_string(),
-        dao_address: "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97".to_string(),
-    };
-
-    let time = std::time::Instant::now();
-    let edit_event = geo::EditPublished {
-        content_uri: "ipfs://bafybeibvvght7ujamrdxsiobfkc32g7ntia4tzd4efvlfwcu4vjkpngnw4"
-            .to_string(),
-        plugin_address: "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97".to_string(),
-        dao_address: "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97".to_string(),
-    };
-    let edits = sink.fetch_edit(&edit_event).await?;
-    let edit_events = vec![(edit_event, edits)];
-
-    sink.handle_space_created(&space_created_event, &edit_events, &block)
+    sink.run(&endpoint_url, PKG_FILE, MODULE_NAME, 515, 1000, Some(32))
         .await?;
-    println!("Space created");
-
-    sink.handle_edits_published(edit_events, &[], &block)
-        .await?;
-    println!("Time taken: {:?}", time.elapsed());
 
     Ok(())
 }

@@ -1,7 +1,8 @@
-use std::env;
+use std::{env, sync::Arc};
 
 use anyhow::Error;
 use axum::{response::Json, routing::get, Router};
+use cache::{CacheConfig, KgCache};
 use clap::{Args, Parser};
 use grc20_core::{
     block::BlockMetadata,
@@ -11,6 +12,7 @@ use grc20_core::{
 };
 use sink::bootstrap;
 use sink::{events::EventHandler, metrics};
+use std::time::Duration;
 use substreams_utils::Sink;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -59,7 +61,15 @@ async fn main() -> Result<(), Error> {
         migration_check(&neo4j).await?;
     }
 
-    let sink = EventHandler::new(neo4j);
+    let cache = if let Some(uri) = args.cache_args.memcache_uri {
+        let cache_config = CacheConfig::new(vec![uri])
+            .with_default_expiry(Duration::from_secs(args.cache_args.memcache_default_expiry));
+        Some(Arc::new(KgCache::new(cache_config)?))
+    } else {
+        None
+    };
+
+    let sink = EventHandler::new(neo4j, cache)?;
 
     start_http_server().await;
 
@@ -73,6 +83,7 @@ async fn main() -> Result<(), Error> {
         end_block
             .parse()
             .unwrap_or_else(|_| panic!("Invalid end block: {}! Must be integer", end_block)),
+        Some(32),
     )
     .await?;
 
@@ -84,6 +95,9 @@ async fn main() -> Result<(), Error> {
 struct AppArgs {
     #[clap(flatten)]
     neo4j_args: Neo4jArgs,
+
+    #[clap(flatten)]
+    cache_args: CacheArgs,
 
     /// Whether or not to roll up the relations
     #[arg(long, default_value_t = true)]
@@ -111,6 +125,17 @@ struct Neo4jArgs {
     /// Neo4j database user password
     #[arg(long)]
     neo4j_pass: String,
+}
+
+#[derive(Debug, Args)]
+struct CacheArgs {
+    /// Memcache server URI (optional)
+    #[arg(long, env = "memcache_uri")]
+    memcache_uri: Option<String>,
+
+    /// Default cache expiry in seconds
+    #[arg(long, env = "memcache_default_expiry", default_value = "3600")]
+    memcache_default_expiry: u64,
 }
 
 pub async fn reset_db(neo4j: &neo4rs::Graph) -> anyhow::Result<()> {

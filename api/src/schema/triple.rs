@@ -68,7 +68,7 @@ impl Triple {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> Option<String> {
         triple::find_one(
-            &executor.context().0,
+            &executor.context().neo4j,
             system_ids::NAME_ATTRIBUTE,
             &self.attribute,
             &self.space_id,
