@@ -3,7 +3,7 @@ use testcontainers::{
     runners::AsyncRunner,
     GenericImage, ImageExt,
 };
-use grc20_core::neo4rs;
+use grc20_core::{mapping::{triple, Query}, neo4rs};
 
 const BOLT_PORT: u16 = 7687;
 const HTTP_PORT: u16 = 7474;
@@ -44,6 +44,14 @@ pub async fn setup_neo4j() -> (testcontainers::ContainerAsync<GenericImage>, neo
     
     // Give time to neo4j to create the indices
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+    // Bootstrap the database
+    let block = crate::common::create_block_metadata();
+    triple::insert_many(&neo4j, &block, "ROOT", "0")
+        .triples(sink::bootstrap::boostrap_indexer::triples())
+        .send()
+        .await
+        .expect("Failed to bootstrap indexer");
 
     (container, neo4j)
 }

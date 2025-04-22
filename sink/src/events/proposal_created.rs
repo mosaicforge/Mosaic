@@ -35,7 +35,7 @@ impl EventHandler {
             end_time: add_member_proposal.end_time.clone(),
         });
 
-        self.handle_account_related_proposals(
+        self.create_account_related_proposals(
             block,
             proposal,
             &space_id,
@@ -65,7 +65,7 @@ impl EventHandler {
             end_time: remove_member_proposal.end_time.clone(),
         });
 
-        self.handle_account_related_proposals(
+        self.create_account_related_proposals(
             block,
             proposal,
             &space_id,
@@ -95,7 +95,7 @@ impl EventHandler {
             end_time: add_editor_proposal.end_time.clone(),
         });
 
-        self.handle_account_related_proposals(
+        self.create_account_related_proposals(
             block,
             proposal,
             &space_id,
@@ -125,7 +125,7 @@ impl EventHandler {
             end_time: remove_editor_proposal.end_time.clone(),
         });
 
-        self.handle_account_related_proposals(
+        self.create_account_related_proposals(
             block,
             proposal,
             &space_id,
@@ -155,7 +155,7 @@ impl EventHandler {
             end_time: add_subspace_proposal.end_time.clone(),
         });
 
-        self.handle_subspace_related_proposals(
+        self.create_subspace_related_proposals(
             block,
             proposal,
             &space_id,
@@ -186,7 +186,7 @@ impl EventHandler {
             end_time: remove_subspace_proposal.end_time.clone(),
         });
 
-        self.handle_subspace_related_proposals(
+        self.create_subspace_related_proposals(
             block,
             proposal,
             &space_id,
@@ -242,7 +242,7 @@ impl EventHandler {
     /// - (space_id) > PROPOSALS > (proposal_id)
     /// - (proposal_id) > PROPOSAL_CREATOR > (creator_id)
     /// - (proposal_id) > PROPOSED_ACCOUNT > (proposed_account_id)
-    async fn handle_account_related_proposals<T: IntoAttributes>(
+    async fn create_account_related_proposals<T: IntoAttributes>(
         &self,
         block: &BlockMetadata,
         proposal: Entity<T>,
@@ -277,7 +277,7 @@ impl EventHandler {
     /// - (space_id) > PROPOSALS > (proposal_id)
     /// - (proposal_id) > PROPOSAL_CREATOR > (creator_id)
     /// - (proposal_id) > PROPOSED_SUBSPACE > (proposed_subspace_id)
-    async fn handle_subspace_related_proposals<T: IntoAttributes>(
+    async fn create_subspace_related_proposals<T: IntoAttributes>(
         &self,
         block: &BlockMetadata,
         proposal: Entity<T>,

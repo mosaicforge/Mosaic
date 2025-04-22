@@ -17,7 +17,7 @@ impl EventHandler {
         ) {
             (Ok(Some(parent_space)), Ok(Some(subspace))) => {
                 tracing::info!(
-                    "Block #{} ({}): Creating subspace with plugin_address = {}",
+                    "Block #{} ({}): Creating subspace relation with plugin_address = {}",
                     block.block_number,
                     block.timestamp,
                     checksum_address(&subspace_added.plugin_address)
@@ -29,7 +29,7 @@ impl EventHandler {
             }
             (Ok(None), Ok(_)) => {
                 tracing::warn!(
-                    "Block #{} ({}): Could not create subspace: parent space with plugin_address = {} not found",
+                    "Block #{} ({}): Could not create subspace relation: parent space with plugin_address = {} not found",
                     block.block_number,
                     block.timestamp,
                     checksum_address(&subspace_added.plugin_address)
@@ -37,10 +37,10 @@ impl EventHandler {
             }
             (Ok(Some(_)), Ok(None)) => {
                 tracing::warn!(
-                    "Block #{} ({}): Could not create subspace: space with dao_address = {} not found",
+                    "Block #{} ({}): Could not create subspace relation: subspace with dao_address = {} not found",
                     block.block_number,
                     block.timestamp,
-                    checksum_address(&subspace_added.plugin_address)
+                    checksum_address(&subspace_added.subspace)
                 );
             }
             (Err(e), _) | (_, Err(e)) => {
