@@ -83,6 +83,7 @@ async fn main() -> Result<(), Error> {
         end_block
             .parse()
             .unwrap_or_else(|_| panic!("Invalid end block: {}! Must be integer", end_block)),
+        Some(16),
     )
     .await?;
 

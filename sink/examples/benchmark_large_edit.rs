@@ -72,7 +72,7 @@ async fn main() -> anyhow::Result<()> {
     println!("Space created");
 
     let time = std::time::Instant::now();
-    sink.handle_edits_published(&edit_events, &[], &block)
+    sink.handle_edits_published(edit_events, &[], &block)
         .await?;
     println!("Time taken: {:?}", time.elapsed());
 

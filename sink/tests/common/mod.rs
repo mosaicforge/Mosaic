@@ -2,7 +2,7 @@ pub mod neo4j;
 pub mod ipfs_mock;
 
 use grc20_core::block::BlockMetadata;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use sink::events::{EventHandler, HandlerError};
 use grc20_core::neo4rs;
 use ipfs::IpfsClient;

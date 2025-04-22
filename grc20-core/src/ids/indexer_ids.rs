@@ -32,6 +32,7 @@ pub const VOTE_TYPE_ATTRIBUTE: &str = "UrTNUMukLGV2y4yWEnBKQv";
 
 // Proposal
 pub const PROPOSAL_TYPE: &str = "9No6qfEutiKg1WLeXDv73x";
+pub const PROPOSAL_STATUS_ATTRIBUTE: &str = "status";
 pub const ADD_MEMBER_PROPOSAL: &str = "6dJ23LRTHRdwqoWhtivRrM";
 pub const REMOVE_MEMBER_PROPOSAL: &str = "8dJ23LRTHRdwqoWhtivRrM";
 pub const ADD_EDITOR_PROPOSAL: &str = "7W7SE2UTj5YTsQvqSmCfLN";

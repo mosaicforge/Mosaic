@@ -8,10 +8,9 @@ use ipfs::IpfsClient;
 use prost::Message;
 use substreams_utils::pb::sf::substreams::rpc::v2::BlockScopedData;
 
-use crate::{blacklist, metrics};
-use cache::{CacheConfig, KgCache};
+use crate::{blacklist, metrics, preprocess::{self, EventData}};
+use cache::KgCache;
 use std::sync::Arc;
-use std::time::Duration;
 
 #[derive(thiserror::Error, Debug)]
 pub enum HandlerError {
@@ -92,312 +91,359 @@ fn get_block_metadata(block: &BlockScopedData) -> anyhow::Result<BlockMetadata> 
     })
 }
 
-impl substreams_utils::Sink for EventHandler {
+impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
     type Error = HandlerError;
 
-    async fn process_block_scoped_data(&self, data: &BlockScopedData) -> Result<(), Self::Error> {
-        let _timer = metrics::BLOCK_PROCESSING_TIME.start_timer();
-
-        let output = data.output.as_ref().unwrap().map_output.as_ref().unwrap();
+    async fn preprocess_block_scoped_data(
+        &self,
+        raw_block: &BlockScopedData,
+    ) -> Result<preprocess::EventData, Self::Error> {
+        let output = raw_block.output.as_ref().unwrap().map_output.as_ref().unwrap();
 
         let block =
-            get_block_metadata(data).map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
+            get_block_metadata(raw_block).map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
 
-        let drift = chrono::Utc::now().timestamp() - block.timestamp.timestamp();
+        let data = GeoOutput::decode(output.value.as_slice())?;
+
+        let prefetched_edits = stream::iter(data.edits_published)
+            .then(|edit_event| async {
+                let edit = self.fetch_edit(&edit_event)
+                    .await
+                    .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?;
+                Result::<_, Self::Error>::Ok((edit_event, edit))
+            })
+            .try_collect::<Vec<_>>()
+            .await?;
+
+        Ok(EventData {
+            block,
+            spaces_created: data.spaces_created,
+            governance_plugins_created: data.governance_plugins_created,
+            initial_editors_added: data.initial_editors_added,
+            votes_cast: data.votes_cast,
+            edits_published: prefetched_edits,
+            successor_spaces_created: data.successor_spaces_created,
+            subspaces_added: data.subspaces_added,
+            subspaces_removed: data.subspaces_removed,
+            executed_proposals: data.executed_proposals,
+            members_added: data.members_added,
+            editors_added: data.editors_added,
+            personal_plugins_created: data.personal_plugins_created,
+            members_removed: data.members_removed,
+            editors_removed: data.editors_removed,
+            edits: data.edits,
+            proposed_added_members: data.proposed_added_members,
+            proposed_removed_members: data.proposed_removed_members,
+            proposed_added_editors: data.proposed_added_editors,
+            proposed_removed_editors: data.proposed_removed_editors,
+            proposed_added_subspaces: data.proposed_added_subspaces,
+            proposed_removed_subspaces: data.proposed_removed_subspaces,
+        })
+    }
+
+    async fn process_block_scoped_data(&self, _raw_block: &BlockScopedData, data: preprocess::EventData) -> Result<(), Self::Error> {
+        let _timer = metrics::BLOCK_PROCESSING_TIME.start_timer();
+
+        let drift = chrono::Utc::now().timestamp() - data.block.timestamp.timestamp();
         metrics::HEAD_BLOCK_TIME_DRIFT.set(drift as f64);
-        metrics::HEAD_BLOCK_NUMBER.set(block.block_number as f64);
-        metrics::HEAD_BLOCK_TIMESTAMP.set(block.timestamp.timestamp() as f64);
+        metrics::HEAD_BLOCK_NUMBER.set(data.block.block_number as f64);
+        metrics::HEAD_BLOCK_TIMESTAMP.set(data.block.timestamp.timestamp() as f64);
 
-        let value = GeoOutput::decode(output.value.as_slice())?;
 
         // Handle new space creation
-        if !value.spaces_created.is_empty() {
+        if !data.spaces_created.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} space created events",
-                block.block_number,
-                block.timestamp,
-                value.spaces_created.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.spaces_created.len()
             );
         }
-        let created_space_ids = stream::iter(&value.spaces_created)
+        let created_space_ids = stream::iter(&data.spaces_created)
             .then(|event| async {
-                self.handle_space_created(event, &value.edits_published, &block)
+                self.handle_space_created(event, &data.edits_published, &data.block)
                     .await
             })
             .try_collect::<Vec<_>>()
             .await?;
 
         // Handle personal space creation
-        if !value.personal_plugins_created.is_empty() {
+        if !data.personal_plugins_created.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} personal space created events",
-                block.block_number,
-                block.timestamp,
-                value.personal_plugins_created.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.personal_plugins_created.len()
             );
         }
-        stream::iter(&value.personal_plugins_created)
+        stream::iter(&data.personal_plugins_created)
             .map(Ok)
-            .try_for_each(|event| async { self.handle_personal_space_created(event, &block).await })
+            .try_for_each(|event| async { self.handle_personal_space_created(event, &data.block).await })
             .await?;
 
         // Handle new governance plugin creation
-        if !value.governance_plugins_created.is_empty() {
+        if !data.governance_plugins_created.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} governance plugin created events",
-                block.block_number,
-                block.timestamp,
-                value.governance_plugins_created.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.governance_plugins_created.len()
             );
         }
-        stream::iter(&value.governance_plugins_created)
+        stream::iter(&data.governance_plugins_created)
             .map(Ok)
             .try_for_each(|event| async {
-                self.handle_governance_plugin_created(event, &block).await
+                self.handle_governance_plugin_created(event, &data.block).await
             })
             .await?;
 
-        if !value.initial_editors_added.is_empty() {
+        if !data.initial_editors_added.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} initial editors added events",
-                block.block_number,
-                block.timestamp,
-                value.initial_editors_added.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.initial_editors_added.len()
             );
         }
-        stream::iter(&value.initial_editors_added)
+        stream::iter(&data.initial_editors_added)
             .map(Ok)
             .try_for_each(|event| async {
-                self.handle_initial_space_editors_added(event, &block).await
+                self.handle_initial_space_editors_added(event, &data.block).await
             })
             .await?;
 
-        if !value.members_added.is_empty() {
+        if !data.members_added.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} members added events",
-                block.block_number,
-                block.timestamp,
-                value.members_added.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.members_added.len()
             );
         }
-        stream::iter(&value.members_added)
+        stream::iter(&data.members_added)
             .map(Ok)
-            .try_for_each(|event| async { self.handle_member_added(event, &block).await })
+            .try_for_each(|event| async { self.handle_member_added(event, &data.block).await })
             .await?;
 
-        if !value.members_removed.is_empty() {
+        if !data.members_removed.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} members removed events",
-                block.block_number,
-                block.timestamp,
-                value.members_removed.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.members_removed.len()
             );
         }
-        stream::iter(&value.members_removed)
+        stream::iter(&data.members_removed)
             .map(Ok)
-            .try_for_each(|event| async { self.handle_member_removed(event, &block).await })
+            .try_for_each(|event| async { self.handle_member_removed(event, &data.block).await })
             .await?;
 
-        if !value.editors_added.is_empty() {
+        if !data.editors_added.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} editors added events",
-                block.block_number,
-                block.timestamp,
-                value.editors_added.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.editors_added.len()
             );
         }
-        stream::iter(&value.editors_added)
+        stream::iter(&data.editors_added)
             .map(Ok)
-            .try_for_each(|event| async { self.handle_editor_added(event, &block).await })
+            .try_for_each(|event| async { self.handle_editor_added(event, &data.block).await })
             .await?;
 
-        if !value.editors_removed.is_empty() {
+        if !data.editors_removed.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} editors removed events",
-                block.block_number,
-                block.timestamp,
-                value.editors_removed.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.editors_removed.len()
             );
         }
-        stream::iter(&value.editors_removed)
+        stream::iter(&data.editors_removed)
             .map(Ok)
-            .try_for_each(|event| async { self.handle_editor_removed(event, &block).await })
+            .try_for_each(|event| async { self.handle_editor_removed(event, &data.block).await })
             .await?;
 
-        if !value.subspaces_added.is_empty() {
+        if !data.subspaces_added.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} subspaces added events",
-                block.block_number,
-                block.timestamp,
-                value.subspaces_added.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.subspaces_added.len()
             );
         }
-        stream::iter(&value.subspaces_added)
+        stream::iter(&data.subspaces_added)
             .map(Ok)
-            .try_for_each(|event| async { self.handle_subspace_added(event, &block).await })
+            .try_for_each(|event| async { self.handle_subspace_added(event, &data.block).await })
             .await?;
 
-        if !value.subspaces_removed.is_empty() {
+        if !data.subspaces_removed.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} subspaces removed events",
-                block.block_number,
-                block.timestamp,
-                value.subspaces_removed.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.subspaces_removed.len()
             );
         }
-        stream::iter(&value.subspaces_removed)
+        stream::iter(&data.subspaces_removed)
             .map(Ok)
-            .try_for_each(|event| async { self.handle_subspace_removed(event, &block).await })
+            .try_for_each(|event| async { self.handle_subspace_removed(event, &data.block).await })
             .await?;
 
-        if !value.proposed_added_members.is_empty() {
+        if !data.proposed_added_members.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} add member proposal created events",
-                block.block_number,
-                block.timestamp,
-                value.proposed_added_members.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.proposed_added_members.len()
             );
         }
-        stream::iter(&value.proposed_added_members)
+        stream::iter(&data.proposed_added_members)
             .map(Ok)
             .try_for_each(|event| async {
-                self.handle_add_member_proposal_created(event, &block).await
+                self.handle_add_member_proposal_created(event, &data.block).await
             })
             .await?;
 
-        if !value.proposed_removed_members.is_empty() {
+        if !data.proposed_removed_members.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} remove member proposal created events",
-                block.block_number,
-                block.timestamp,
-                value.proposed_removed_members.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.proposed_removed_members.len()
             );
         }
-        stream::iter(&value.proposed_removed_members)
+        stream::iter(&data.proposed_removed_members)
             .map(Ok)
             .try_for_each(|event| async {
-                self.handle_remove_member_proposal_created(event, &block)
+                self.handle_remove_member_proposal_created(event, &data.block)
                     .await
             })
             .await?;
 
-        if !value.proposed_added_editors.is_empty() {
+        if !data.proposed_added_editors.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} add editor proposal created events",
-                block.block_number,
-                block.timestamp,
-                value.proposed_added_editors.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.proposed_added_editors.len()
             );
         }
-        stream::iter(&value.proposed_added_editors)
+        stream::iter(&data.proposed_added_editors)
             .map(Ok)
             .try_for_each(|event| async {
-                self.handle_add_editor_proposal_created(event, &block).await
+                self.handle_add_editor_proposal_created(event, &data.block).await
             })
             .await?;
 
-        if !value.proposed_removed_editors.is_empty() {
+        if !data.proposed_removed_editors.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} remove editor proposal created events",
-                block.block_number,
-                block.timestamp,
-                value.proposed_removed_editors.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.proposed_removed_editors.len()
             );
         }
-        stream::iter(&value.proposed_removed_editors)
+        stream::iter(&data.proposed_removed_editors)
             .map(Ok)
             .try_for_each(|event| async {
-                self.handle_remove_editor_proposal_created(event, &block)
+                self.handle_remove_editor_proposal_created(event, &data.block)
                     .await
             })
             .await?;
 
-        if !value.proposed_added_subspaces.is_empty() {
+        // Handle proposed add subspace
+        if !data.proposed_added_subspaces.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} add subspace proposal created events",
-                block.block_number,
-                block.timestamp,
-                value.proposed_added_subspaces.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.proposed_added_subspaces.len()
             );
         }
-        stream::iter(&value.proposed_added_subspaces)
+        stream::iter(&data.proposed_added_subspaces)
             .map(Ok)
             .try_for_each(|event| async {
-                self.handle_add_subspace_proposal_created(event, &block)
+                self.handle_add_subspace_proposal_created(event, &data.block)
                     .await
             })
             .await?;
 
-        if !value.proposed_removed_subspaces.is_empty() {
+        // Handle remove subspace proposal created
+        if !data.proposed_removed_subspaces.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} remove subspace proposal created events",
-                block.block_number,
-                block.timestamp,
-                value.proposed_removed_subspaces.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.proposed_removed_subspaces.len()
             );
         }
-        stream::iter(&value.proposed_removed_subspaces)
+        stream::iter(&data.proposed_removed_subspaces)
             .map(Ok)
             .try_for_each(|event| async {
-                self.handle_remove_subspace_proposal_created(event, &block)
+                self.handle_remove_subspace_proposal_created(event, &data.block)
                     .await
             })
             .await?;
 
-        if !value.edits.is_empty() {
+        // Handle publish edit proposal created
+        if !data.edits.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} publish edit proposal created events",
-                block.block_number,
-                block.timestamp,
-                value.edits.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.edits.len()
             );
         }
-        stream::iter(&value.edits)
+        stream::iter(&data.edits)
             .map(Ok)
             .try_for_each(|event| async {
-                self.handle_publish_edit_proposal_created(event, &block)
+                self.handle_publish_edit_proposal_created(event, &data.block)
                     .await
             })
             .await?;
 
-        if !value.votes_cast.is_empty() {
+        // Handle vote cast
+        if !data.votes_cast.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} vote cast events",
-                block.block_number,
-                block.timestamp,
-                value.votes_cast.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.votes_cast.len()
             );
         }
-        stream::iter(&value.votes_cast)
+        stream::iter(&data.votes_cast)
             .map(Ok)
-            .try_for_each(|event| async { self.handle_vote_cast(event, &block).await })
+            .try_for_each(|event| async { self.handle_vote_cast(event, &data.block).await })
             .await?;
 
-        if !value.edits_published.is_empty() {
+        // Handle edits published
+        if !data.edits_published.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} edits published events",
-                block.block_number,
-                block.timestamp,
-                value.edits_published.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.edits_published.len()
             );
         }
-        self.handle_edits_published(&value.edits_published, &created_space_ids, &block)
+        self.handle_edits_published(data.edits_published, &created_space_ids, &data.block)
             .await?;
 
-        if !value.executed_proposals.is_empty() {
+        // Handle proposal executed
+        if !data.executed_proposals.is_empty() {
             tracing::info!(
                 "Block #{} ({}): Processing {} executed proposal events",
-                block.block_number,
-                block.timestamp,
-                value.executed_proposals.len()
+                data.block.block_number,
+                data.block.timestamp,
+                data.executed_proposals.len()
             );
         }
-        stream::iter(&value.executed_proposals)
+        stream::iter(&data.executed_proposals)
             .enumerate()
             .map(Ok)
             .try_for_each(|(idx, event)| {
-                let block = block.clone();
-                async move { self.handle_proposal_executed(event, &block, idx).await }
+                let block_ref = &data.block;
+                async move { self.handle_proposal_executed(event, block_ref, idx).await }
             })
             .await?;
 
@@ -411,12 +457,12 @@ impl substreams_utils::Sink for EventHandler {
         .triple(grc20_core::mapping::triple::Triple::new(
             indexer_ids::CURSOR_ID,
             indexer_ids::BLOCK_NUMBER_ATTRIBUTE,
-            block.block_number,
+            data.block.block_number,
         ))
         .triple(grc20_core::mapping::triple::Triple::new(
             indexer_ids::CURSOR_ID,
             indexer_ids::BLOCK_TIMESTAMP_ATTRIBUTE,
-            block.timestamp,
+            data.block.timestamp,
         ))
         .send()
         .await?;

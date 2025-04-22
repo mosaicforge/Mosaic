@@ -10,15 +10,26 @@ use crate::{
         v1::Package,
     },
     substreams::SubstreamsEndpoint,
-    substreams_stream::{BlockResponse, SubstreamsStream},
+    substreams_stream::{RawBlockResponse, SubstreamsStream},
 };
 
-pub trait Sink: Send + Sync {
+pub enum PreprocessedBlockResponse<T> {
+    New(BlockScopedData, T),
+    Undo(BlockUndoSignal),
+}
+
+pub trait Sink<T: Send>: Send + Sync {
     type Error: std::error::Error + Send + Sync + 'static;
+
+    fn preprocess_block_scoped_data(
+        &self,
+        block_data: &BlockScopedData,
+    ) -> impl std::future::Future<Output = Result<T, Self::Error>> + Send;
 
     fn process_block_scoped_data(
         &self,
-        data: &BlockScopedData,
+        block_data: &BlockScopedData,
+        data: T,
     ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send;
 
     fn process_block_undo_signal(&self, _undo_signal: &BlockUndoSignal) -> Result<(), Self::Error> {
@@ -62,6 +73,7 @@ pub trait Sink: Send + Sync {
         module_name: &str,
         start_block: i64,
         end_block: u64,
+        preprocess_buffer: Option<usize>,
     ) -> impl std::future::Future<Output = Result<(), anyhow::Error>> + Send {
         async move {
             let token_env = env::var("SUBSTREAMS_API_TOKEN").unwrap_or("".to_string());
@@ -83,7 +95,21 @@ pub trait Sink: Send + Sync {
                 module_name.to_string(),
                 start_block,
                 end_block,
-            );
+            )
+            .map(|raw_block_response| async move {
+                match raw_block_response {
+                    Ok(RawBlockResponse::New(raw_block)) => {
+                        let data = self.preprocess_block_scoped_data(&raw_block).await?;
+                        Ok(PreprocessedBlockResponse::New(raw_block, data))
+                    }
+                    Ok(RawBlockResponse::Undo(undo_signal)) => {
+                        self.process_block_undo_signal(&undo_signal)?;
+                        Ok(PreprocessedBlockResponse::Undo(undo_signal))
+                    }
+                    Err(err) => Err(err),
+                }
+            })
+            .buffered(preprocess_buffer.unwrap_or(1));
 
             loop {
                 match stream.next().await {
@@ -91,11 +117,11 @@ pub trait Sink: Send + Sync {
                         println!("Stream consumed");
                         break;
                     }
-                    Some(Ok(BlockResponse::New(data))) => {
-                        self.process_block_scoped_data(&data).await?;
-                        self.persist_cursor(data.cursor).await?;
+                    Some(Ok(PreprocessedBlockResponse::New(raw_block, data))) => {
+                        self.process_block_scoped_data(&raw_block, data).await?;
+                        self.persist_cursor(raw_block.cursor).await?;
                     }
-                    Some(Ok(BlockResponse::Undo(undo_signal))) => {
+                    Some(Ok(PreprocessedBlockResponse::Undo(undo_signal))) => {
                         self.process_block_undo_signal(&undo_signal)?;
                         self.persist_cursor(undo_signal.last_valid_cursor).await?;
                     }
