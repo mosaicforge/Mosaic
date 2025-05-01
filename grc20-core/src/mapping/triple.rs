@@ -428,23 +428,23 @@ impl FindManyQuery {
             QueryPart::default().match_clause("(e:Entity) -[r:ATTRIBUTE]-> (n:Attribute)");
 
         if let Some(attribute_id) = self.attribute_id {
-            query_part = query_part.merge(attribute_id.into_query_part("n", "id"));
+            query_part = query_part.merge(attribute_id.into_query_part("n", "id", None));
         }
 
         if let Some(value) = self.value {
-            query_part = query_part.merge(value.into_query_part("n", "value"));
+            query_part = query_part.merge(value.into_query_part("n", "value", None));
         }
 
         if let Some(value_type) = self.value_type {
-            query_part = query_part.merge(value_type.into_query_part("n", "value_type"));
+            query_part = query_part.merge(value_type.into_query_part("n", "value_type", None));
         }
 
         if let Some(entity_id) = self.entity_id {
-            query_part = query_part.merge(entity_id.into_query_part("e", "id"));
+            query_part = query_part.merge(entity_id.into_query_part("e", "id", None));
         }
 
         if let Some(space_id) = self.space_id {
-            query_part = query_part.merge(space_id.into_query_part("r", "space_id"));
+            query_part = query_part.merge(space_id.into_query_part("r", "space_id", None));
         }
 
         query_part

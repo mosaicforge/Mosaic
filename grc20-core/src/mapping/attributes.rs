@@ -504,11 +504,11 @@ impl FindManyQuery {
             );
 
         if let Some(id) = self.id {
-            query = query.merge(id.into_query_part("e", "id"));
+            query = query.merge(id.into_query_part("e", "id", None));
         }
 
         if let Some(space_id) = self.space_id {
-            query = query.merge(space_id.into_query_part("r", "space_id"));
+            query = query.merge(space_id.into_query_part("r", "space_id", None));
         }
 
         query

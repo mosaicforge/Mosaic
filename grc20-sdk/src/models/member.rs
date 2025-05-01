@@ -2,7 +2,7 @@ use grc20_core::{
     block::BlockMetadata,
     error::DatabaseError,
     ids, indexer_ids,
-    mapping::{query_utils::Query, relation, Relation},
+    mapping::{entity_node::EntityNodeRef, query_utils::Query, relation, Relation},
     neo4rs,
 };
 
@@ -18,7 +18,7 @@ impl SpaceMember {
         ids::create_id_from_unique_string(format!("MEMBER:{space_id}:{member_id}"))
     }
 
-    pub fn new(member_id: &str, space_id: &str) -> Relation<Self> {
+    pub fn new(member_id: &str, space_id: &str) -> Relation<Self, EntityNodeRef> {
         Relation::new(
             Self::generate_id(member_id, space_id),
             member_id,

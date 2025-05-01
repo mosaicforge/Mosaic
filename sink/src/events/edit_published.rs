@@ -3,7 +3,7 @@ use grc20_core::{
     block::BlockMetadata,
     error::DatabaseError,
     indexer_ids,
-    mapping::{self, query_utils::Query, relation_node, triple, Entity},
+    mapping::{self, query_utils::Query, relation_edge, triple, Entity},
     network_ids,
     pb::{self, geo},
 };
@@ -47,14 +47,6 @@ impl EventHandler {
             .enumerate()
             .map(Ok) // Need to wrap the proposal in a Result to use try_for_each
             .try_for_each(|(idx, proposal)| async move {
-                tracing::info!(
-                    "Block #{} ({}): Processing {} ops for proposal {}",
-                    block.block_number,
-                    block.timestamp,
-                    proposal.ops.len(),
-                    proposal.proposal_id
-                );
-
                 self.process_edit(block, proposal, idx).await
             })
             .await
@@ -153,7 +145,20 @@ impl EventHandler {
             .await?;
 
         // Group ops by type
+        let num_ops = edit.ops.len();
         let op_groups = OpGroups::from_ops(edit.ops);
+
+        tracing::info!(
+            "Block #{} ({}): Processing {} ops for proposal {}: {} set triples, {} delete triples, {} create relations, {} delete relations",
+            block.block_number,
+            block.timestamp,
+            num_ops,
+            edit.proposal_id,
+            op_groups.set_triples.len(),
+            op_groups.delete_triples.len(),
+            op_groups.create_relations.len(),
+            op_groups.delete_relations.len(),
+        );
 
         // Handle SET_TRIPLE ops
         triple::insert_many(&self.neo4j, block, &edit.space_id, &version_index)
@@ -178,7 +183,7 @@ impl EventHandler {
             .await?;
 
         // Handle CREATE_RELATION ops
-        relation_node::insert_many(&self.neo4j, block, &edit.space_id, &version_index)
+        relation_edge::insert_many(&self.neo4j, block, &edit.space_id, &version_index)
             .relations(
                 op_groups
                     .create_relations
@@ -189,7 +194,7 @@ impl EventHandler {
             .await?;
 
         // Handle DELETE_RELATION ops
-        relation_node::delete_many(&self.neo4j, block, &edit.space_id, &version_index)
+        relation_edge::delete_many(&self.neo4j, block, &edit.space_id, &version_index)
             .relations(
                 op_groups
                     .delete_relations

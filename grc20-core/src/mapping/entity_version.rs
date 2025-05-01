@@ -62,7 +62,7 @@ impl Query<Vec<EntityVersion>> for FindManyQuery {
             .params("EDIT_INDEX_ATTR", indexer_ids::EDIT_INDEX_ATTRIBUTE);
 
         if let Some(space_id) = self.space_id {
-            query.merge_mut(space_id.into_query_part("r", "space_id"))
+            query.merge_mut(space_id.into_query_part("r", "space_id", None))
         }
 
         let query = query.build();

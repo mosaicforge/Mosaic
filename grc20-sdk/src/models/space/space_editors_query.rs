@@ -3,7 +3,7 @@ use futures::{Stream, StreamExt};
 use grc20_core::{
     error::DatabaseError,
     indexer_ids,
-    mapping::{entity, query_utils::QueryStream, relation_node, Entity, PropFilter, Query},
+    mapping::{entity, entity_node::EntityNodeRef, query_utils::QueryStream, relation_edge, Entity, PropFilter, Query},
     neo4rs,
 };
 
@@ -45,7 +45,7 @@ impl QueryStream<Entity<Account>> for SpaceEditorsQuery {
         self,
     ) -> Result<impl Stream<Item = Result<Entity<Account>, DatabaseError>>, DatabaseError> {
         // Find all editor relations for the space
-        let relations_stream = relation_node::find_many(&self.neo4j)
+        let relations_stream = relation_edge::find_many::<EntityNodeRef>(&self.neo4j)
             .relation_type(PropFilter::default().value(indexer_ids::EDITOR_RELATION))
             .to_id(PropFilter::default().value(self.space_id.clone()))
             .space_id(PropFilter::default().value(indexer_ids::INDEXER_SPACE_ID))

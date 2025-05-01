@@ -3,14 +3,9 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use crate::{block::BlockMetadata, error::DatabaseError, ids, mapping::AttributeNode, system_ids};
 
 use super::{
-    attributes::{self, FromAttributes, IntoAttributes},
-    entity_node::SystemProperties,
-    order_by::FieldOrderBy,
-    prop_filter,
-    query_utils::{
+    attributes::{self, FromAttributes, IntoAttributes}, entity_node::{EntityNodeRef, SystemProperties}, order_by::FieldOrderBy, prop_filter, query_utils::{
         query_part, AttributeFilter, PropFilter, Query, QueryPart, QueryStream, VersionFilter,
-    },
-    relation, relation_node, EntityFilter, EntityNode, RelationFilter, RelationNode,
+    }, relation, relation_edge, EntityFilter, EntityNode, RelationEdge, RelationFilter
 };
 
 /// High level model encapsulating an entity and its attributes.
@@ -51,12 +46,12 @@ impl<T> Entity<T> {
         self
     }
 
-    pub fn get_outbound_relations(
+    pub fn get_outbound_relations<N>(
         &self,
         neo4j: &neo4rs::Graph,
         space_id: impl Into<String>,
         space_version: Option<String>,
-    ) -> relation::FindManyQuery {
+    ) -> relation::FindManyQuery<N> {
         relation::FindManyQuery::new(neo4j)
             .filter(
                 RelationFilter::default()
@@ -66,12 +61,12 @@ impl<T> Entity<T> {
             .version(space_version)
     }
 
-    pub fn get_inbound_relations(
+    pub fn get_inbound_relations<N>(
         &self,
         neo4j: &neo4rs::Graph,
         space_id: impl Into<String>,
         space_version: Option<String>,
-    ) -> relation::FindManyQuery {
+    ) -> relation::FindManyQuery<N> {
         relation::FindManyQuery::new(neo4j)
             .filter(
                 RelationFilter::default()
@@ -166,7 +161,7 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
             .types
             .iter()
             .map(|t| {
-                RelationNode::new(
+                RelationEdge::new(
                     ids::create_id_from_unique_string(format!(
                         "{}:{}:{}:{}",
                         self.space_id,
@@ -183,7 +178,7 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
             .collect::<Vec<_>>();
 
         // Insert the relations
-        relation_node::insert_many(&self.neo4j, &self.block, &self.space_id, self.space_version)
+        relation_edge::insert_many(&self.neo4j, &self.block, &self.space_id, self.space_version)
             .relations(types_relations)
             .send()
             .await?;
@@ -217,6 +212,7 @@ impl FindOneQuery {
 
 impl<T: FromAttributes> Query<Option<Entity<T>>> for FindOneQuery {
     async fn send(self) -> Result<Option<Entity<T>>, DatabaseError> {
+        // TODO: Merge the queries into one
         let attributes = attributes::find_one(
             &self.neo4j,
             &self.entity_id,
@@ -226,7 +222,7 @@ impl<T: FromAttributes> Query<Option<Entity<T>>> for FindOneQuery {
         .send()
         .await?;
 
-        let types = relation_node::find_many(&self.neo4j)
+        let types = relation_edge::find_many::<EntityNodeRef>(&self.neo4j)
             .space_id(prop_filter::value(self.space_id.clone()))
             .from_id(prop_filter::value(self.entity_id.clone()))
             .relation_type(prop_filter::value(system_ids::TYPES_ATTRIBUTE))
@@ -236,7 +232,7 @@ impl<T: FromAttributes> Query<Option<Entity<T>>> for FindOneQuery {
             .await?;
 
         Ok(attributes.map(|data| {
-            Entity::new(self.entity_id, data).with_types(types.into_iter().map(|r| r.to))
+            Entity::new(self.entity_id, data).with_types(types.into_iter().map(|r| r.to.into()))
         }))
     }
 }
@@ -335,7 +331,7 @@ impl FindManyQuery {
         query_part.with_clause("DISTINCT e", {
             QueryPart::default()
                 .match_clause("(e) -[r:ATTRIBUTE]-> (n:Attribute)")
-                .merge(self.space_id.into_query_part("r", "space_id"))
+                .merge(self.space_id.into_query_part("r", "space_id", None))
                 .merge(self.version.into_query_part("r"))
                 .with_clause(
                     "e, collect(n{.*}) AS attrs",

@@ -2,7 +2,7 @@ use futures::TryStreamExt;
 use grc20_core::{
     entity::Entity,
     error::DatabaseError,
-    mapping::{prop_filter, EntityFilter, RelationFilter},
+    mapping::{entity_node::EntityNodeRef, prop_filter, EntityFilter, RelationFilter},
     neo4rs, relation, system_ids,
 };
 
@@ -23,7 +23,7 @@ pub async fn blocks(
     _strict: bool,
 ) -> Result<Vec<Entity<BaseEntity>>, DatabaseError> {
     // TODO: Implement aggregation
-    relation::FindManyQuery::new(neo4j)
+    relation::find_many::<EntityNodeRef>(neo4j)
         .filter(
             RelationFilter::default()
                 .from_(EntityFilter::default().id(prop_filter::value(entity_id.into())))
@@ -46,7 +46,7 @@ pub async fn types(
     _strict: bool,
 ) -> Result<Vec<Entity<BaseEntity>>, DatabaseError> {
     // TODO: Implement aggregation
-    relation::FindManyQuery::new(neo4j)
+    relation::find_many::<EntityNodeRef>(neo4j)
         .filter(
             RelationFilter::default()
                 .from_(EntityFilter::default().id(prop_filter::value(entity_id.into())))

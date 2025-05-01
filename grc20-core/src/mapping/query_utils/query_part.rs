@@ -130,8 +130,15 @@ impl QueryPart {
         self.params.extend(other.params);
     }
 
-    pub fn merge(mut self, other: QueryPart) -> Self {
-        self.merge_mut(other);
+    pub fn merge(mut self, other: impl Into<QueryPart>) -> Self {
+        self.merge_mut(other.into());
+        self
+    }
+
+    pub fn merge_opt(mut self, other: Option<impl Into<QueryPart>>) -> Self {
+        if let Some(other) = other {
+            self.merge_mut(other.into());
+        }
         self
     }
 

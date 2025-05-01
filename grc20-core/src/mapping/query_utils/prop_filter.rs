@@ -36,6 +36,24 @@ pub fn value_not_in<T>(values: Vec<T>) -> PropFilter<T> {
     PropFilter::default().value_not_in(values)
 }
 
+impl From<&str> for PropFilter<String> {
+    fn from(value: &str) -> Self {
+        PropFilter::default().value(value.to_string())
+    }
+}
+
+impl<T> From<T> for PropFilter<T> {
+    fn from(value: T) -> Self {
+        PropFilter::default().value(value)
+    }
+}
+
+impl<T> From<Vec<T>> for PropFilter<T> {
+    fn from(value: Vec<T>) -> Self {
+        PropFilter::default().value_in(value)
+    }
+}
+
 /// Filter for property P of node N
 #[derive(Clone, Debug)]
 pub struct PropFilter<T> {
@@ -140,63 +158,73 @@ impl<T> PropFilter<T> {
 }
 
 impl<T: Clone + Into<BoltType>> PropFilter<T> {
-    pub(crate) fn into_query_part(self, node_var: &str, key: &str) -> QueryPart {
+    /// Converts the filter into a query part.
+    /// The `node_var` is the variable name of the node in the query.
+    /// The `key` is the property key of the node.
+    /// The `expr` is an optional expression to use instead of the property key.
+    /// If `expr` is `None`, the node_var and key will be used as the expression to 
+    /// filter, e.g. `{node_var}.{key} = $value`
+    pub(crate) fn into_query_part(&self, node_var: &str, key: &str, expr: Option<&str>) -> QueryPart {
         let mut query_part = QueryPart::default();
 
-        if let Some(value) = self.value {
+        let expr = expr
+            .map(|e| e.to_string())
+            .unwrap_or(format!("{}.`{}`", node_var, key));
+
+        if let Some(value) = &self.value {
             let param_key = format!("{node_var}_{key}_value");
             query_part = query_part
-                .where_clause(format!("{node_var}.`{key}` = ${param_key}"))
-                .params(param_key, value);
+                .where_clause(format!("{expr} = ${param_key}"))
+                .params(param_key, value.clone());
         }
 
-        if let Some(value_gt) = self.value_gt {
+        if let Some(value_gt) = &self.value_gt {
             let param_key = format!("{node_var}_{key}_value_gt");
             query_part = query_part
-                .where_clause(format!("{node_var}.`{key}` > ${param_key}"))
-                .params(param_key, value_gt);
+                .where_clause(format!("{expr} > ${param_key}"))
+                .params(param_key, value_gt.clone());
         }
 
-        if let Some(value_gte) = self.value_gte {
+        if let Some(value_gte) = &self.value_gte {
             let param_key = format!("{node_var}_{key}_value_gte");
             query_part = query_part
-                .where_clause(format!("{node_var}.`{key}` >= ${param_key}"))
-                .params(param_key, value_gte);
+                .where_clause(format!("{expr} >= ${param_key}"))
+                .params(param_key, value_gte.clone());
         }
 
-        if let Some(value_lt) = self.value_lt {
+        if let Some(value_lt) = &self.value_lt {
             let param_key = format!("{node_var}_{key}_value_lt");
             query_part = query_part
-                .where_clause(format!("{node_var}.`{key}` < ${param_key}"))
-                .params(param_key, value_lt);
+                .where_clause(format!("{expr} < ${param_key}"))
+                .params(param_key, value_lt.clone());
         }
 
-        if let Some(value_lte) = self.value_lte {
+        if let Some(value_lte) = &self.value_lte {
             let param_key = format!("{node_var}_{key}_value_lte");
             query_part = query_part
-                .where_clause(format!("{node_var}.`{key}` <= ${param_key}"))
-                .params(param_key, value_lte);
+                .where_clause(format!("{expr} <= ${param_key}"))
+                .params(param_key, value_lte.clone());
         }
 
-        if let Some(value_not) = self.value_not {
+        if let Some(value_not) = &self.value_not {
             let param_key = format!("{node_var}_{key}_value_not");
             query_part = query_part
-                .where_clause(format!("{node_var}.`{key}` <> ${param_key}"))
-                .params(param_key, value_not);
+                .where_clause(format!("{expr} <> ${param_key}"))
+                .params(param_key, value_not.clone());
         }
 
-        if let Some(value_in) = self.value_in {
+        if let Some(value_in) = &self.value_in {
             let param_key = format!("{node_var}_{key}_value_in");
             query_part = query_part
-                .where_clause(format!("{node_var}.`{key}` IN ${param_key}"))
-                .params(param_key, value_in);
+                .where_clause(format!("{expr} IN ${param_key}"))
+                .params(param_key, value_in.clone());
         }
 
-        if let Some(value_not_in) = self.value_not_in {
+        if let Some(value_not_in) = &self.value_not_in {
             let param_key = format!("{node_var}_{key}_value_not_in");
             query_part = query_part
-                .where_clause(format!("{node_var}.`{key}` NOT IN ${param_key}"))
-                .params(param_key, value_not_in);
+                .where_clause(format!("{expr} NOT IN ${param_key}"))
+                .params(param_key, value_not_in.clone());
         }
 
         query_part

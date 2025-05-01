@@ -1,9 +1,9 @@
-use futures::{Stream, TryStreamExt};
+use futures::TryStreamExt;
 use grc20_core::{
     entity::Entity,
     error::DatabaseError,
     mapping::{
-        prop_filter, relation_node, triple, Query, QueryStream, TriplesConversionError, Value,
+        entity_node::EntityNodeRef, prop_filter, relation_edge, triple, QueryStream, TriplesConversionError, Value
     },
     neo4rs, system_ids,
 };
@@ -38,7 +38,7 @@ pub async fn value_type(
     let property_id = property_id.into();
     let space_id = space_id.into();
 
-    let value_type_rel = get_outbound_relations(
+    let value_type_rel = get_outbound_relations::<EntityNodeRef>(
         neo4j,
         system_ids::VALUE_TYPE_ATTRIBUTE,
         &property_id,
@@ -48,6 +48,8 @@ pub async fn value_type(
         None,
         strict,
     )
+    .await?
+    .send()
     .await?
     .try_collect::<Vec<_>>()
     .await?;
@@ -71,7 +73,7 @@ pub async fn relation_value_type(
     let property_id = property_id.into();
     let space_id = space_id.into();
 
-    let value_type_rel = get_outbound_relations(
+    let value_type_rel = get_outbound_relations::<EntityNodeRef>(
         neo4j,
         system_ids::RELATION_VALUE_RELATIONSHIP_TYPE,
         &property_id,
@@ -81,6 +83,8 @@ pub async fn relation_value_type(
         None,
         strict,
     )
+    .await?
+    .send()
     .await?
     .try_collect::<Vec<_>>()
     .await?;
@@ -224,7 +228,7 @@ pub async fn get_triple(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn get_outbound_relations(
+pub async fn get_outbound_relations<T>(
     neo4j: &neo4rs::Graph,
     property_id: impl Into<String>,
     entity_id: impl Into<String>,
@@ -233,7 +237,7 @@ pub async fn get_outbound_relations(
     limit: Option<usize>,
     skip: Option<usize>,
     strict: bool,
-) -> Result<impl Stream<Item = Result<relation_node::RelationNode, DatabaseError>>, DatabaseError> {
+) -> Result<relation_edge::FindManyQuery<T>, DatabaseError> {
     let neo4j = neo4j.clone();
     let space_id = space_id.into();
     let entity_id = entity_id.into();
@@ -267,15 +271,13 @@ pub async fn get_outbound_relations(
     //     }
     // };
 
-    relation_node::FindManyQuery::new(&neo4j)
+    Ok(relation_edge::find_many::<T>(&neo4j)
         .from_id(prop_filter::value(entity_id.clone()))
         .space_id(prop_filter::value_in(spaces))
         .relation_type(prop_filter::value(property_id.clone()))
         .version(space_version.clone())
         .limit(limit.unwrap_or(100))
-        .skip(skip.unwrap_or(0))
-        .send()
-        .await
+        .skip(skip.unwrap_or(0)))
 }
 
 /// Returns the spaces from which the property is inherited

@@ -8,11 +8,7 @@ use grc20_core::{
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
-        self,
-        attributes::{FromAttributes, IntoAttributes},
-        entity,
-        query_utils::{AttributeFilter, PropFilter, QueryStream},
-        Entity, Relation, TriplesConversionError, Value,
+        self, attributes::{FromAttributes, IntoAttributes}, entity, entity_node::EntityNodeRef, query_utils::{AttributeFilter, PropFilter, QueryStream}, Entity, Relation, TriplesConversionError, Value
     },
     neo4rs, pb,
 };
@@ -203,7 +199,7 @@ impl Proposals {
         ids::create_id_from_unique_string(format!("PROPOSALS:{space_id}:{proposal_id}"))
     }
 
-    pub fn new(space_id: &str, proposal_id: &str) -> Relation<Self> {
+    pub fn new(space_id: &str, proposal_id: &str) -> Relation<Self, EntityNodeRef> {
         Relation::new(
             Self::gen_id(space_id, proposal_id),
             space_id,
@@ -218,7 +214,7 @@ impl Proposals {
         space_id: &str,
         proposal_id: &str,
         index: impl Into<Value>,
-    ) -> Relation<Self> {
+    ) -> Relation<Self, EntityNodeRef> {
         Relation::new(
             Self::gen_id(space_id, proposal_id),
             space_id,
@@ -249,7 +245,7 @@ impl FromAttributes for Proposals {
 pub struct ProposalCreator;
 
 impl ProposalCreator {
-    pub fn new(proposal_id: &str, account_id: &str) -> Relation<Self> {
+    pub fn new(proposal_id: &str, account_id: &str) -> Relation<Self, EntityNodeRef> {
         Relation::new(
             ids::create_id_from_unique_string(format!("CREATOR:{proposal_id}:{account_id}")),
             proposal_id,
@@ -426,7 +422,7 @@ impl ProposedAccount {
         ))
     }
 
-    pub fn new(proposal_id: &str, account_id: &str) -> Relation<Self> {
+    pub fn new(proposal_id: &str, account_id: &str) -> Relation<Self, EntityNodeRef> {
         Relation::new(
             Self::gen_id(proposal_id, account_id),
             proposal_id,
@@ -534,7 +530,7 @@ impl ProposedSubspace {
         ))
     }
 
-    pub fn new(subspace_proposal_id: &str, subspace_id: &str) -> Relation<Self> {
+    pub fn new(subspace_proposal_id: &str, subspace_id: &str) -> Relation<Self, EntityNodeRef> {
         Relation::new(
             Self::gen_id(subspace_proposal_id, subspace_id),
             subspace_proposal_id,

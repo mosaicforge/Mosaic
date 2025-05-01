@@ -2,7 +2,7 @@ use grc20_core::{
     block::BlockMetadata,
     error::DatabaseError,
     ids, indexer_ids,
-    mapping::{query_utils::Query, relation, Relation},
+    mapping::{entity_node::EntityNodeRef, query_utils::Query, relation, Relation},
     neo4rs,
 };
 
@@ -18,7 +18,7 @@ impl SpaceEditor {
         ids::create_id_from_unique_string(format!("EDITOR:{space_id}:{editor_id}"))
     }
 
-    pub fn new(editor_id: &str, space_id: &str) -> Relation<Self> {
+    pub fn new(editor_id: &str, space_id: &str) -> Relation<Self, EntityNodeRef> {
         Relation::new(
             Self::generate_id(editor_id, space_id),
             editor_id,

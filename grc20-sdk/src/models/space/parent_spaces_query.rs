@@ -6,7 +6,7 @@ use futures::{pin_mut, Stream, StreamExt};
 use grc20_core::{
     error::DatabaseError,
     indexer_ids,
-    mapping::{query_utils::QueryStream, relation_node, PropFilter},
+    mapping::{entity_node::EntityNodeRef, query_utils::QueryStream, relation_edge, PropFilter},
     neo4rs,
 };
 
@@ -142,7 +142,7 @@ async fn immediate_parent_spaces(
     limit: usize,
 ) -> Result<impl Stream<Item = Result<String, DatabaseError>>, DatabaseError> {
     // Find all parent space relations where this space is the parent
-    let relations_stream = relation_node::find_many(neo4j)
+    let relations_stream = relation_edge::find_many::<EntityNodeRef>(neo4j)
         .relation_type(PropFilter::default().value(indexer_ids::PARENT_SPACE))
         .from_id(PropFilter::default().value(space_id))
         .space_id(PropFilter::default().value(indexer_ids::INDEXER_SPACE_ID))
@@ -152,7 +152,7 @@ async fn immediate_parent_spaces(
 
     // Convert the stream of relations to a stream of spaces
     let space_stream =
-        relations_stream.map(move |relation_result| relation_result.map(|relation| relation.to));
+        relations_stream.map(move |relation_result| relation_result.map(|relation| relation.to.into()));
 
     Ok(space_stream)
 }

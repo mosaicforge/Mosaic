@@ -144,9 +144,9 @@ impl Entity {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Vec<Entity>> {
-        let types_rel = self
+        let blocks_rel = self
             .node
-            .get_outbound_relations(
+            .get_outbound_relations::<EntityNode>(
                 &executor.context().neo4j,
                 &self.space_id,
                 self.space_version.clone(),
@@ -157,22 +157,16 @@ impl Entity {
             .try_collect::<Vec<_>>()
             .await?;
 
-        Ok(entity_node::find_many(&executor.context().neo4j)
-            .id(prop_filter::value_in(
-                types_rel.into_iter().map(|rel| rel.to).collect(),
-            ))
-            .send()
-            .await?
-            .map_ok(|node| {
+        Ok(blocks_rel.into_iter()
+            .map(|rel| {
                 Entity::new(
-                    node,
+                    rel.to,
                     self.space_id.clone(),
                     self.space_version.clone(),
                     self.strict,
                 )
             })
-            .try_collect::<Vec<_>>()
-            .await?)
+            .collect::<Vec<_>>())
     }
 
     /// Types of the entity (which are entities themselves)
@@ -182,7 +176,7 @@ impl Entity {
     ) -> FieldResult<Vec<Entity>> {
         let types_rel = self
             .node
-            .get_outbound_relations(
+            .get_outbound_relations::<EntityNode>(
                 &executor.context().neo4j,
                 &self.space_id,
                 self.space_version.clone(),
@@ -193,22 +187,16 @@ impl Entity {
             .try_collect::<Vec<_>>()
             .await?;
 
-        Ok(entity_node::find_many(&executor.context().neo4j)
-            .id(prop_filter::value_in(
-                types_rel.into_iter().map(|rel| rel.to).collect(),
-            ))
-            .send()
-            .await?
-            .map_ok(|node| {
+        Ok(types_rel.into_iter()
+            .map(|rel| {
                 Entity::new(
-                    node,
+                    rel.to,
                     self.space_id.clone(),
                     self.space_version.clone(),
                     self.strict,
                 )
             })
-            .try_collect::<Vec<_>>()
-            .await?)
+            .collect::<Vec<_>>())
     }
 
     // TODO: Add entity attributes filtering
@@ -240,7 +228,7 @@ impl Entity {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         r#where: Option<EntityRelationFilter>,
     ) -> FieldResult<Vec<Relation>> {
-        let mut base_query = self.node.get_outbound_relations(
+        let mut base_query = self.node.get_outbound_relations::<EntityNode>(
             &executor.context().neo4j,
             &self.space_id,
             self.space_version.clone(),

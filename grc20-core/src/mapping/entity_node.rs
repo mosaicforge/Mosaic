@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use chrono::{DateTime, Utc};
 use futures::{stream::TryStreamExt, Stream};
 
@@ -11,7 +13,7 @@ use super::{
         order_by::FieldOrderBy, prop_filter, AttributeFilter, PropFilter, Query, QueryPart,
         QueryStream,
     },
-    relation_node, triple, AttributeNode, EntityFilter, Triple,
+    relation_edge, triple, AttributeNode, EntityFilter, Triple,
 };
 
 /// Neo4j model of an Entity
@@ -44,25 +46,25 @@ impl EntityNode {
         attributes::FindOneQuery::new(neo4j, self.id.clone(), space_id.into(), space_version)
     }
 
-    pub fn get_outbound_relations(
+    pub fn get_outbound_relations<T>(
         &self,
         neo4j: &neo4rs::Graph,
         space_id: impl Into<String>,
         space_version: Option<String>,
-    ) -> relation_node::FindManyQuery {
-        relation_node::FindManyQuery::new(neo4j)
+    ) -> relation_edge::FindManyQuery<T> {
+        relation_edge::FindManyQuery::new(neo4j)
             .from_id(prop_filter::value(self.id.clone()))
             .space_id(prop_filter::value(space_id.into()))
             .version(space_version)
     }
 
-    pub fn get_inbound_relations(
+    pub fn get_inbound_relations<T>(
         &self,
         neo4j: &neo4rs::Graph,
         space_id: impl Into<String>,
         space_version: Option<String>,
-    ) -> relation_node::FindManyQuery {
-        relation_node::FindManyQuery::new(neo4j)
+    ) -> relation_edge::FindManyQuery<T> {
+        relation_edge::FindManyQuery::new(neo4j)
             .to_id(prop_filter::value(self.id.clone()))
             .space_id(prop_filter::value(space_id.into()))
             .version(space_version)
@@ -113,6 +115,50 @@ impl EntityNode {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(transparent)]
+pub struct EntityNodeRef(pub String);
+
+impl From<EntityNodeRef> for String {
+    fn from(node_ref: EntityNodeRef) -> Self {
+        node_ref.0
+    }
+}
+
+impl From<&EntityNodeRef> for String {
+    fn from(node_ref: &EntityNodeRef) -> Self {
+        node_ref.0.clone()
+    }
+}
+
+impl From<EntityNode> for EntityNodeRef {
+    fn from(node: EntityNode) -> Self {
+        Self(node.id)
+    }
+}
+
+impl From<String> for EntityNodeRef {
+    fn from(id: String) -> Self {
+        Self(id)
+    }
+}
+
+impl From<&String> for EntityNodeRef {
+    fn from(id: &String) -> Self {
+        Self(id.clone())
+    }
+}
+
+impl Display for EntityNodeRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+pub trait EntityNodeResult {}
+impl EntityNodeResult for EntityNode {}
+impl EntityNodeResult for EntityNodeRef {}
+
 pub fn delete_one(
     neo4j: &neo4rs::Graph,
     block: &BlockMetadata,
@@ -147,6 +193,17 @@ pub struct SystemProperties {
     pub updated_at: DateTime<Utc>,
     #[serde(rename = "7pXCVQDV9C7ozrXkpVg8RJ")] // UPDATED_AT_BLOCK
     pub updated_at_block: String,
+}
+
+impl From<BlockMetadata> for SystemProperties {
+    fn from(block: BlockMetadata) -> Self {
+        Self {
+            created_at: block.timestamp,
+            created_at_block: block.block_number.to_string(),
+            updated_at: block.timestamp,
+            updated_at_block: block.block_number.to_string(),
+        }
+    }
 }
 
 impl Default for SystemProperties {

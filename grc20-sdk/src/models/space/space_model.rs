@@ -6,7 +6,7 @@ use grc20_core::{
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
-        entity, entity_node, prop_filter,
+        entity, entity_node::{self, EntityNodeRef}, prop_filter,
         query_utils::{AttributeFilter, PropFilter, Query, QueryStream},
         relation, Entity, EntityNode, Relation, TriplesConversionError, Value,
     },
@@ -346,7 +346,7 @@ impl ParentSpace {
         ids::create_id_from_unique_string(format!("PARENT_SPACE:{space_id}:{parent_space_id}"))
     }
 
-    pub fn new(space_id: &str, parent_space_id: &str) -> Relation<Self> {
+    pub fn new(space_id: &str, parent_space_id: &str) -> Relation<Self, EntityNodeRef> {
         Relation::new(
             Self::generate_id(space_id, parent_space_id),
             space_id,

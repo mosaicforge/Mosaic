@@ -6,7 +6,7 @@ use grc20_core::{
     mapping::{
         self, entity_node, prop_filter,
         query_utils::{Query, QueryStream},
-        relation_node,
+        relation_edge,
     },
 };
 use grc20_sdk::models::{account, property, space};
@@ -266,7 +266,7 @@ impl RootQuery {
         #[graphql(default = 0)] skip: i32,
         #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Vec<Relation>> {
-        let mut query = relation_node::find_many(&executor.context().neo4j);
+        let mut query = relation_edge::find_many(&executor.context().neo4j);
 
         if let Some(r#where) = r#where {
             query = r#where.apply_filter(query);

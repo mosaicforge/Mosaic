@@ -1,5 +1,5 @@
 use futures::{pin_mut, StreamExt, TryStreamExt};
-use grc20_core::{mapping::query_utils::QueryStream, neo4rs, system_ids};
+use grc20_core::{mapping::{entity_node::EntityNodeRef, query_utils::QueryStream}, neo4rs, system_ids};
 use grc20_sdk::models::{property, space};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     type_.id
                 );
 
-                let properties = property::get_outbound_relations(
+                let properties = property::get_outbound_relations::<EntityNodeRef>(
                     &neo4j,
                     system_ids::PROPERTIES,
                     type_.id,
@@ -55,6 +55,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     None,
                     false,
                 )
+                .await?
+                .send()
                 .await?;
 
                 pin_mut!(properties);
@@ -73,7 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .await?
                             .map(|triple| triple.value.value);
 
-                            let value_type = property::get_outbound_relations(
+                            let value_type = property::get_outbound_relations::<EntityNodeRef>(
                                 &neo4j,
                                 system_ids::VALUE_TYPE_ATTRIBUTE,
                                 &property.to,
@@ -83,6 +85,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 None,
                                 false,
                             )
+                            .await?
+                            .send()
                             .await?
                             .try_collect::<Vec<_>>()
                             .await?;

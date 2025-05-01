@@ -5,27 +5,21 @@ use crate::{
     error::DatabaseError,
     indexer_ids,
     mapping::{AttributeNode, EntityNode},
-    system_ids,
 };
 
 use super::{
-    attributes::IntoAttributes,
-    entity_node, prop_filter,
-    query_utils::{query_part, Query, QueryPart, VersionFilter},
-    relation_node, Entity, FromAttributes, PropFilter, QueryStream, RelationFilter, RelationNode,
-    Value,
+    attributes::IntoAttributes, entity_node::{self, EntityNodeRef}, prop_filter, query_utils::{query_part, Query, QueryPart, VersionFilter}, relation_edge, Entity, FromAttributes, PropFilter, QueryStream, RelationEdge, RelationFilter, Value
 };
 
 /// High level model encapsulating a relation and its attributes.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Relation<T> {
-    relation: RelationNode,
+pub struct Relation<T, N> {
+    relation: RelationEdge<N>,
 
     pub attributes: T,
-    pub types: Vec<String>,
 }
 
-impl<T> Relation<T> {
+impl<T> Relation<T, EntityNodeRef> {
     pub fn new(
         id: impl Into<String>,
         from: impl Into<String>,
@@ -35,15 +29,9 @@ impl<T> Relation<T> {
         attributes: T,
     ) -> Self {
         Relation {
-            relation: RelationNode::new(id, from, to, relation_type, index),
+            relation: RelationEdge::new(id, from, to, relation_type, index),
             attributes,
-            types: vec![],
         }
-    }
-
-    pub fn with_type(mut self, r#type: String) -> Self {
-        self.types.push(r#type);
-        self
     }
 
     pub fn insert(
@@ -63,16 +51,16 @@ impl<T> Relation<T> {
     }
 }
 
-pub fn find_one(
+pub fn find_one<T>(
     neo4j: &neo4rs::Graph,
     id: impl Into<String>,
     space_id: impl Into<String>,
     version: Option<String>,
-) -> FindOneQuery {
+) -> FindOneQuery<T> {
     FindOneQuery::new(neo4j, id.into(), space_id.into(), version)
 }
 
-pub fn find_many(neo4j: &neo4rs::Graph) -> FindManyQuery {
+pub fn find_many<T>(neo4j: &neo4rs::Graph) -> FindManyQuery<T> {
     FindManyQuery::new(neo4j)
 }
 
@@ -92,71 +80,51 @@ pub fn delete_one(
     )
 }
 
-pub struct FindOneQuery {
+pub struct FindOneQuery<T> {
     neo4j: neo4rs::Graph,
     id: String,
     space_id: String,
     version: VersionFilter,
+    __phantom: std::marker::PhantomData<T>,
 }
 
-impl FindOneQuery {
+impl<T> FindOneQuery<T> {
     fn new(neo4j: &neo4rs::Graph, id: String, space_id: String, version: Option<String>) -> Self {
         Self {
             neo4j: neo4j.clone(),
             id,
             space_id,
             version: VersionFilter::new(version),
+            __phantom: std::marker::PhantomData,
         }
     }
+}
 
-    fn into_query_part(self) -> QueryPart {
-        QueryPart::default()
-            .match_clause("(e:Entity:Relation {id: $id})")
-            .match_clause(format!(
-                "(e) -[r_from:`{}` {{space_id: $space_id}}]-> (from:Entity)",
-                system_ids::RELATION_FROM_ATTRIBUTE
-            ))
-            .match_clause(format!(
-                "(e) -[r_to:`{}` {{space_id: $space_id}}]-> (to:Entity)",
-                system_ids::RELATION_TO_ATTRIBUTE
-            ))
-            .match_clause(format!(
-                "(e) -[r_rt:`{}` {{space_id: $space_id}}]-> (rt:Entity)",
-                system_ids::RELATION_TYPE_ATTRIBUTE
-            ))
-            .match_clause(format!(
-                r#"(e) -[r_index:ATTRIBUTE {{space_id: $space_id}}]-> (index:Attribute {{id: "{}"}})"#,
-                system_ids::RELATION_INDEX
-            ))
-            .merge(self.version.clone().into_query_part("r_from"))
-            .merge(self.version.clone().into_query_part("r_to"))
-            .merge(self.version.clone().into_query_part("r_rt"))
-            .merge(self.version.clone().into_query_part("r_index"))
-            .order_by_clause("index.value")
-            .with_clause("e, from, to, rt, index", {
+impl<T: FromAttributes> Query<Option<Relation<T, EntityNodeRef>>> for FindOneQuery<EntityNodeRef> {
+    async fn send(self) -> Result<Option<Relation<T, EntityNodeRef>>, DatabaseError> {
+        let neo4j = self.neo4j.clone();
+        let query = QueryPart::default()
+            .match_clause("(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)")
+            .merge(self.version.clone().into_query_part("r"))
+            .order_by_clause("r.index")
+            .with_clause("r, from, to", {
                 QueryPart::default()
-                    .match_clause("(e) -[r:ATTRIBUTE]-> (n:Attribute)")
-                    .merge(prop_filter::value::<String>(self.space_id.clone()).into_query_part("r", "space_id"))
-                    .merge(self.version.into_query_part("r"))
+                    .match_clause("(r_e:Entity {id: r.id}) -[r_attr:ATTRIBUTE]-> (n:Attribute)")
+                    .merge(prop_filter::value::<String>(self.space_id.clone()).into_query_part("r_attr", "space_id", None))
+                    .merge(self.version.into_query_part("r_attr"))
                     .with_clause(
-                        "e, from, to, rt, index, collect(n{.*}) AS attrs",
-                        query_part::return_query("e{.*, from: from.id, to: to.id, relation_type: rt.id, index: index, attributes: attrs}")
+                        "r, r_e, from, to, collect(n{.*}) AS attrs",
+                        query_part::return_query("r{.*, from: from.id, to: to.id, attributes: attrs} as r")
                     )
             })
             .params("id", self.id)
             .params("space_id", self.space_id)
-    }
-}
-
-impl<T: FromAttributes> Query<Option<Relation<T>>> for FindOneQuery {
-    async fn send(self) -> Result<Option<Relation<T>>, DatabaseError> {
-        let neo4j = self.neo4j.clone();
-        let query = self.into_query_part().build();
+            .build();
 
         #[derive(Debug, serde::Deserialize)]
         struct RowResult {
             #[serde(flatten)]
-            node: RelationNode,
+            edge: RelationEdge<EntityNodeRef>,
             attributes: Vec<AttributeNode>,
         }
 
@@ -168,16 +136,60 @@ impl<T: FromAttributes> Query<Option<Relation<T>>> for FindOneQuery {
             .map(|row| {
                 let row = row.to::<RowResult>()?;
                 Result::<_, DatabaseError>::Ok(Relation {
-                    relation: row.node,
+                    relation: row.edge,
                     attributes: T::from_attributes(row.attributes.into())?,
-                    types: vec![],
                 })
             })
             .transpose()
     }
 }
 
-pub struct FindManyQuery {
+impl<T: FromAttributes> Query<Option<Relation<T, EntityNode>>> for FindOneQuery<EntityNode> {
+    async fn send(self) -> Result<Option<Relation<T, EntityNode>>, DatabaseError> {
+        let neo4j = self.neo4j.clone();
+        let query = QueryPart::default()
+            .match_clause("(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)")
+            .merge(self.version.clone().into_query_part("r"))
+            .order_by_clause("r.index")
+            .with_clause("r, from, to", {
+                QueryPart::default()
+                    .match_clause("(r_e:Entity {id: r.id}) -[r_attr:ATTRIBUTE]-> (n:Attribute)")
+                    .merge(prop_filter::value::<String>(self.space_id.clone()).into_query_part("r_attr", "space_id", None))
+                    .merge(self.version.into_query_part("r_attr"))
+                    .with_clause(
+                        "r, r_e, from, to, collect(n{.*}) AS attrs",
+                        query_part::return_query("r{.*, from: from, to: to, attributes: attrs} as r")
+                    )
+            })
+            .params("id", self.id)
+            .params("space_id", self.space_id)
+            .build();
+
+        #[derive(Debug, serde::Deserialize)]
+        struct RowResult {
+            #[serde(flatten)]
+            edge: RelationEdge<EntityNode>,
+            attributes: Vec<AttributeNode>,
+        }
+
+        neo4j
+            .execute(query)
+            .await?
+            .next()
+            .await?
+            .map(|row| {
+                let row = row.to::<RowResult>()?;
+                Result::<_, DatabaseError>::Ok(Relation {
+                    relation: row.edge,
+                    attributes: T::from_attributes(row.attributes.into())?,
+                })
+            })
+            .transpose()
+    }
+}
+
+
+pub struct FindManyQuery<T> {
     neo4j: neo4rs::Graph,
     id: Option<PropFilter<String>>,
     filter: RelationFilter,
@@ -187,9 +199,11 @@ pub struct FindManyQuery {
 
     limit: usize,
     skip: Option<usize>,
+
+    __phantom: std::marker::PhantomData<T>,
 }
 
-impl FindManyQuery {
+impl<T> FindManyQuery<T> {
     pub fn new(neo4j: &neo4rs::Graph) -> Self {
         Self {
             neo4j: neo4j.clone(),
@@ -199,6 +213,7 @@ impl FindManyQuery {
             version: VersionFilter::default(),
             limit: 100,
             skip: None,
+            __phantom: std::marker::PhantomData,
         }
     }
 
@@ -236,23 +251,17 @@ impl FindManyQuery {
 
     fn into_query_part(self) -> QueryPart {
         let mut query_part = QueryPart::default()
-            .match_clause("(e:Entity:Relation)")
-            .merge(self.filter.into_query_part("e"))
-            .order_by_clause("index.value")
+            .match_clause("(from:Entity) -[r:RELATION]-> (to:Entity)")
+            .merge(self.filter.into_query_part("r", "from", "to"))
+            .order_by_clause("r.index")
             .limit(self.limit);
 
         query_part = query_part
-            .merge(self.version.clone().into_query_part("r_from"))
-            .merge(self.version.clone().into_query_part("r_to"))
-            .merge(self.version.clone().into_query_part("r_rt"))
-            .merge(self.version.clone().into_query_part("r_index"));
+            .merge(self.version.clone().into_query_part("r"));
 
         if let Some(space_id) = &self.space_id {
             query_part = query_part
-                .merge(space_id.clone().into_query_part("r_from", "space_id"))
-                .merge(space_id.clone().into_query_part("r_to", "space_id"))
-                .merge(space_id.clone().into_query_part("r_rt", "space_id"))
-                .merge(space_id.clone().into_query_part("r_index", "space_id"));
+                .merge(space_id.clone().into_query_part("r", "space_id", None));
         }
 
         if let Some(skip) = self.skip {
@@ -260,42 +269,22 @@ impl FindManyQuery {
         }
 
         query_part
-            .with_clause("e, from, to, rt, index", {
-                let mut query_part = QueryPart::default()
-                    .match_clause("(e) -[r:ATTRIBUTE]-> (n:Attribute)")
-                    .merge(self.version.clone().into_query_part("r"));
-
-                if let Some(space_id) = &self.space_id {
-                    query_part.merge_mut(space_id.clone().into_query_part("r", "space_id"));
-                }
-                query_part
-                    .with_clause(
-                        "e, from, to, rt, index, collect(n{.*}) AS attrs",
-                        query_part::return_query("e{.*, from: from.id, to: to.id, relation_type: rt.id, index: index, attributes: attrs}")
-                    )
-            })
     }
 
     pub fn select_to(self) -> FindManyToQuery {
         let mut query_part = QueryPart::default()
-            .match_clause("(e:Entity:Relation)")
-            .merge(self.filter.into_query_part("e"))
-            .order_by_clause("index.value")
+            .match_clause("(from:Entity) -[r:RELATION]-> (to:Entity)")
+            .merge(self.filter.into_query_part("r", "from", "to"))
+            .order_by_clause("r.index")
             .limit(self.limit);
 
-        query_part = query_part
-            .merge(self.version.clone().into_query_part("r_from"))
-            .merge(self.version.clone().into_query_part("r_to"))
-            .merge(self.version.clone().into_query_part("r_rt"))
-            .merge(self.version.clone().into_query_part("r_index"));
-
-        if let Some(space_id) = &self.space_id {
             query_part = query_part
-                .merge(space_id.clone().into_query_part("r_from", "space_id"))
-                .merge(space_id.clone().into_query_part("r_to", "space_id"))
-                .merge(space_id.clone().into_query_part("r_rt", "space_id"))
-                .merge(space_id.clone().into_query_part("r_index", "space_id"));
-        }
+                .merge(self.version.clone().into_query_part("r"));
+
+            if let Some(space_id) = &self.space_id {
+                query_part = query_part
+                    .merge(space_id.clone().into_query_part("r", "space_id", None));
+            }
 
         if let Some(skip) = self.skip {
             query_part = query_part.skip(skip);
@@ -307,7 +296,7 @@ impl FindManyQuery {
                 .merge(self.version.clone().into_query_part("r"));
 
             if let Some(space_id) = &self.space_id {
-                query_part.merge_mut(space_id.clone().into_query_part("r", "space_id"));
+                query_part.merge_mut(space_id.clone().into_query_part("r", "space_id", None));
             }
             query_part.with_clause(
                 "to, collect(n{.*}) AS attrs",
@@ -322,24 +311,40 @@ impl FindManyQuery {
     }
 }
 
-impl<T: FromAttributes> QueryStream<Relation<T>> for FindManyQuery {
+impl<T: FromAttributes> QueryStream<Relation<T, EntityNodeRef>> for FindManyQuery<EntityNodeRef> {
     async fn send(
         self,
-    ) -> Result<impl Stream<Item = Result<Relation<T>, DatabaseError>>, DatabaseError> {
+    ) -> Result<impl Stream<Item = Result<Relation<T, EntityNodeRef>, DatabaseError>>, DatabaseError> {
         let neo4j = self.neo4j.clone();
 
-        let query = if cfg!(debug_assertions) || cfg!(test) {
-            let query_part = self.into_query_part();
+        let version = self.version.clone();
+        let space_id = self.space_id.clone();
+        let query_part = self.into_query_part()
+            .with_clause("r, from, to", {
+                let mut query_part = QueryPart::default()
+                    .match_clause("(r_e:Entity {id: r.id}) -[r_attr:ATTRIBUTE]-> (n:Attribute)")
+                    .merge(version.clone().into_query_part("r_attr"));
+
+                if let Some(space_id) = space_id {
+                    query_part.merge_mut(space_id.clone().into_query_part("r_attr", "space_id", None));
+                }
+                query_part
+                    .with_clause(
+                        "r, r_e, from, to, collect(n{.*}) AS attrs",
+                        query_part::return_query("r{.*, from: from.id, to: to.id, attributes: attrs} as r")
+                    )
+            });
+        
+        if cfg!(debug_assertions) || cfg!(test) {
             tracing::info!("relation_node::FindManyQuery:\n{}", query_part);
-            query_part.build()
-        } else {
-            self.into_query_part().build()
         };
+
+        let query = query_part.build();
 
         #[derive(Debug, serde::Deserialize)]
         struct RowResult {
             #[serde(flatten)]
-            node: RelationNode,
+            node: RelationEdge<EntityNodeRef>,
             attributes: Vec<AttributeNode>,
         }
 
@@ -354,7 +359,63 @@ impl<T: FromAttributes> QueryStream<Relation<T>> for FindManyQuery {
                         .map(|attributes| Relation {
                             relation: row.node,
                             attributes,
-                            types: vec![],
+                        })
+                        .map_err(DatabaseError::from)
+                })
+            });
+
+        Ok(stream)
+    }
+}
+
+impl<T: FromAttributes> QueryStream<Relation<T, EntityNode>> for FindManyQuery<EntityNode> {
+    async fn send(
+        self,
+    ) -> Result<impl Stream<Item = Result<Relation<T, EntityNode>, DatabaseError>>, DatabaseError> {
+        let neo4j = self.neo4j.clone();
+
+        let version = self.version.clone();
+        let space_id = self.space_id.clone();
+        let query_part = self.into_query_part()
+            .with_clause("r, from, to", {
+                let mut query_part = QueryPart::default()
+                    .match_clause("(r_e:Entity {id: r.id}) -[r_attr:ATTRIBUTE]-> (n:Attribute)")
+                    .merge(version.clone().into_query_part("r_attr"));
+
+                if let Some(space_id) = space_id {
+                    query_part.merge_mut(space_id.clone().into_query_part("r_attr", "space_id", None));
+                }
+                query_part
+                    .with_clause(
+                        "r, r_e, from, to, collect(n{.*}) AS attrs",
+                        query_part::return_query("r{.*, from: from, to: to, attributes: attrs} as r")
+                    )
+            });
+        
+        if cfg!(debug_assertions) || cfg!(test) {
+            tracing::info!("relation_node::FindManyQuery:\n{}", query_part);
+        };
+
+        let query = query_part.build();
+
+        #[derive(Debug, serde::Deserialize)]
+        struct RowResult {
+            #[serde(flatten)]
+            node: RelationEdge<EntityNode>,
+            attributes: Vec<AttributeNode>,
+        }
+
+        let stream = neo4j
+            .execute(query)
+            .await?
+            .into_stream_as::<RowResult>()
+            .map_err(DatabaseError::from)
+            .map(|row_result| {
+                row_result.and_then(|row| {
+                    T::from_attributes(row.attributes.into())
+                        .map(|attributes| Relation {
+                            relation: row.node,
+                            attributes,
                         })
                         .map_err(DatabaseError::from)
                 })
@@ -448,7 +509,7 @@ impl Query<()> for DeleteOneQuery {
         .send()
         .await?;
 
-        relation_node::delete_one(
+        relation_edge::delete_one(
             &self.neo4j,
             &self.block,
             &self.relation_id,
@@ -463,7 +524,7 @@ impl Query<()> for DeleteOneQuery {
 pub struct InsertOneQuery<T> {
     neo4j: neo4rs::Graph,
     block: BlockMetadata,
-    relation: Relation<T>,
+    relation: Relation<T, EntityNodeRef>,
     space_id: String,
     space_version: String,
 }
@@ -474,7 +535,7 @@ impl<T> InsertOneQuery<T> {
         block: BlockMetadata,
         space_id: String,
         space_version: String,
-        relation: Relation<T>,
+        relation: Relation<T, EntityNodeRef>,
     ) -> Self {
         InsertOneQuery {
             neo4j,
@@ -514,38 +575,23 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
         // .await
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MERGE (e:Entity:Relation {{id: $relation.id}})
-            ON CREATE SET e += {{
+            MATCH (from:Entity {{id: $relation.from}})
+            MATCH (to:Entity {{id: $relation.to}})
+            MERGE (from) -[r:RELATION]-> (to)
+            ON CREATE SET r += {{
+                id: $relation.id,
+                space_id: $space_id,
+                index: $relation.index,
+                min_version: $space_version,
+                relation_type: $relation.relation_type,
                 `{CREATED_AT}`: datetime($block_timestamp),
                 `{CREATED_AT_BLOCK}`: $block_number
             }}
-            SET e += {{
+            SET r += {{
                 `{UPDATED_AT}`: datetime($block_timestamp),
                 `{UPDATED_AT_BLOCK}`: $block_number
             }}
-            WITH e
-            CALL (e) {{
-                MATCH (e) -[r_from:`{FROM_ENTITY}` {{space_id: $space_id}}]-> (:Entity)
-                WHERE r_from.max_version IS NULL AND r_from.min_version <> $space_version
-                MATCH (e) -[r_to:`{TO_ENTITY}` {{space_id: $space_id, max_version: null}}]-> (:Entity)
-                WHERE r_to.max_version IS NULL AND r_to.min_version <> $space_version
-                MATCH (e) -[r_rt:`{RELATION_TYPE}` {{space_id: $space_id, max_version: null}}]-> (:Entity)
-                WHERE r_rt.max_version IS NULL AND r_rt.min_version <> $space_version
-                MATCH (e) -[r_index:ATTRIBUTE {{space_id: $space_id, max_version: null}}]-> (:Attribute {{id: "{INDEX}"}})
-                WHERE r_index.max_version IS NULL AND r_index.min_version <> $space_version
-                SET r_from.max_version = $space_version
-                SET r_to.max_version = $space_version
-                SET r_rt.max_version = $space_version
-                SET r_index.max_version = $space_version
-            }}
-            MATCH (from:Entity {{id: $relation.from}})
-            MATCH (to:Entity {{id: $relation.to}})
-            MATCH (rt:Entity {{id: $relation.relation_type}})
-            MERGE (e) -[:`{FROM_ENTITY}` {{space_id: $space_id, min_version: $space_version}}]-> (from)
-            MERGE (e) -[:`{TO_ENTITY}` {{space_id: $space_id, min_version: $space_version}}]-> (to)
-            MERGE (e) -[:`{RELATION_TYPE}` {{space_id: $space_id, min_version: $space_version}}]-> (rt)
-            MERGE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (index:Attribute {{id: "{INDEX}"}})
-            SET index += $relation.index
+            MERGE (e:Entity {{id: $relation.id}})
             WITH e
             UNWIND $attributes AS attribute
             CALL (e, attribute) {{
@@ -562,10 +608,6 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
             CREATED_AT_BLOCK = indexer_ids::CREATED_AT_BLOCK,
             UPDATED_AT = indexer_ids::UPDATED_AT_TIMESTAMP,
             UPDATED_AT_BLOCK = indexer_ids::UPDATED_AT_BLOCK,
-            FROM_ENTITY = system_ids::RELATION_FROM_ATTRIBUTE,
-            TO_ENTITY = system_ids::RELATION_TO_ATTRIBUTE,
-            RELATION_TYPE = system_ids::RELATION_TYPE_ATTRIBUTE,
-            INDEX = system_ids::RELATION_INDEX,
         );
 
         let query = neo4rs::query(QUERY)
@@ -584,7 +626,7 @@ impl<T: IntoAttributes> Query<()> for InsertOneQuery<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::mapping::{self, triple, EntityFilter, Triple};
+    use crate::{mapping::{self, triple, EntityFilter, Triple}, system_ids};
 
     use super::*;
 
@@ -669,13 +711,87 @@ mod tests {
             .await
             .expect("Failed to insert relation");
 
-        let found_relation = FindOneQuery::new(&neo4j, "rel_abc".into(), "ROOT".into(), None)
+        let found_relation = find_one::<EntityNodeRef>(&neo4j, "rel_abc", "ROOT", None)
             .send()
             .await
             .expect("Failed to find relation")
             .expect("Relation not found");
 
         assert_eq!(found_relation, relation);
+    }
+
+    #[tokio::test]
+    async fn test_insert_find_one_relation_node() {
+        // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
+        let container = GenericImage::new("neo4j", "2025.01.0-community")
+            .with_wait_for(WaitFor::Duration {
+                length: std::time::Duration::from_secs(5),
+            })
+            .with_exposed_port(BOLT_PORT.tcp())
+            .with_exposed_port(HTTP_PORT.tcp())
+            .with_env_var("NEO4J_AUTH", "none")
+            .start()
+            .await
+            .expect("Failed to start Neo 4J container");
+
+        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
+        let host = container.get_host().await.unwrap().to_string();
+
+        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
+            .await
+            .unwrap();
+
+        let foo = Foo {
+            name: "Alice".into(),
+            bar: 42,
+        };
+
+        triple::insert_many(&neo4j, &BlockMetadata::default(), "ROOT", "0")
+            .triples(vec![
+                Triple::new("from_id", "name", "FooFrom"),
+                Triple::new("to_id", "name", "FooTo"),
+                Triple::new("relation_type", "name", "FooRelation"),
+                Triple::new(system_ids::TYPES_ATTRIBUTE, "name", "Types"),
+            ])
+            .send()
+            .await
+            .expect("Failed to insert triples");
+
+        let relation = Relation::new("rel_abc", "from_id", "to_id", "relation_type", 0u64, foo.clone());
+
+        relation
+            .clone()
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", "0")
+            .send()
+            .await
+            .expect("Failed to insert relation");
+
+        let found_relation = find_one::<EntityNode>(&neo4j, "rel_abc", "ROOT", None)
+            .send()
+            .await
+            .expect("Failed to find relation")
+            .expect("Relation not found");
+
+        assert_eq!(
+            found_relation,
+            Relation { 
+                relation: RelationEdge {
+                    id: "rel_abc".to_string(),
+                    from: EntityNode {
+                        id: "from_id".to_string(),
+                        system_properties: BlockMetadata::default().into(),
+                    },
+                    to: EntityNode {
+                        id: "to_id".to_string(),
+                        system_properties: BlockMetadata::default().into(),
+                    },
+                    relation_type: "relation_type".to_string(),
+                    index: "0".to_string(),
+                    system_properties: BlockMetadata::default().into(),
+                },
+                attributes: foo, 
+            },
+        );
     }
 
     #[tokio::test]
@@ -724,7 +840,7 @@ mod tests {
             .await
             .expect("Failed to insert relation");
 
-        let stream = FindManyQuery::new(&neo4j)
+        let stream = find_many::<EntityNodeRef>(&neo4j)
             .space_id(prop_filter::value::<String>("ROOT"))
             .filter(
                 RelationFilter::default()
@@ -737,7 +853,76 @@ mod tests {
 
         pin_mut!(stream);
 
-        let found_relation: Relation<Foo> = stream
+        let found_relation: Relation<Foo, EntityNodeRef> = stream
+            .next()
+            .await
+            .expect("Failed to get next relation")
+            .expect("Relation not found");
+
+        assert_eq!(found_relation.relation.id, relation.relation.id);
+        assert_eq!(found_relation.attributes, relation.attributes);
+    }
+
+    #[tokio::test]
+    async fn test_insert_find_many_relations_node() {
+        // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
+        let container = GenericImage::new("neo4j", "2025.01.0-community")
+            .with_wait_for(WaitFor::Duration {
+                length: std::time::Duration::from_secs(5),
+            })
+            .with_exposed_port(BOLT_PORT.tcp())
+            .with_exposed_port(HTTP_PORT.tcp())
+            .with_env_var("NEO4J_AUTH", "none")
+            .start()
+            .await
+            .expect("Failed to start Neo 4J container");
+
+        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
+        let host = container.get_host().await.unwrap().to_string();
+
+        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
+            .await
+            .unwrap();
+
+        let foo = Foo {
+            name: "Alice".into(),
+            bar: 42,
+        };
+
+        triple::insert_many(&neo4j, &BlockMetadata::default(), "ROOT", "0")
+            .triples(vec![
+                Triple::new("from_id", "name", "FooFrom"),
+                Triple::new("to_id", "name", "FooTo"),
+                Triple::new("relation_type", "name", "FooRelation"),
+                Triple::new(system_ids::TYPES_ATTRIBUTE, "name", "Types"),
+            ])
+            .send()
+            .await
+            .expect("Failed to insert triples");
+
+        let relation = Relation::new("rel_abc", "from_id", "to_id", "relation_type", 0u64, foo);
+
+        relation
+            .clone()
+            .insert(&neo4j, &BlockMetadata::default(), "ROOT", "0")
+            .send()
+            .await
+            .expect("Failed to insert relation");
+
+        let stream = find_many::<EntityNode>(&neo4j)
+            .space_id(prop_filter::value::<String>("ROOT"))
+            .filter(
+                RelationFilter::default()
+                    .relation_type(EntityFilter::default().id(prop_filter::value("relation_type"))),
+            )
+            .limit(1)
+            .send()
+            .await
+            .expect("Failed to find relations");
+
+        pin_mut!(stream);
+
+        let found_relation: Relation<Foo, EntityNode> = stream
             .next()
             .await
             .expect("Failed to get next relation")

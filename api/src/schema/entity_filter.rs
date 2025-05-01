@@ -3,8 +3,8 @@ use juniper::GraphQLInputObject;
 use grc20_core::{
     mapping::{
         self,
-        query_utils::{edge_filter::EdgeFilter, prop_filter, PropFilter},
-        relation_node,
+        query_utils::PropFilter,
+        relation_edge,
     },
     system_ids,
 };
@@ -77,20 +77,15 @@ impl EntityFilter {
         // }
 
         if self.types_contains.is_some() || self.types_not_contains.is_some() {
-            filter = filter.relation_type(
-                EdgeFilter::default().to_id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)),
-            );
+            filter = filter.relation_type(system_ids::TYPES_ATTRIBUTE);
         }
 
         if let Some(types_contains) = &self.types_contains {
-            filter = filter
-                .to_id(EdgeFilter::default().to_id(prop_filter::value_in(types_contains.clone())));
+            filter = filter.to_id(types_contains.clone());
         }
 
         if let Some(types_not_contains) = &self.types_not_contains {
-            filter = filter.to_id(
-                EdgeFilter::default().to_id(prop_filter::value_not_in(types_not_contains.clone())),
-            );
+            filter = filter.to_id(types_not_contains.clone());
         }
 
         filter
@@ -208,10 +203,10 @@ impl EntityRelationFilter {
         filter
     }
 
-    pub fn apply_filter(
+    pub fn apply_filter<T>(
         &self,
-        query: relation_node::FindManyQuery,
-    ) -> relation_node::FindManyQuery {
+        query: relation_edge::FindManyQuery<T>,
+    ) -> relation_edge::FindManyQuery<T> {
         query
             .id(self.id_filter())
             .to_id(self.to_id_filter())

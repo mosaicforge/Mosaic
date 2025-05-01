@@ -138,7 +138,7 @@ impl SchemaType {
     ) -> FieldResult<Vec<Property>> {
         tracing::info!("Fetching properties for type {}", self.entity.id());
 
-        let properties = property::get_outbound_relations(
+        let properties = property::get_outbound_relations::<EntityNode>(
             &executor.context().neo4j,
             system_ids::PROPERTIES,
             self.entity.id(),
@@ -149,28 +149,21 @@ impl SchemaType {
             self.entity.strict,
         )
         .await?
+        .send()
+        .await?
         .try_collect::<Vec<_>>()
         .await?;
 
-        if properties.is_empty() {
-            Ok(Vec::new())
-        } else {
-            Ok(entity_node::find_many(&executor.context().neo4j)
-                .id(prop_filter::value_in(
-                    properties.into_iter().map(|rel| rel.to).collect(),
-                ))
-                .send()
-                .await?
-                .map_ok(|node| {
-                    Property::new(
-                        node,
-                        self.space_id().to_string(),
-                        self.entity.space_version.clone(),
-                        self.entity.strict,
-                    )
-                })
-                .try_collect::<Vec<_>>()
-                .await?)
-        }
+        Ok(properties
+            .into_iter()
+            .map(|prop_rel| {
+                Property::new(
+                    prop_rel.to,
+                    self.space_id().to_string(),
+                    self.entity.space_version.clone(),
+                    self.entity.strict,
+                )
+            })
+            .collect())
     }
 }
