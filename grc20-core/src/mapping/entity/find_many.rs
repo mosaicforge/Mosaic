@@ -5,7 +5,10 @@ use crate::{
     error::DatabaseError,
     mapping::{
         order_by::FieldOrderBy,
-        query_utils::{query_builder::{MatchQuery, QueryBuilder, Subquery}, VersionFilter},
+        query_utils::{
+            query_builder::{MatchQuery, QueryBuilder, Subquery},
+            VersionFilter,
+        },
         AttributeFilter, AttributeNode, EntityFilter, FromAttributes, PropFilter, QueryStream,
     },
 };
@@ -174,7 +177,8 @@ impl<T: FromAttributes> QueryStream<Entity<T>> for FindManyQuery<Entity<T>> {
             types: Vec<EntityNode>,
         }
 
-        let stream = self.neo4j
+        let stream = self
+            .neo4j
             .execute(query.build())
             .await?
             .into_stream_as::<RowResult>()

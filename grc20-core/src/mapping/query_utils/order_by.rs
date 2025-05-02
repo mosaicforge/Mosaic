@@ -23,11 +23,10 @@ pub fn desc(field_name: impl Into<String>) -> FieldOrderBy {
 impl FieldOrderBy {
     pub(crate) fn subquery(&self, node_var: impl Into<String>) -> impl Subquery {
         let node_var = node_var.into();
-        let mut query = QueryBuilder::default()
-            .subquery(MatchQuery::new(format!(
-                r#"({node_var}) -[:ATTRIBUTE]-> ({node_var}_order_by:Attribute {{id: "{}"}})"#,
-                self.field_name
-            )));
+        let mut query = QueryBuilder::default().subquery(MatchQuery::new(format!(
+            r#"({node_var}) -[:ATTRIBUTE]-> ({node_var}_order_by:Attribute {{id: "{}"}})"#,
+            self.field_name
+        )));
 
         match self.order_direction {
             OrderDirection::Asc => {

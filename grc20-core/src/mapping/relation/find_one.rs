@@ -1,8 +1,10 @@
 use crate::{
     error::DatabaseError,
     mapping::{
-        prop_filter,
-        query_utils::{query_builder::{MatchQuery, QueryBuilder, Subquery}, query_part, QueryPart, VersionFilter},
+        query_utils::{
+            query_builder::{MatchQuery, QueryBuilder, Subquery},
+            VersionFilter,
+        },
         AttributeNode, EntityNode, EntityNodeRef, FromAttributes, Query,
     },
 };
@@ -49,10 +51,12 @@ impl Query<Option<RelationEdge<EntityNodeRef>>> for FindOneQuery<RelationEdge<En
         let neo4j = self.neo4j.clone();
         let query = QueryBuilder::default()
             .subquery(
-                MatchQuery::new("(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)")
-                    .r#where(self.version.subquery("r"))
-                    .params("id", self.id)
-                    .params("space_id", self.space_id),
+                MatchQuery::new(
+                    "(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)",
+                )
+                .r#where(self.version.subquery("r"))
+                .params("id", self.id)
+                .params("space_id", self.space_id),
             )
             .subquery("ORDER BY r.index")
             .r#return("r{.*, from: from.id, to: to.id} as r");
@@ -72,10 +76,12 @@ impl Query<Option<RelationEdge<EntityNode>>> for FindOneQuery<RelationEdge<Entit
         let neo4j = self.neo4j.clone();
         let query = QueryBuilder::default()
             .subquery(
-                MatchQuery::new("(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)")
-                    .r#where(self.version.subquery("r"))
-                    .params("id", self.id)
-                    .params("space_id", self.space_id),
+                MatchQuery::new(
+                    "(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)",
+                )
+                .r#where(self.version.subquery("r"))
+                .params("id", self.id)
+                .params("space_id", self.space_id),
             )
             .subquery("ORDER BY r.index")
             .r#return("r{.*, from: from, to: to} as r");
@@ -96,32 +102,34 @@ impl<T: FromAttributes> Query<Option<Relation<T, EntityNodeRef>>>
     async fn send(self) -> Result<Option<Relation<T, EntityNodeRef>>, DatabaseError> {
         let query = QueryBuilder::default()
             .subquery(
-                MatchQuery::new("(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)")
-                    .r#where(self.version.subquery("r"))
-                    .params("id", self.id)
-                    .params("space_id", self.space_id),
+                MatchQuery::new(
+                    "(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)",
+                )
+                .r#where(self.version.subquery("r"))
+                .params("id", self.id)
+                .params("space_id", self.space_id),
             )
             .subquery("ORDER BY r.index")
             .with(
                 vec!["r".to_string(), "from".to_string(), "to".to_string()],
-                    QueryBuilder::default()
-                        .subquery(MatchQuery::new("(r_e:Entity {id: r.id})"))
-                        .subquery(
-                            MatchQuery::new_optional(
-                                "(r_e) -[r_attr:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute)",
-                            )
-                            .r#where(self.version.subquery("r_attr")),
+                QueryBuilder::default()
+                    .subquery(MatchQuery::new("(r_e:Entity {id: r.id})"))
+                    .subquery(
+                        MatchQuery::new_optional(
+                            "(r_e) -[r_attr:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute)",
                         )
-                        .with(
-                            vec![
-                                "r".to_string(),
-                                "r_e".to_string(),
-                                "from".to_string(),
-                                "to".to_string(),
-                                "COLLECT(DISTINCT n{.*}) AS attrs".to_string(),
-                            ],
-                            "RETURN r{.*, from: from.id, to: to.id, attributes: attrs} as r",
-                        )
+                        .r#where(self.version.subquery("r_attr")),
+                    )
+                    .with(
+                        vec![
+                            "r".to_string(),
+                            "r_e".to_string(),
+                            "from".to_string(),
+                            "to".to_string(),
+                            "COLLECT(DISTINCT n{.*}) AS attrs".to_string(),
+                        ],
+                        "RETURN r{.*, from: from.id, to: to.id, attributes: attrs} as r",
+                    ),
             );
 
         #[derive(Debug, serde::Deserialize)]
@@ -153,32 +161,34 @@ impl<T: FromAttributes> Query<Option<Relation<T, EntityNode>>>
     async fn send(self) -> Result<Option<Relation<T, EntityNode>>, DatabaseError> {
         let query = QueryBuilder::default()
             .subquery(
-                MatchQuery::new("(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)")
-                    .r#where(self.version.subquery("r"))
-                    .params("id", self.id)
-                    .params("space_id", self.space_id),
+                MatchQuery::new(
+                    "(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)",
+                )
+                .r#where(self.version.subquery("r"))
+                .params("id", self.id)
+                .params("space_id", self.space_id),
             )
             .subquery("ORDER BY r.index")
             .with(
                 vec!["r".to_string(), "from".to_string(), "to".to_string()],
-                    QueryBuilder::default()
-                        .subquery(MatchQuery::new("(r_e:Entity {id: r.id})"))
-                        .subquery(
-                            MatchQuery::new_optional(
-                                "(r_e) -[r_attr:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute)",
-                            )
-                            .r#where(self.version.subquery("r_attr")),
+                QueryBuilder::default()
+                    .subquery(MatchQuery::new("(r_e:Entity {id: r.id})"))
+                    .subquery(
+                        MatchQuery::new_optional(
+                            "(r_e) -[r_attr:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute)",
                         )
-                        .with(
-                            vec![
-                                "r".to_string(),
-                                "r_e".to_string(),
-                                "from".to_string(),
-                                "to".to_string(),
-                                "COLLECT(DISTINCT n{.*}) AS attrs".to_string(),
-                            ],
-                            "RETURN r{.*, from: from, to: to, attributes: attrs} as r",
-                        )
+                        .r#where(self.version.subquery("r_attr")),
+                    )
+                    .with(
+                        vec![
+                            "r".to_string(),
+                            "r_e".to_string(),
+                            "from".to_string(),
+                            "to".to_string(),
+                            "COLLECT(DISTINCT n{.*}) AS attrs".to_string(),
+                        ],
+                        "RETURN r{.*, from: from, to: to, attributes: attrs} as r",
+                    ),
             );
 
         #[derive(Debug, serde::Deserialize)]

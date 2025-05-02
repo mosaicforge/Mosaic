@@ -7,7 +7,10 @@ use serde::Deserialize;
 use crate::{block::BlockMetadata, error::DatabaseError, indexer_ids};
 
 use super::{
-    query_utils::{query_builder::{MatchQuery, QueryBuilder, Subquery}, query_part, Query, QueryPart, QueryStream, VersionFilter},
+    query_utils::{
+        query_builder::{MatchQuery, QueryBuilder, Subquery},
+        Query, QueryStream, VersionFilter,
+    },
     AttributeFilter, AttributeNode, PropFilter, Triple, TriplesConversionError, Value,
 };
 
@@ -498,10 +501,15 @@ impl FindManyQuery {
 
     pub(crate) fn subquery(self) -> impl Subquery {
         QueryBuilder::default()
-            .subquery(MatchQuery::new("(e:Entity) -[r:ATTRIBUTE]-> (n:Attribute)")
-                .r#where(self.version.subquery("r"))
-                .where_opt(self.id.as_ref().map(|id| id.subquery("e", "id", None)))
-                .where_opt(self.space_id.as_ref().map(|space_id| space_id.subquery("r", "space_id", None)))
+            .subquery(
+                MatchQuery::new("(e:Entity) -[r:ATTRIBUTE]-> (n:Attribute)")
+                    .r#where(self.version.subquery("r"))
+                    .where_opt(self.id.as_ref().map(|id| id.subquery("e", "id", None)))
+                    .where_opt(
+                        self.space_id
+                            .as_ref()
+                            .map(|space_id| space_id.subquery("r", "space_id", None)),
+                    ),
             )
             .with(
                 vec!["e".to_string(), "collect(n{.*}) AS attrs".to_string()],

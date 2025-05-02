@@ -1,5 +1,8 @@
 use crate::mapping::{
-    query_utils::{query_builder::{MatchQuery, QueryBuilder, Subquery}, VersionFilter},
+    query_utils::{
+        query_builder::{MatchQuery, QueryBuilder, Subquery},
+        VersionFilter,
+    },
     EntityFilter, PropFilter,
 };
 
@@ -36,11 +39,13 @@ impl RelationFilter {
         QueryBuilder::default()
             .subquery_opt(
                 self.from_
-                .as_ref()
-                .map(|from_filter| from_filter.subquery(from)),
+                    .as_ref()
+                    .map(|from_filter| from_filter.subquery(from)),
             )
             .subquery_opt(self.to_.as_ref().map(|to_filter| to_filter.subquery(to)))
-            .subquery(MatchQuery::new(format!("(rt:Entity {{id: {edge_var}.relation_type}})")))
+            .subquery(MatchQuery::new(format!(
+                "(rt:Entity {{id: {edge_var}.relation_type}})"
+            )))
             .subquery_opt(self.relation_type.as_ref().map(|rt| rt.subquery("rt")))
     }
 }

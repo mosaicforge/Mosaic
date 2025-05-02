@@ -3,7 +3,10 @@ use serde::Deserialize;
 
 use crate::{error::DatabaseError, indexer_ids};
 
-use super::{query_utils::query_builder::{MatchQuery, QueryBuilder, Subquery}, PropFilter, Query};
+use super::{
+    query_utils::query_builder::{MatchQuery, QueryBuilder, Subquery},
+    PropFilter, Query,
+};
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct EntityVersion {
@@ -49,8 +52,11 @@ impl Query<Vec<EntityVersion>> for FindManyQuery {
         // "#;
         let query = QueryBuilder::default()
             .subquery(
-                MatchQuery::new("(:Entity {id: $id}) -[r:ATTRIBUTE]-> (:Attribute)")
-                    .where_opt(self.space_id.as_ref().map(|s| s.subquery("r", "space_id", None))),
+                MatchQuery::new("(:Entity {id: $id}) -[r:ATTRIBUTE]-> (:Attribute)").where_opt(
+                    self.space_id
+                        .as_ref()
+                        .map(|s| s.subquery("r", "space_id", None)),
+                ),
             )
             .with(
                 vec!["COLLECT(DISTINCT r.min_version) AS versions".to_string()],

@@ -83,7 +83,12 @@ impl<T> FindManyQuery<T> {
             .subquery(
                 MatchQuery::new("(from:Entity) -[r:RELATION]-> (to:Entity)")
                     // Apply edge id filter
-                    .where_opt(self.filter.id.as_ref().map(|id| id.subquery("r", "id", None)))
+                    .where_opt(
+                        self.filter
+                            .id
+                            .as_ref()
+                            .map(|id| id.subquery("r", "id", None)),
+                    )
                     // Apply from.id filter
                     .where_opt(
                         self.filter
@@ -115,7 +120,7 @@ impl<T> FindManyQuery<T> {
                             .map(|space_id| space_id.subquery("r", "space_id", None)),
                     )
                     // Apply edge version filter
-                    .r#where(self.version.subquery("r"))
+                    .r#where(self.version.subquery("r")),
             )
             .subquery(self.filter.subquery("r", "from", "to"))
             .subquery("ORDER BY r.index")
@@ -124,25 +129,22 @@ impl<T> FindManyQuery<T> {
     }
 
     fn full_relation_subquery(&self) -> QueryBuilder {
-        self.relation_edge_subquery()
-            .with(
-                vec!["r".to_string(), "from".to_string(), "to".to_string()],
-                {
-                    QueryBuilder::default()
-                        .subquery(MatchQuery::new("(r_e:Entity {id: r.id})"))
-                        .subquery(
-                            MatchQuery::new_optional(
-                                "(r_e) -[r_attr:ATTRIBUTE]-> (n:Attribute)",
-                            )
+        self.relation_edge_subquery().with(
+            vec!["r".to_string(), "from".to_string(), "to".to_string()],
+            {
+                QueryBuilder::default()
+                    .subquery(MatchQuery::new("(r_e:Entity {id: r.id})"))
+                    .subquery(
+                        MatchQuery::new_optional("(r_e) -[r_attr:ATTRIBUTE]-> (n:Attribute)")
                             .where_opt(
                                 self.space_id
                                     .as_ref()
                                     .map(|space_id| space_id.subquery("r_attr", "space_id", None)),
                             )
                             .r#where(self.version.subquery("r_attr")),
-                        )
-                    }
-            )
+                    )
+            },
+        )
     }
 }
 
@@ -177,7 +179,9 @@ impl QueryStream<RelationEdge<EntityNode>> for FindManyQuery<RelationEdge<Entity
     ) -> Result<impl Stream<Item = Result<RelationEdge<EntityNode>, DatabaseError>>, DatabaseError>
     {
         let neo4j = self.neo4j.clone();
-        let query = self.relation_edge_subquery().r#return("r{.*, from: from, to: to} as r");
+        let query = self
+            .relation_edge_subquery()
+            .r#return("r{.*, from: from, to: to} as r");
 
         if cfg!(debug_assertions) || cfg!(test) {
             println!(
@@ -201,17 +205,16 @@ impl<T: FromAttributes> QueryStream<Relation<T, EntityNodeRef>>
         self,
     ) -> Result<impl Stream<Item = Result<Relation<T, EntityNodeRef>, DatabaseError>>, DatabaseError>
     {
-        let query = self.full_relation_subquery()
-            .with(
-                vec![
-                    "r".to_string(),
-                    "r_e".to_string(),
-                    "from".to_string(),
-                    "to".to_string(),
-                    "COLLECT(DISTINCT n{.*}) AS attrs".to_string(),
-                ],
-                "RETURN r{.*, from: from.id, to: to.id, attributes: attrs} as r",
-            );
+        let query = self.full_relation_subquery().with(
+            vec![
+                "r".to_string(),
+                "r_e".to_string(),
+                "from".to_string(),
+                "to".to_string(),
+                "COLLECT(DISTINCT n{.*}) AS attrs".to_string(),
+            ],
+            "RETURN r{.*, from: from.id, to: to.id, attributes: attrs} as r",
+        );
 
         if cfg!(debug_assertions) || cfg!(test) {
             tracing::info!(
@@ -227,7 +230,8 @@ impl<T: FromAttributes> QueryStream<Relation<T, EntityNodeRef>>
             attributes: Vec<AttributeNode>,
         }
 
-        let stream = self.neo4j
+        let stream = self
+            .neo4j
             .execute(query.build())
             .await?
             .into_stream_as::<RowResult>()
@@ -279,7 +283,8 @@ impl<T: FromAttributes> QueryStream<Relation<T, EntityNode>>
             attributes: Vec<AttributeNode>,
         }
 
-        let stream = self.neo4j
+        let stream = self
+            .neo4j
             .execute(query.build())
             .await?
             .into_stream_as::<RowResult>()

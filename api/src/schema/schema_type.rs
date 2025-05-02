@@ -38,7 +38,14 @@ impl SchemaType {
         strict: bool,
     ) -> Self {
         Self {
-            entity: Entity::with_hierarchy(node, space_id, parent_spaces, subspaces, space_version, strict),
+            entity: Entity::with_hierarchy(
+                node,
+                space_id,
+                parent_spaces,
+                subspaces,
+                space_version,
+                strict,
+            ),
         }
     }
 }
@@ -174,7 +181,7 @@ impl SchemaType {
                     prop_rel.to,
                     self.space_id().to_string(),
                     self.entity.parent_spaces.clone(),
-                    self.entity.subspaces.clone(),    
+                    self.entity.subspaces.clone(),
                     self.entity.space_version.clone(),
                     self.entity.strict,
                 )

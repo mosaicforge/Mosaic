@@ -6,7 +6,10 @@ use grc20_core::{
     error::DatabaseError,
     indexer_ids,
     mapping::{
-        self, aggregation::SpaceRanking, entity, prop_filter, query_utils::{Query, QueryStream}
+        self,
+        aggregation::SpaceRanking,
+        entity, prop_filter,
+        query_utils::{Query, QueryStream},
     },
     neo4rs,
 };
@@ -25,12 +28,17 @@ pub struct Space {
 
 impl Space {
     pub fn new(
-        entity: mapping::Entity<SdkSpace>, 
+        entity: mapping::Entity<SdkSpace>,
         version: Option<String>,
         parent_spaces: Vec<SpaceRanking>,
         subspaces: Vec<SpaceRanking>,
     ) -> Self {
-        Self { entity, version, parent_spaces, subspaces }
+        Self {
+            entity,
+            version,
+            parent_spaces,
+            subspaces,
+        }
     }
 
     pub async fn from_entity(
@@ -64,25 +72,30 @@ impl Space {
 
         if let Some(space) = space::find_one(neo4j, &id, indexer_ids::INDEXER_SPACE_ID)
             .send()
-            .await? 
+            .await?
         {
-            let parent_spaces = models::space::parent_spaces(&neo4j, &id)
+            let parent_spaces = models::space::parent_spaces(neo4j, &id)
                 .max_depth(None)
                 .send()
                 .await?
-                .skip(1)    // The returned spaces contain the current space
+                .skip(1) // The returned spaces contain the current space
                 .try_collect::<Vec<_>>()
                 .await?;
 
-            let subspaces = models::space::subspaces(&neo4j, &id)
+            let subspaces = models::space::subspaces(neo4j, &id)
                 .max_depth(None)
                 .send()
                 .await?
-                .skip(1)    // The returned spaces contain the current space
+                .skip(1) // The returned spaces contain the current space
                 .try_collect::<Vec<_>>()
                 .await?;
 
-            Ok(Some(Self::new(space, version.clone(), parent_spaces, subspaces)))
+            Ok(Some(Self::new(
+                space,
+                version.clone(),
+                parent_spaces,
+                subspaces,
+            )))
         } else {
             Ok(None)
         }
@@ -254,7 +267,7 @@ impl Space {
             .skip(skip as usize)
             .send()
             .await?
-            .skip(1)    // The returned spaces contain the current space
+            .skip(1) // The returned spaces contain the current space
             .and_then(|ranking| Space::load(&executor.context().neo4j, ranking.space_id, None))
             .filter_map(|space| async move { space.transpose() })
             .try_collect::<Vec<_>>()
@@ -279,7 +292,7 @@ impl Space {
             .skip(skip as usize)
             .send()
             .await?
-            .skip(1)    // The returned spaces contain the current space
+            .skip(1) // The returned spaces contain the current space
             .and_then(|ranking| Space::load(&executor.context().neo4j, ranking.space_id, None))
             .filter_map(|space| async move { space.transpose() })
             .try_collect::<Vec<_>>()
@@ -301,14 +314,16 @@ impl Space {
             .await?;
 
         Ok(types
-            .map_ok(|node| SchemaType::with_hierarchy(
-                node, 
-                self.entity.id().to_string(), 
-                self.parent_spaces.clone(),
-                self.subspaces.clone(),
-                None, 
-                strict,
-            ))
+            .map_ok(|node| {
+                SchemaType::with_hierarchy(
+                    node,
+                    self.entity.id().to_string(),
+                    self.parent_spaces.clone(),
+                    self.subspaces.clone(),
+                    None,
+                    strict,
+                )
+            })
             .try_collect()
             .await?)
     }

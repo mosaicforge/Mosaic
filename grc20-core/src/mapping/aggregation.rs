@@ -46,10 +46,18 @@ pub struct SpaceRanking {
 impl From<SpaceRanking> for BoltType {
     fn from(value: SpaceRanking) -> Self {
         let mut map = HashMap::new();
-        map.insert(neo4rs::BoltString { value: "space_id".into() }, value.space_id.into());
-        map.insert(neo4rs::BoltString { value: "depth".into() }, (value.depth as i64).into());
-        BoltType::Map(neo4rs::BoltMap {
-            value: map,
-        })
+        map.insert(
+            neo4rs::BoltString {
+                value: "space_id".into(),
+            },
+            value.space_id.into(),
+        );
+        map.insert(
+            neo4rs::BoltString {
+                value: "depth".into(),
+            },
+            (value.depth as i64).into(),
+        );
+        BoltType::Map(neo4rs::BoltMap { value: map })
     }
 }

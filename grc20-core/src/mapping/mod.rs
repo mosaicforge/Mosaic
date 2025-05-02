@@ -10,17 +10,17 @@ pub mod relation;
 pub mod triple;
 pub mod value;
 
+pub use aggregation::AggregationDirection;
 pub use attribute_node::AttributeNode;
 pub use attributes::{Attributes, FromAttributes, IntoAttributes};
-pub use aggregation::AggregationDirection;
 pub use entity::{Entity, EntityFilter, EntityNode, EntityNodeRef, EntityRelationFilter};
 pub use entity_version::EntityVersion;
 pub use error::TriplesConversionError;
 pub use pluralism::Pluralism;
 pub use query_utils::{
-    order_by, prop_filter, PropFilter,
+    order_by, prop_filter,
     query_builder::{MatchQuery, QueryBuilder, Subquery, WhereClause},
-    AttributeFilter, Query, QueryStream,
+    AttributeFilter, PropFilter, Query, QueryStream,
 };
 pub use relation::{Relation, RelationEdge};
 pub use triple::Triple;

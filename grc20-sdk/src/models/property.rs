@@ -3,7 +3,9 @@ use grc20_core::{
     entity::{self, Entity},
     error::DatabaseError,
     mapping::{
-        aggregation::{AggregationDirection, SpaceRanking}, entity::EntityNodeRef, prop_filter, triple, QueryStream, RelationEdge
+        aggregation::{AggregationDirection, SpaceRanking},
+        entity::EntityNodeRef,
+        prop_filter, triple, QueryStream, RelationEdge,
     },
     neo4rs, relation, system_ids,
 };
@@ -123,7 +125,10 @@ async fn attribute_aggregation_direction(
     }
 
     // Get all spaces to query (just the given space if strict, or all parent spaces if not)
-    let mut spaces_to_query = vec![SpaceRanking {space_id: space_id.to_string(), depth: 0}];
+    let mut spaces_to_query = vec![SpaceRanking {
+        space_id: space_id.to_string(),
+        depth: 0,
+    }];
 
     let parent_spaces = ParentSpacesQuery::new(neo4j.clone(), space_id.to_string())
         .max_depth(None)
@@ -138,7 +143,7 @@ async fn attribute_aggregation_direction(
     // (i.e. the parent spaces *should* be sorted by depth)
     spaces_to_query.sort_by_key(|ranking| ranking.depth);
 
-    for SpaceRanking {space_id, ..} in spaces_to_query {
+    for SpaceRanking { space_id, .. } in spaces_to_query {
         let maybe_triple = triple::find_one(
             neo4j,
             system_ids::AGGREGATION_DIRECTION,
@@ -175,7 +180,7 @@ pub async fn get_triple(
 
     spaces.sort_by_key(|ranking| ranking.depth);
 
-    for SpaceRanking {space_id, ..} in spaces {
+    for SpaceRanking { space_id, .. } in spaces {
         let maybe_triple = triple::find_one(
             neo4j,
             &property_id,
@@ -262,7 +267,10 @@ async fn spaces_for_property(
     let space_id = space_id.into();
     let property_id = property_id.into();
 
-    let mut spaces = vec![SpaceRanking {space_id: space_id.clone(), depth: 0}];
+    let mut spaces = vec![SpaceRanking {
+        space_id: space_id.clone(),
+        depth: 0,
+    }];
 
     if strict {
         return Ok(spaces);

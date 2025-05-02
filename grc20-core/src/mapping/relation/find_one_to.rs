@@ -3,7 +3,10 @@ use crate::{
     error::DatabaseError,
     mapping::{
         prop_filter,
-        query_utils::{query_builder::{MatchQuery, QueryBuilder, Subquery}, VersionFilter},
+        query_utils::{
+            query_builder::{MatchQuery, QueryBuilder, Subquery},
+            VersionFilter,
+        },
         AttributeNode, Entity, EntityNode, FromAttributes, Query,
     },
     relation::utils::MatchOneRelation,
@@ -38,10 +41,12 @@ impl Query<Option<EntityNode>> for FindOneToQuery<EntityNode> {
     async fn send(self) -> Result<Option<EntityNode>, DatabaseError> {
         let query = QueryBuilder::default()
             .subquery(
-                MatchQuery::new("(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)")
-                    .r#where(self.version.subquery("r"))
-                    .params("id", self.id)
-                    .params("space_id", self.space_id)
+                MatchQuery::new(
+                    "(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)",
+                )
+                .r#where(self.version.subquery("r"))
+                .params("id", self.id)
+                .params("space_id", self.space_id),
             )
             .r#return("to");
 

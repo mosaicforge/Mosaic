@@ -3,7 +3,10 @@ use crate::{
     error::DatabaseError,
     mapping::{
         prop_filter,
-        query_utils::{query_builder::{MatchQuery, QueryBuilder, Subquery}, VersionFilter},
+        query_utils::{
+            query_builder::{MatchQuery, QueryBuilder, Subquery},
+            VersionFilter,
+        },
         AttributeNode, FromAttributes, Query,
     },
 };

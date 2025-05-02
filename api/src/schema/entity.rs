@@ -4,7 +4,9 @@ use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 use grc20_core::{
     entity,
     mapping::{
-        aggregation::SpaceRanking, query_utils::{prop_filter, Query, QueryStream}, triple, EntityNode, Pluralism, RelationEdge
+        aggregation::SpaceRanking,
+        query_utils::{prop_filter, Query, QueryStream},
+        triple, EntityNode, Pluralism, RelationEdge,
     },
     neo4rs, relation, system_ids,
 };
@@ -120,7 +122,11 @@ impl Entity {
             &self.space_id,
             self.space_version.clone(),
         )
-        .pluralism(if self.strict {Pluralism::None} else { Pluralism::Hierarchy(self.parent_spaces.clone()) })
+        .pluralism(if self.strict {
+            Pluralism::None
+        } else {
+            Pluralism::Hierarchy(self.parent_spaces.clone())
+        })
         .send()
         .await?
         .map(|triple| triple.value.value))
@@ -138,7 +144,11 @@ impl Entity {
             &self.space_id,
             self.space_version.clone(),
         )
-        .pluralism(if self.strict {Pluralism::None} else { Pluralism::Hierarchy(self.parent_spaces.clone()) })
+        .pluralism(if self.strict {
+            Pluralism::None
+        } else {
+            Pluralism::Hierarchy(self.parent_spaces.clone())
+        })
         .send()
         .await?
         .map(|triple| triple.value.value))
@@ -156,7 +166,11 @@ impl Entity {
             &self.space_id,
             self.space_version.clone(),
         )
-        .pluralism(if self.strict {Pluralism::None} else { Pluralism::Hierarchy(self.parent_spaces.clone()) })
+        .pluralism(if self.strict {
+            Pluralism::None
+        } else {
+            Pluralism::Hierarchy(self.parent_spaces.clone())
+        })
         .send()
         .await?
         .map(|triple| triple.value.value))

@@ -2,7 +2,10 @@ use rand::distributions::DistString;
 
 use crate::{
     mapping::{
-        query_utils::{query_builder::{MatchQuery, QueryBuilder, Subquery}, VersionFilter},
+        query_utils::{
+            query_builder::{MatchQuery, QueryBuilder, Subquery},
+            VersionFilter,
+        },
         AttributeFilter, PropFilter,
     },
     system_ids,
@@ -63,13 +66,10 @@ impl EntityFilter {
                     .collect(),
             )
             // Apply the space_id filter
-            .subquery_opt(
-                self.space_id
-                    .as_ref()
-                    .map(|space_id| MatchQuery::new(format!("({node_var}) -[a:ATTRIBUTE]- (:Attribute)"))
-                        .r#where(space_id.subquery("a", "space_id", None))
-                    )
-            )
+            .subquery_opt(self.space_id.as_ref().map(|space_id| {
+                MatchQuery::new(format!("({node_var}) -[a:ATTRIBUTE]- (:Attribute)"))
+                    .r#where(space_id.subquery("a", "space_id", None))
+            }))
             // Apply the relations filter
             .subquery_opt(
                 self.relations
@@ -134,27 +134,29 @@ impl EntityRelationFilter {
         let rel_edge_var = format!("r_{node_var}_{}", random_suffix);
         let to_node_var = format!("r_{node_var}_to");
 
-        MatchQuery::new(format!("({node_var}) -[{rel_edge_var}:RELATION]-> ({to_node_var})"))
-            // Apply the version filter to the relation
-            .r#where(self.version.subquery(&rel_edge_var))
-            // Apply the relation_type filter to the relation (if any)
-            .where_opt(
-                self.relation_type
-                    .as_ref()
-                    .map(|relation_type| relation_type.subquery(&rel_edge_var, "relation_type", None)),
-            )
-            // Apply the to_id filter to the relation (if any)
-            .where_opt(
-                self.to_id
-                    .as_ref()
-                    .map(|to_id| to_id.subquery(&to_node_var, "id", None)),
-            )
-            // Apply the space_id filter to the relation (if any)
-            .where_opt(
-                self.space_id
-                    .as_ref()
-                    .map(|space_id| space_id.subquery(&rel_edge_var, "space_id", None)),
-            )
+        MatchQuery::new(format!(
+            "({node_var}) -[{rel_edge_var}:RELATION]-> ({to_node_var})"
+        ))
+        // Apply the version filter to the relation
+        .r#where(self.version.subquery(&rel_edge_var))
+        // Apply the relation_type filter to the relation (if any)
+        .where_opt(
+            self.relation_type
+                .as_ref()
+                .map(|relation_type| relation_type.subquery(&rel_edge_var, "relation_type", None)),
+        )
+        // Apply the to_id filter to the relation (if any)
+        .where_opt(
+            self.to_id
+                .as_ref()
+                .map(|to_id| to_id.subquery(&to_node_var, "id", None)),
+        )
+        // Apply the space_id filter to the relation (if any)
+        .where_opt(
+            self.space_id
+                .as_ref()
+                .map(|space_id| space_id.subquery(&rel_edge_var, "space_id", None)),
+        )
     }
 }
 
@@ -180,13 +182,15 @@ impl<'a> MatchEntityAttributes<'a> {
         let node_var = node_var.into();
         let attrs_node_var = attributes_node_var.into();
 
-        MatchQuery::new_optional(format!("({node_var}) -[attribute:ATTRIBUTE]- ({attrs_node_var}:Attribute)"))
-            .r#where(self.version.subquery("attribute"))
-            .where_opt(
-                self.space_id
-                    .as_ref()
-                    .map(|space_id| space_id.subquery("attribute", "space_id", None)),
-            )
+        MatchQuery::new_optional(format!(
+            "({node_var}) -[attribute:ATTRIBUTE]- ({attrs_node_var}:Attribute)"
+        ))
+        .r#where(self.version.subquery("attribute"))
+        .where_opt(
+            self.space_id
+                .as_ref()
+                .map(|space_id| space_id.subquery("attribute", "space_id", None)),
+        )
     }
 
     // /// Returns a query part that selects the attributes of an entity `node_var`.
@@ -263,10 +267,7 @@ pub struct MatchEntity<'a> {
 }
 
 impl<'a> MatchEntity<'a> {
-    pub fn new(
-        space_id: &'a Option<PropFilter<String>>,
-        version: &'a VersionFilter,
-    ) -> Self {
+    pub fn new(space_id: &'a Option<PropFilter<String>>, version: &'a VersionFilter) -> Self {
         Self {
             match_attributes: MatchEntityAttributes::new(space_id, version),
             match_types: MatchEntityTypes::new(space_id, version),
@@ -294,12 +295,20 @@ impl<'a> MatchEntity<'a> {
         // let types_node_var = format!("{entity_node_var}_types");
 
         QueryBuilder::default()
-            .subquery(self.match_attributes.subquery(&node_var, &attributes_node_var))
+            .subquery(
+                self.match_attributes
+                    .subquery(&node_var, &attributes_node_var),
+            )
             .subquery(self.match_types.subquery(&node_var, &types_node_var))
-            .with(vec![
-                node_var,
-                format!("COLLECT(DISTINCT {attributes_node_var}{{.*}}) AS {attributes_node_var}"),
-                format!("COLLECT(DISTINCT {types_node_var}{{.*}}) AS {types_node_var}"), 
-            ], next)            
+            .with(
+                vec![
+                    node_var,
+                    format!(
+                        "COLLECT(DISTINCT {attributes_node_var}{{.*}}) AS {attributes_node_var}"
+                    ),
+                    format!("COLLECT(DISTINCT {types_node_var}{{.*}}) AS {types_node_var}"),
+                ],
+                next,
+            )
     }
 }

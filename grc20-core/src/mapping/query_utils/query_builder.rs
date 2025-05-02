@@ -11,12 +11,12 @@ pub trait Subquery {
 
     fn build(&self) -> neo4rs::Query {
         let mut query = neo4rs::query(&self.compile());
-        
+
         for (key, value) in self.params() {
             query = query.param(&key, value);
         }
 
-        query        
+        query
     }
 }
 
@@ -109,7 +109,8 @@ impl QueryBuilder {
     }
 
     pub fn r#return(mut self, return_clause: impl Into<String>) -> impl Subquery {
-        self.statements.push(format!("RETURN {}", return_clause.into()));
+        self.statements
+            .push(format!("RETURN {}", return_clause.into()));
         self
     }
 }
@@ -185,17 +186,17 @@ impl Subquery for MatchQuery {
         } else {
             vec![format!("MATCH {}", self.match_clause)]
         };
-        
+
         match &self.where_clauses.as_slice() {
             [] => (),
             [clause, rest @ ..] => {
-                statements.push(format!("WHERE {}", clause));                
+                statements.push(format!("WHERE {}", clause));
                 for rest_clause in rest {
                     statements.push(format!("AND {}", rest_clause));
                 }
             }
         }
-        
+
         statements
     }
 
@@ -252,7 +253,6 @@ impl Subquery for WhereClause {
                 }
                 statements
             }
-
         }
     }
 

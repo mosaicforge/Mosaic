@@ -1,14 +1,16 @@
-use std::collections::HashSet;
-
-use async_stream::stream;
-use futures::{pin_mut, Stream, StreamExt, TryStreamExt};
+use futures::{Stream, TryStreamExt};
 
 use grc20_core::{
-    entity::{self, EntityNodeRef},
     error::DatabaseError,
     indexer_ids,
-    mapping::{aggregation::SpaceRanking, prop_filter, query_utils::{query_builder::{QueryBuilder, Subquery}, QueryStream}, PropFilter, RelationEdge},
-    neo4rs, relation,
+    mapping::{
+        aggregation::SpaceRanking,
+        query_utils::{
+            query_builder::{QueryBuilder, Subquery},
+            QueryStream,
+        },
+    },
+    neo4rs,
 };
 
 /// Query to find all subspaces of a given space
@@ -108,41 +110,14 @@ impl QueryStream<SpaceRanking> for SubspacesQuery<SpaceRanking> {
     async fn send(
         self,
     ) -> Result<impl Stream<Item = Result<SpaceRanking, DatabaseError>>, DatabaseError> {
-        let query = self.subquery()
-            .r#return("subspaces");
+        let query = self.subquery().r#return("subspaces");
 
-        Ok(self.neo4j
+        Ok(self
+            .neo4j
             .execute(query.build())
             .await?
             .into_stream_as::<SpaceRanking>()
             .map_err(DatabaseError::from)
             .and_then(|row| async move { Ok(row) }))
     }
-}
-
-async fn immediate_subspaces(
-    neo4j: &neo4rs::Graph,
-    space_id: &str,
-    limit: usize,
-) -> Result<impl Stream<Item = Result<String, DatabaseError>>, DatabaseError> {
-    // Find all parent space relations where this space is the parent
-    let relations_stream = relation::find_many::<RelationEdge<EntityNodeRef>>(neo4j)
-        .filter(
-            relation::RelationFilter::default()
-                .to_(entity::EntityFilter::default().id(prop_filter::value(space_id)))
-                .relation_type(
-                    entity::EntityFilter::default()
-                        .id(prop_filter::value(indexer_ids::PARENT_SPACE)),
-                ),
-        )
-        .space_id(PropFilter::default().value(indexer_ids::INDEXER_SPACE_ID))
-        .limit(limit)
-        .send()
-        .await?;
-
-    // Convert the stream of relations to a stream of spaces
-    let space_stream = relations_stream
-        .map(move |relation_result| relation_result.map(|relation| relation.from.into()));
-
-    Ok(space_stream)
 }

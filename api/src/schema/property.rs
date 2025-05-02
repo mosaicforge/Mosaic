@@ -36,7 +36,14 @@ impl Property {
         strict: bool,
     ) -> Self {
         Self {
-            entity: Entity::with_hierarchy(node, space_id, parent_spaces, subspaces, space_version, strict),
+            entity: Entity::with_hierarchy(
+                node,
+                space_id,
+                parent_spaces,
+                subspaces,
+                space_version,
+                strict,
+            ),
         }
     }
 }
@@ -202,10 +209,6 @@ impl Property {
         //     .limit(1)
         //     .send()
         //     .await?;
-        tracing::info!(
-            "Fetching relation value type for property {}",
-            self.entity.id()
-        );
 
         let rel_value_type = property::get_outbound_relations::<RelationEdge<EntityNode>>(
             &executor.context().neo4j,

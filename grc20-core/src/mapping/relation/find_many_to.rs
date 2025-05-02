@@ -4,7 +4,10 @@ use crate::{
     entity::utils::MatchEntity,
     error::DatabaseError,
     mapping::{
-        query_utils::{query_builder::{MatchQuery, QueryBuilder, Subquery}, VersionFilter},
+        query_utils::{
+            query_builder::{MatchQuery, QueryBuilder, Subquery},
+            VersionFilter,
+        },
         AttributeNode, Entity, EntityNode, FromAttributes, PropFilter, QueryStream,
     },
 };
@@ -69,7 +72,12 @@ impl<T> FindManyToQuery<T> {
             .subquery(
                 MatchQuery::new("(from:Entity) -[r:RELATION]-> (to:Entity)")
                     // Apply edge id filter
-                    .where_opt(self.filter.id.as_ref().map(|id| id.subquery("r", "id", None)))
+                    .where_opt(
+                        self.filter
+                            .id
+                            .as_ref()
+                            .map(|id| id.subquery("r", "id", None)),
+                    )
                     // Apply from.id filter
                     .where_opt(
                         self.filter
@@ -101,7 +109,7 @@ impl<T> FindManyToQuery<T> {
                             .map(|space_id| space_id.subquery("r", "space_id", None)),
                     )
                     // Apply edge version filter
-                    .r#where(self.version.subquery("r"))
+                    .r#where(self.version.subquery("r")),
             )
             .subquery(self.filter.subquery("r", "from", "to"))
             .subquery("ORDER BY r.index")
@@ -114,14 +122,14 @@ impl QueryStream<EntityNode> for FindManyToQuery<EntityNode> {
     async fn send(
         self,
     ) -> Result<impl Stream<Item = Result<EntityNode, DatabaseError>>, DatabaseError> {
-        let query = self.subquery()
-            .r#return("to");
+        let query = self.subquery().r#return("to");
 
         if cfg!(debug_assertions) || cfg!(test) {
             println!("relation_node::FindManyToQuery:\n{}", query.compile());
         };
 
-        Ok(self.neo4j
+        Ok(self
+            .neo4j
             .execute(query.build())
             .await?
             .into_stream_as::<EntityNode>()
@@ -135,16 +143,15 @@ impl<T: FromAttributes> QueryStream<Entity<T>> for FindManyToQuery<Entity<T>> {
     ) -> Result<impl Stream<Item = Result<Entity<T>, DatabaseError>>, DatabaseError> {
         let match_entity = MatchEntity::new(&self.space_id, &self.version);
 
-        let query = self.subquery()
-            .with(
-                vec!["to".to_string()],
-                match_entity.chain(
-                    "to",
-                    "attrs",
-                    "types",
-                    "RETURN to{.*, attrs: attrs, types: types}",
-                ),
-            );
+        let query = self.subquery().with(
+            vec!["to".to_string()],
+            match_entity.chain(
+                "to",
+                "attrs",
+                "types",
+                "RETURN to{.*, attrs: attrs, types: types}",
+            ),
+        );
 
         if cfg!(debug_assertions) || cfg!(test) {
             println!("relation_node::FindManyToQuery:\n{}", query.compile());
@@ -158,7 +165,8 @@ impl<T: FromAttributes> QueryStream<Entity<T>> for FindManyToQuery<Entity<T>> {
             types: Vec<EntityNode>,
         }
 
-        let stream = self.neo4j
+        let stream = self
+            .neo4j
             .execute(query.build())
             .await?
             .into_stream_as::<RowResult>()

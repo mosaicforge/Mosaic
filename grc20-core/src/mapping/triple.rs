@@ -4,10 +4,18 @@ use futures::{Stream, TryStreamExt};
 use neo4rs::{BoltMap, BoltType};
 use serde::Deserialize;
 
-use crate::{block::BlockMetadata, error::DatabaseError, indexer_ids, mapping::query_utils::query_builder::Subquery, pb};
+use crate::{
+    block::BlockMetadata, error::DatabaseError, indexer_ids,
+    mapping::query_utils::query_builder::Subquery, pb,
+};
 
 use super::{
-    aggregation::AggregationDirection, query_utils::{query_builder::{MatchQuery, QueryBuilder}, PropFilter, Query, QueryStream, VersionFilter}, Pluralism, Value
+    aggregation::AggregationDirection,
+    query_utils::{
+        query_builder::{MatchQuery, QueryBuilder},
+        PropFilter, Query, QueryStream, VersionFilter,
+    },
+    Pluralism, Value,
 };
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
@@ -502,13 +510,26 @@ impl FindManyQuery {
 
     fn subquery(&self) -> QueryBuilder {
         QueryBuilder::default()
-            .subquery(MatchQuery::new("(e:Entity) -[r:ATTRIBUTE]-> (n:Attribute)")
-                .where_opt(self.entity_id.as_ref().map(|s| s.subquery("e", "id", None)))
-                .where_opt(self.attribute_id.as_ref().map(|s| s.subquery("n", "id", None)))
-                .where_opt(self.value.as_ref().map(|s| s.subquery("n", "value", None)))
-                .where_opt(self.value_type.as_ref().map(|s| s.subquery("n", "value_type", None)))
-                .where_opt(self.space_id.as_ref().map(|s| s.subquery("r", "space_id", None)))
-                .r#where(self.space_version.subquery("r"))
+            .subquery(
+                MatchQuery::new("(e:Entity) -[r:ATTRIBUTE]-> (n:Attribute)")
+                    .where_opt(self.entity_id.as_ref().map(|s| s.subquery("e", "id", None)))
+                    .where_opt(
+                        self.attribute_id
+                            .as_ref()
+                            .map(|s| s.subquery("n", "id", None)),
+                    )
+                    .where_opt(self.value.as_ref().map(|s| s.subquery("n", "value", None)))
+                    .where_opt(
+                        self.value_type
+                            .as_ref()
+                            .map(|s| s.subquery("n", "value_type", None)),
+                    )
+                    .where_opt(
+                        self.space_id
+                            .as_ref()
+                            .map(|s| s.subquery("r", "space_id", None)),
+                    )
+                    .r#where(self.space_version.subquery("r")),
             )
             .subquery("RETURN n{.*, entity: e.id}")
     }
@@ -519,12 +540,13 @@ impl QueryStream<Triple> for FindManyQuery {
         self,
     ) -> Result<impl Stream<Item = Result<Triple, DatabaseError>>, DatabaseError> {
         let query = self.subquery();
-        
+
         if cfg!(debug_assertions) || cfg!(test) {
             println!("triple::FindManyQuery:\n{}", query.compile());
         }
 
-        Ok(self.neo4j
+        Ok(self
+            .neo4j
             .execute(query.build())
             .await?
             .into_stream_as::<Triple>()
