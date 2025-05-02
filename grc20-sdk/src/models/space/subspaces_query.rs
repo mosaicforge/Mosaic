@@ -4,7 +4,11 @@ use async_stream::stream;
 use futures::{pin_mut, Stream, StreamExt};
 
 use grc20_core::{
-    entity::{self, EntityNodeRef}, error::DatabaseError, indexer_ids, mapping::{prop_filter, query_utils::QueryStream, PropFilter, RelationEdge}, neo4rs, relation
+    entity::{self, EntityNodeRef},
+    error::DatabaseError,
+    indexer_ids,
+    mapping::{prop_filter, query_utils::QueryStream, PropFilter, RelationEdge},
+    neo4rs, relation,
 };
 
 /// Query to find all subspaces of a given space
@@ -143,7 +147,10 @@ async fn immediate_subspaces(
         .filter(
             relation::RelationFilter::default()
                 .to_(entity::EntityFilter::default().id(prop_filter::value(space_id)))
-                .relation_type(entity::EntityFilter::default().id(prop_filter::value(indexer_ids::PARENT_SPACE))),
+                .relation_type(
+                    entity::EntityFilter::default()
+                        .id(prop_filter::value(indexer_ids::PARENT_SPACE)),
+                ),
         )
         .space_id(PropFilter::default().value(indexer_ids::INDEXER_SPACE_ID))
         .limit(limit)

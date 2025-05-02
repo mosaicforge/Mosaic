@@ -1,6 +1,11 @@
 use futures::TryStreamExt;
 use grc20_core::{
-    entity::{Entity, EntityNodeRef}, error::DatabaseError, mapping::{prop_filter, EntityFilter, RelationEdge}, neo4rs, relation::{self, RelationFilter}, system_ids
+    entity::{Entity, EntityNodeRef},
+    error::DatabaseError,
+    mapping::{prop_filter, EntityFilter, RelationEdge},
+    neo4rs,
+    relation::{self, RelationFilter},
+    system_ids,
 };
 
 #[grc20_core::entity]

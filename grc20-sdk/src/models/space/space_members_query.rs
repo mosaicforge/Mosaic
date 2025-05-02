@@ -1,9 +1,11 @@
 use futures::{Stream, StreamExt};
 
 use grc20_core::{
-    entity::{self, EntityNodeRef}, error::DatabaseError, indexer_ids, mapping::{
-        prop_filter, query_utils::QueryStream, Entity, PropFilter, Query, RelationEdge
-    }, neo4rs, relation
+    entity::{self, EntityNodeRef},
+    error::DatabaseError,
+    indexer_ids,
+    mapping::{prop_filter, query_utils::QueryStream, Entity, PropFilter, Query, RelationEdge},
+    neo4rs, relation,
 };
 
 use crate::models::Account;
@@ -48,7 +50,10 @@ impl QueryStream<Entity<Account>> for SpaceMembersQuery {
             .filter(
                 relation::RelationFilter::default()
                     .to_(entity::EntityFilter::default().id(prop_filter::value(self.space_id)))
-                    .relation_type(entity::EntityFilter::default().id(prop_filter::value(indexer_ids::MEMBER_RELATION))),
+                    .relation_type(
+                        entity::EntityFilter::default()
+                            .id(prop_filter::value(indexer_ids::MEMBER_RELATION)),
+                    ),
             )
             .space_id(PropFilter::default().value(indexer_ids::INDEXER_SPACE_ID))
             .limit(self.limit)
@@ -62,19 +67,16 @@ impl QueryStream<Entity<Account>> for SpaceMembersQuery {
                 let neo4j = neo4j.clone();
                 async move {
                     let relation = relation_result?;
-                    entity::find_one::<Entity<Account>>(
-                        &neo4j,
-                        &relation.from,
-                    )
-                    .space_id(indexer_ids::INDEXER_SPACE_ID)
-                    .send()
-                    .await?
-                    .ok_or_else(|| {
-                        DatabaseError::NotFound(format!(
-                            "Account with ID {} not found",
-                            relation.from
-                        ))
-                    })
+                    entity::find_one::<Entity<Account>>(&neo4j, &relation.from)
+                        .space_id(indexer_ids::INDEXER_SPACE_ID)
+                        .send()
+                        .await?
+                        .ok_or_else(|| {
+                            DatabaseError::NotFound(format!(
+                                "Account with ID {} not found",
+                                relation.from
+                            ))
+                        })
                 }
             })
             .buffered(10); // Process up to 10 accounts concurrently

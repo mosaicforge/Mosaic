@@ -1,11 +1,13 @@
 use futures::{Stream, StreamExt, TryStreamExt};
 
 use crate::{
-    entity::utils::MatchEntity, error::DatabaseError, mapping::{
+    entity::utils::MatchEntity,
+    error::DatabaseError,
+    mapping::{
         order_by::FieldOrderBy,
         query_utils::{query_part, QueryPart, VersionFilter},
         AttributeFilter, AttributeNode, EntityFilter, FromAttributes, PropFilter, QueryStream,
-    }
+    },
 };
 
 use super::{Entity, EntityNode};

@@ -14,7 +14,6 @@ pub use insert_one::InsertOneQuery;
 pub use models::{Entity, EntityNode, EntityNodeRef, SystemProperties};
 pub use utils::{EntityFilter, EntityRelationFilter};
 
-
 use crate::block::BlockMetadata;
 
 pub fn delete_one(

@@ -78,21 +78,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .await?
                             .map(|triple| triple.value.value);
 
-                            let value_type = property::get_outbound_relations::<RelationEdge<EntityNodeRef>>(
-                                &neo4j,
-                                system_ids::VALUE_TYPE_ATTRIBUTE,
-                                &property.to,
-                                &space_id,
-                                None,
-                                Some(1),
-                                None,
-                                false,
-                            )
-                            .await?
-                            .send()
-                            .await?
-                            .try_collect::<Vec<_>>()
-                            .await?;
+                            let value_type =
+                                property::get_outbound_relations::<RelationEdge<EntityNodeRef>>(
+                                    &neo4j,
+                                    system_ids::VALUE_TYPE_ATTRIBUTE,
+                                    &property.to,
+                                    &space_id,
+                                    None,
+                                    Some(1),
+                                    None,
+                                    false,
+                                )
+                                .await?
+                                .send()
+                                .await?
+                                .try_collect::<Vec<_>>()
+                                .await?;
 
                             let value_type_name = if let Some(value_type) = value_type.first() {
                                 property::get_triple(

@@ -1,8 +1,12 @@
 use futures::TryStreamExt;
 use grc20_core::{
-    entity::{self, Entity}, error::DatabaseError, mapping::{
-        entity::EntityNodeRef, prop_filter, triple, QueryStream, RelationEdge, TriplesConversionError, Value
-    }, neo4rs, relation, system_ids
+    entity::{self, Entity},
+    error::DatabaseError,
+    mapping::{
+        entity::EntityNodeRef, prop_filter, triple, QueryStream, RelationEdge,
+        TriplesConversionError, Value,
+    },
+    neo4rs, relation, system_ids,
 };
 
 use crate::models::space::ParentSpacesQuery;
@@ -272,7 +276,9 @@ pub async fn get_outbound_relations<T>(
         .filter(
             relation::RelationFilter::default()
                 .from_(entity::EntityFilter::default().id(prop_filter::value(&entity_id)))
-                .relation_type(entity::EntityFilter::default().id(prop_filter::value(&property_id))),
+                .relation_type(
+                    entity::EntityFilter::default().id(prop_filter::value(&property_id)),
+                ),
         )
         .space_id(prop_filter::value_in(spaces))
         .version(space_version.clone())

@@ -10,7 +10,7 @@ pub mod value;
 
 pub use attribute_node::AttributeNode;
 pub use attributes::{Attributes, FromAttributes, IntoAttributes};
-pub use entity::{Entity, EntityNode, EntityNodeRef, EntityFilter, EntityRelationFilter};
+pub use entity::{Entity, EntityFilter, EntityNode, EntityNodeRef, EntityRelationFilter};
 pub use entity_version::EntityVersion;
 pub use error::TriplesConversionError;
 pub use query_utils::{order_by, prop_filter, AttributeFilter, PropFilter, Query, QueryStream};

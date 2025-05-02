@@ -1,11 +1,14 @@
 use futures::{Stream, TryStreamExt};
 
 use grc20_core::{
-    entity, error::DatabaseError, mapping::{
+    entity,
+    error::DatabaseError,
+    mapping::{
         prop_filter,
         query_utils::{QueryStream, TypesFilter},
         EntityFilter, EntityNode, PropFilter, Query,
-    }, neo4rs, system_ids
+    },
+    neo4rs, system_ids,
 };
 
 use super::ParentSpacesQuery;

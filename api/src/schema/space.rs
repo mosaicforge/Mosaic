@@ -2,10 +2,14 @@ use futures::{StreamExt, TryStreamExt};
 use juniper::{graphql_object, Executor, FieldResult, GraphQLEnum, ScalarValue};
 
 use grc20_core::{
-    entity::EntityNode, error::DatabaseError, indexer_ids, mapping::{
+    entity::EntityNode,
+    error::DatabaseError,
+    indexer_ids,
+    mapping::{
         self, entity, prop_filter,
         query_utils::{Query, QueryStream},
-    }, neo4rs
+    },
+    neo4rs,
 };
 use grc20_sdk::models::{self, space, Space as SdkSpace};
 

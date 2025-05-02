@@ -1,9 +1,11 @@
 use crate::{
-    entity::utils::MatchEntity, error::DatabaseError, mapping::{
+    entity::utils::MatchEntity,
+    error::DatabaseError,
+    mapping::{
         prop_filter,
         query_utils::{query_part, QueryPart, VersionFilter},
         AttributeNode, FromAttributes, Query,
-    }
+    },
 };
 
 use super::{Entity, EntityNode};
@@ -72,7 +74,7 @@ impl Query<Option<EntityNode>> for FindOneQuery<EntityNode> {
 
 impl<T: FromAttributes> Query<Option<Entity<T>>> for FindOneQuery<Entity<T>> {
     async fn send(self) -> Result<Option<Entity<T>>, DatabaseError> {
-        let space_filter = self.space_id.map(|space_id| prop_filter::value(space_id));
+        let space_filter = self.space_id.map(prop_filter::value);
         let match_entity = MatchEntity::new(&space_filter, &self.version);
 
         let query_part = QueryPart::default()
@@ -89,7 +91,11 @@ impl<T: FromAttributes> Query<Option<Entity<T>>> for FindOneQuery<Entity<T>> {
             .params("id", self.id);
 
         if cfg!(debug_assertions) || cfg!(test) {
-            tracing::info!("entity::FindOneQuery::<Entity<T>>:\n{}\nparams:{:?}", query_part, query_part.params);
+            tracing::info!(
+                "entity::FindOneQuery::<Entity<T>>:\n{}\nparams:{:?}",
+                query_part,
+                query_part.params
+            );
         };
         let query = query_part.build();
 

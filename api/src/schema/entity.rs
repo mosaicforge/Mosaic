@@ -3,10 +3,12 @@ use grc20_sdk::models::property;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use grc20_core::{
-    entity, mapping::{
+    entity,
+    mapping::{
         query_utils::{prop_filter, Query, QueryStream},
         triple, EntityNode, RelationEdge,
-    }, neo4rs, relation, system_ids
+    },
+    neo4rs, relation, system_ids,
 };
 
 use crate::{
@@ -149,10 +151,9 @@ impl Entity {
                 &self.space_id,
                 self.space_version.clone(),
             )
-            .filter(
-                relation::RelationFilter::default()
-                    .relation_type(entity::EntityFilter::default().id(prop_filter::value(system_ids::BLOCKS))),
-            )
+            .filter(relation::RelationFilter::default().relation_type(
+                entity::EntityFilter::default().id(prop_filter::value(system_ids::BLOCKS)),
+            ))
             .send()
             .await?
             .try_collect::<Vec<_>>()
@@ -183,10 +184,9 @@ impl Entity {
                 &self.space_id,
                 self.space_version.clone(),
             )
-            .filter(
-                relation::RelationFilter::default()
-                    .relation_type(entity::EntityFilter::default().id(prop_filter::value(system_ids::TYPES_ATTRIBUTE))),
-            )
+            .filter(relation::RelationFilter::default().relation_type(
+                entity::EntityFilter::default().id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)),
+            ))
             .send()
             .await?
             .try_collect::<Vec<_>>()
@@ -234,11 +234,13 @@ impl Entity {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         r#where: Option<EntityRelationFilter>,
     ) -> FieldResult<Vec<Relation>> {
-        let mut base_query = self.node.get_outbound_relations::<RelationEdge<EntityNode>>(
-            &executor.context().neo4j,
-            &self.space_id,
-            self.space_version.clone(),
-        );
+        let mut base_query = self
+            .node
+            .get_outbound_relations::<RelationEdge<EntityNode>>(
+                &executor.context().neo4j,
+                &self.space_id,
+                self.space_version.clone(),
+            );
 
         if let Some(filter) = r#where {
             base_query = filter.apply_filter(base_query);

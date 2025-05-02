@@ -1,9 +1,12 @@
 use crate::{
-    entity::utils::MatchEntity, error::DatabaseError, mapping::{
+    entity::utils::MatchEntity,
+    error::DatabaseError,
+    mapping::{
         prop_filter,
         query_utils::{query_part, QueryPart, VersionFilter},
         AttributeNode, Entity, EntityNode, FromAttributes, Query,
-    }, relation::utils::MatchOneRelation
+    },
+    relation::utils::MatchOneRelation,
 };
 
 pub struct FindOneToQuery<T> {

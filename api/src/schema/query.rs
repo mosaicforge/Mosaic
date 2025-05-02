@@ -2,11 +2,13 @@ use futures::TryStreamExt;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use grc20_core::{
-    entity::{EntityNode, EntityNodeRef}, indexer_ids, mapping::{
+    entity::EntityNode,
+    indexer_ids,
+    mapping::{
         self, entity, prop_filter,
         query_utils::{Query, QueryStream},
         relation, RelationEdge,
-    }
+    },
 };
 use grc20_sdk::models::{account, property, space};
 

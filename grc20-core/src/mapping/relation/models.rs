@@ -143,7 +143,7 @@ impl From<pb::ipfs::Relation> for RelationEdge<EntityNodeRef> {
             id: relation.id,
             from: relation.from_entity.into(),
             to: relation.to_entity.into(),
-            relation_type: relation.r#type.into(),
+            relation_type: relation.r#type,
             index: relation.index,
             system_properties: SystemProperties::default(),
         }

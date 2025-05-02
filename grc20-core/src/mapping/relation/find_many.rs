@@ -4,8 +4,7 @@ use crate::{
     error::DatabaseError,
     mapping::{
         query_utils::{query_part, QueryPart, VersionFilter},
-        AttributeNode, EntityFilter, EntityNode, EntityNodeRef, FromAttributes, PropFilter,
-        QueryStream,
+        AttributeNode, EntityNode, EntityNodeRef, FromAttributes, PropFilter, QueryStream,
     },
 };
 
@@ -271,12 +270,15 @@ mod tests {
     use futures::{pin_mut, StreamExt, TryStreamExt};
 
     use crate::{
-        block::BlockMetadata, indexer_ids, mapping::{
+        block::BlockMetadata,
+        indexer_ids,
+        mapping::{
             self, prop_filter,
             relation::{find_many, insert_many, RelationEdge},
-            triple, EntityFilter, EntityNode, EntityNodeRef, Query, QueryStream,
-            Relation, Triple,
-        }, relation::utils::RelationFilter, system_ids
+            triple, EntityFilter, EntityNode, EntityNodeRef, Query, QueryStream, Relation, Triple,
+        },
+        relation::utils::RelationFilter,
+        system_ids,
     };
 
     #[derive(Clone, Debug, PartialEq)]

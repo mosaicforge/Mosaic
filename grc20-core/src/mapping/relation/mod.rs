@@ -9,7 +9,7 @@ pub mod insert_one;
 pub mod models;
 pub mod utils;
 
-use crate::{block::BlockMetadata, mapping::entity::EntityNodeRef};
+use crate::block::BlockMetadata;
 
 pub use delete_many::DeleteManyQuery;
 pub use delete_one::DeleteOneQuery;

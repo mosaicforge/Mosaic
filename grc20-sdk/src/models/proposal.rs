@@ -5,13 +5,17 @@ use serde::{Deserialize, Serialize};
 use web3_utils::checksum_address;
 
 use grc20_core::{
-    entity, error::DatabaseError, ids, indexer_ids, mapping::{
+    entity,
+    error::DatabaseError,
+    ids, indexer_ids,
+    mapping::{
         self,
         attributes::{FromAttributes, IntoAttributes},
         entity::EntityNodeRef,
         query_utils::{AttributeFilter, PropFilter, QueryStream},
         Entity, Relation, TriplesConversionError, Value,
-    }, neo4rs, pb
+    },
+    neo4rs, pb,
 };
 
 /// Common fields for all proposals

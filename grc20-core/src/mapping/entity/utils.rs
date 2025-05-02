@@ -1,6 +1,12 @@
 use rand::distributions::DistString;
 
-use crate::{mapping::{query_utils::{QueryPart, VersionFilter}, AttributeFilter, PropFilter}, system_ids};
+use crate::{
+    mapping::{
+        query_utils::{QueryPart, VersionFilter},
+        AttributeFilter, PropFilter,
+    },
+    system_ids,
+};
 
 #[derive(Clone, Debug, Default)]
 pub struct EntityFilter {

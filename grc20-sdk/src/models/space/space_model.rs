@@ -2,11 +2,16 @@ use futures::{pin_mut, StreamExt};
 use web3_utils::checksum_address;
 
 use grc20_core::{
-    block::BlockMetadata, entity::{self, EntityNodeRef}, error::DatabaseError, ids, indexer_ids, mapping::{
+    block::BlockMetadata,
+    entity::{self, EntityNodeRef},
+    error::DatabaseError,
+    ids, indexer_ids,
+    mapping::{
         prop_filter,
         query_utils::{AttributeFilter, PropFilter, Query, QueryStream},
         relation, Entity, EntityNode, Relation, TriplesConversionError, Value,
-    }, neo4rs, network_ids, system_ids
+    },
+    neo4rs, network_ids, system_ids,
 };
 
 use super::{
@@ -59,13 +64,10 @@ pub async fn find_by_dao_address(
     neo4j: &neo4rs::Graph,
     dao_contract_address: &str,
 ) -> Result<Option<Entity<Space>>, DatabaseError> {
-    entity::find_one::<Entity<Space>>(
-        neo4j,
-        new_id(network_ids::GEO, dao_contract_address),
-    )
-    .space_id(indexer_ids::INDEXER_SPACE_ID)
-    .send()
-    .await
+    entity::find_one::<Entity<Space>>(neo4j, new_id(network_ids::GEO, dao_contract_address))
+        .space_id(indexer_ids::INDEXER_SPACE_ID)
+        .send()
+        .await
 }
 
 pub async fn find_entity_by_dao_address(

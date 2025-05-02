@@ -1,6 +1,13 @@
 use futures::{stream, StreamExt, TryStreamExt};
 use grc20_core::{
-    block::BlockMetadata, entity::EntityNodeRef, error::DatabaseError, indexer_ids, mapping::{self, query_utils::Query, triple, Entity, RelationEdge}, network_ids, pb::{self, geo}, relation
+    block::BlockMetadata,
+    entity::EntityNodeRef,
+    error::DatabaseError,
+    indexer_ids,
+    mapping::{self, query_utils::Query, triple, Entity, RelationEdge},
+    network_ids,
+    pb::{self, geo},
+    relation,
 };
 use grc20_sdk::models::{
     self,
@@ -178,15 +185,20 @@ impl EventHandler {
             .await?;
 
         // Handle CREATE_RELATION ops
-        relation::insert_many::<RelationEdge<EntityNodeRef>>(&self.neo4j, block, &edit.space_id, &version_index)
-            .relations(
-                op_groups
-                    .create_relations
-                    .into_iter()
-                    .map(|relation| relation.into()),
-            )
-            .send()
-            .await?;
+        relation::insert_many::<RelationEdge<EntityNodeRef>>(
+            &self.neo4j,
+            block,
+            &edit.space_id,
+            &version_index,
+        )
+        .relations(
+            op_groups
+                .create_relations
+                .into_iter()
+                .map(|relation| relation.into()),
+        )
+        .send()
+        .await?;
 
         // Handle DELETE_RELATION ops
         relation::delete_many(&self.neo4j, block, &edit.space_id, &version_index)
