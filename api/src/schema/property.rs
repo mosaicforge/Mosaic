@@ -1,5 +1,8 @@
 use futures::TryStreamExt;
-use grc20_core::{mapping::{EntityNode, QueryStream}, system_ids};
+use grc20_core::{
+    mapping::{EntityNode, QueryStream, RelationEdge},
+    system_ids,
+};
 use grc20_sdk::models::property;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
@@ -142,7 +145,7 @@ impl Property {
         //     .await?;
         tracing::info!("Fetching value type for property {}", self.entity.id());
 
-        let value_type = property::get_outbound_relations::<EntityNode>(
+        let value_type = property::get_outbound_relations::<RelationEdge<EntityNode>>(
             &executor.context().neo4j,
             system_ids::VALUE_TYPE_ATTRIBUTE,
             self.entity.id(),
@@ -158,15 +161,14 @@ impl Property {
         .try_collect::<Vec<_>>()
         .await?;
 
-        Ok(value_type.first()
-            .map(|value_type| {
-                Entity::new(
-                    value_type.to.clone(),
-                    self.space_id().to_string(),
-                    self.entity.space_version.clone(),
-                    self.entity.strict,
-                )
-            }))
+        Ok(value_type.first().map(|value_type| {
+            Entity::new(
+                value_type.to.clone(),
+                self.space_id().to_string(),
+                self.entity.space_version.clone(),
+                self.entity.strict,
+            )
+        }))
     }
 
     /// Value type of the property
@@ -191,7 +193,7 @@ impl Property {
             self.entity.id()
         );
 
-        let rel_value_type = property::get_outbound_relations::<EntityNode>(
+        let rel_value_type = property::get_outbound_relations::<RelationEdge<EntityNode>>(
             &executor.context().neo4j,
             system_ids::RELATION_VALUE_RELATIONSHIP_TYPE,
             self.entity.id(),
@@ -207,14 +209,13 @@ impl Property {
         .try_collect::<Vec<_>>()
         .await?;
 
-        Ok(rel_value_type.first()
-            .map(|rel_value_type| {
-                Entity::new(
-                    rel_value_type.to.clone(),
-                    self.space_id().to_string(),
-                    self.entity.space_version.clone(),
-                    self.entity.strict,
-                )
-            }))
+        Ok(rel_value_type.first().map(|rel_value_type| {
+            Entity::new(
+                rel_value_type.to.clone(),
+                self.space_id().to_string(),
+                self.entity.space_version.clone(),
+                self.entity.strict,
+            )
+        }))
     }
 }

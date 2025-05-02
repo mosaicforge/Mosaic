@@ -1,12 +1,7 @@
 use juniper::GraphQLInputObject;
 
 use grc20_core::{
-    mapping::{
-        self,
-        query_utils::PropFilter,
-        relation_edge,
-    },
-    system_ids,
+    entity, mapping::{self, query_utils::PropFilter}, relation, system_ids
 };
 
 use crate::schema::EntityAttributeFilter;
@@ -205,11 +200,14 @@ impl EntityRelationFilter {
 
     pub fn apply_filter<T>(
         &self,
-        query: relation_edge::FindManyQuery<T>,
-    ) -> relation_edge::FindManyQuery<T> {
+        query: relation::FindManyQuery<T>,
+    ) -> relation::FindManyQuery<T> {
         query
-            .id(self.id_filter())
-            .to_id(self.to_id_filter())
-            .relation_type(self.relation_type_filter())
+            .filter(
+                relation::RelationFilter::default()
+                    .id(self.id_filter())
+                    .to_(entity::EntityFilter::default().id(self.to_id_filter()))
+                    .relation_type(entity::EntityFilter::default().id(self.relation_type_filter())),
+            )
     }
 }

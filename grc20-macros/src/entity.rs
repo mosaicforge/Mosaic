@@ -294,12 +294,12 @@ pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
 
         impl grc20_core::mapping::query_utils::Query<Option<grc20_core::mapping::Entity<#struct_name>>> for FindOneQuery {
             async fn send(self) -> Result<Option<grc20_core::mapping::Entity<#struct_name>>, grc20_core::error::DatabaseError> {
-                grc20_core::entity::find_one(
+                grc20_core::entity::find_one::<grc20_core::mapping::Entity<#struct_name>>(
                     &self.neo4j,
                     self.id,
-                    self.space_id,
-                    self.version,
                 )
+                    .space_id(self.space_id)
+                    .version_opt(self.version)
                     .send()
                     .await
             }
@@ -477,11 +477,11 @@ pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
             async fn send(
                 self,
             ) -> Result<impl futures::Stream<Item = Result<grc20_core::mapping::Entity<#struct_name>, grc20_core::error::DatabaseError>>, grc20_core::error::DatabaseError> {
-                let mut query = grc20_core::entity::find_many(
+                let mut query = grc20_core::entity::find_many::<grc20_core::mapping::Entity<#struct_name>>(
                     &self.neo4j,
-                    self.space_id,
-                    self.version,
                 )
+                    .space_id(self.space_id)
+                    .version_opt(self.version)
                     .limit(self.limit)
                     .with_filter(
                         grc20_core::mapping::EntityFilter::default()

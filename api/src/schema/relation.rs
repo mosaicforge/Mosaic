@@ -1,7 +1,7 @@
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use grc20_core::{
-    mapping::{query_utils::Query, relation_edge, EntityNode, RelationEdge},
+    mapping::{query_utils::Query, relation, EntityNode, RelationEdge},
     neo4rs,
 };
 
@@ -42,12 +42,15 @@ impl Relation {
         let id = id.into();
         let space_id = space_id.into();
 
-        Ok(
-            relation_edge::find_one::<EntityNode>(neo4j, id, space_id.clone(), space_version.clone())
-                .send()
-                .await?
-                .map(|node| Relation::new(node, space_id, space_version, strict)),
+        Ok(relation::find_one::<RelationEdge<EntityNode>>(
+            neo4j,
+            id,
+            space_id.clone(),
+            space_version.clone(),
         )
+        .send()
+        .await?
+        .map(|node| Relation::new(node, space_id, space_version, strict)))
     }
 }
 
@@ -93,9 +96,7 @@ impl Relation {
     }
 
     /// Entity from which the relation originates
-    async fn from(
-        &self,
-    ) -> FieldResult<Entity> {
+    async fn from(&self) -> FieldResult<Entity> {
         Ok(Entity::new(
             self.node.from.clone(),
             self.space_id.clone(),
@@ -105,9 +106,7 @@ impl Relation {
     }
 
     /// Entity to which the relation points
-    async fn to(
-        &self,
-    ) -> FieldResult<Entity> {
+    async fn to(&self) -> FieldResult<Entity> {
         Ok(Entity::new(
             self.node.to.clone(),
             self.space_id.clone(),

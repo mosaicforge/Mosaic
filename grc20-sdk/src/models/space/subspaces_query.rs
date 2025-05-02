@@ -4,10 +4,7 @@ use async_stream::stream;
 use futures::{pin_mut, Stream, StreamExt};
 
 use grc20_core::{
-    error::DatabaseError,
-    indexer_ids,
-    mapping::{entity_node::EntityNodeRef, query_utils::QueryStream, relation_edge, PropFilter},
-    neo4rs,
+    entity::{self, EntityNodeRef}, error::DatabaseError, indexer_ids, mapping::{prop_filter, query_utils::QueryStream, PropFilter, RelationEdge}, neo4rs, relation
 };
 
 /// Query to find all subspaces of a given space
@@ -142,17 +139,20 @@ async fn immediate_subspaces(
     limit: usize,
 ) -> Result<impl Stream<Item = Result<String, DatabaseError>>, DatabaseError> {
     // Find all parent space relations where this space is the parent
-    let relations_stream = relation_edge::find_many::<EntityNodeRef>(neo4j)
-        .relation_type(PropFilter::default().value(indexer_ids::PARENT_SPACE))
-        .to_id(PropFilter::default().value(space_id))
+    let relations_stream = relation::find_many::<RelationEdge<EntityNodeRef>>(neo4j)
+        .filter(
+            relation::RelationFilter::default()
+                .to_(entity::EntityFilter::default().id(prop_filter::value(space_id)))
+                .relation_type(entity::EntityFilter::default().id(prop_filter::value(indexer_ids::PARENT_SPACE))),
+        )
         .space_id(PropFilter::default().value(indexer_ids::INDEXER_SPACE_ID))
         .limit(limit)
         .send()
         .await?;
 
     // Convert the stream of relations to a stream of spaces
-    let space_stream =
-        relations_stream.map(move |relation_result| relation_result.map(|relation| relation.from.into()));
+    let space_stream = relations_stream
+        .map(move |relation_result| relation_result.map(|relation| relation.from.into()));
 
     Ok(space_stream)
 }

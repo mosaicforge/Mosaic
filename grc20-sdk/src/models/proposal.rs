@@ -5,12 +5,13 @@ use serde::{Deserialize, Serialize};
 use web3_utils::checksum_address;
 
 use grc20_core::{
-    error::DatabaseError,
-    ids, indexer_ids,
-    mapping::{
-        self, attributes::{FromAttributes, IntoAttributes}, entity, entity_node::EntityNodeRef, query_utils::{AttributeFilter, PropFilter, QueryStream}, Entity, Relation, TriplesConversionError, Value
-    },
-    neo4rs, pb,
+    entity, error::DatabaseError, ids, indexer_ids, mapping::{
+        self,
+        attributes::{FromAttributes, IntoAttributes},
+        entity::EntityNodeRef,
+        query_utils::{AttributeFilter, PropFilter, QueryStream},
+        Entity, Relation, TriplesConversionError, Value,
+    }, neo4rs, pb
 };
 
 /// Common fields for all proposals
@@ -38,7 +39,8 @@ impl Proposal {
         proposal_id: &str,
         plugin_address: &str,
     ) -> Result<Option<Entity<Self>>, DatabaseError> {
-        let stream = entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
+        let stream = entity::find_many::<Entity<Self>>(neo4j)
+            .space_id(indexer_ids::INDEXER_SPACE_ID)
             .attribute(
                 AttributeFilter::new("onchain_proposal_id")
                     .value(PropFilter::default().value(proposal_id)),

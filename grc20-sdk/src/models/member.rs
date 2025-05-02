@@ -2,7 +2,7 @@ use grc20_core::{
     block::BlockMetadata,
     error::DatabaseError,
     ids, indexer_ids,
-    mapping::{entity_node::EntityNodeRef, query_utils::Query, relation, Relation},
+    mapping::{entity::EntityNodeRef, query_utils::Query, relation, Relation},
     neo4rs,
 };
 

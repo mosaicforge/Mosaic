@@ -1,28 +1,20 @@
 pub mod attribute_node;
 pub mod attributes;
 pub mod entity;
-pub mod entity_node;
-pub mod entity_queries;
 pub mod entity_version;
 pub mod error;
 pub mod query_utils;
 pub mod relation;
-pub mod relation_edge;
-pub mod relation_queries;
 pub mod triple;
 pub mod value;
 
 pub use attribute_node::AttributeNode;
 pub use attributes::{Attributes, FromAttributes, IntoAttributes};
-pub use entity::Entity;
-pub use entity_node::EntityNode;
-pub use entity_queries::{EntityFilter, EntityRelationFilter};
+pub use entity::{Entity, EntityNode, EntityNodeRef, EntityFilter, EntityRelationFilter};
 pub use entity_version::EntityVersion;
 pub use error::TriplesConversionError;
 pub use query_utils::{order_by, prop_filter, AttributeFilter, PropFilter, Query, QueryStream};
-pub use relation::Relation;
-pub use relation_edge::RelationEdge;
-pub use relation_queries::RelationFilter;
+pub use relation::{Relation, RelationEdge};
 pub use triple::Triple;
 pub use value::{Options, Value, ValueType};
 

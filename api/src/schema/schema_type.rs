@@ -1,6 +1,6 @@
 use futures::TryStreamExt;
 use grc20_core::{
-    mapping::{entity_node, prop_filter, query_utils::QueryStream, EntityNode},
+    mapping::{query_utils::QueryStream, EntityNode, RelationEdge},
     system_ids,
 };
 use grc20_sdk::models::property;
@@ -138,7 +138,7 @@ impl SchemaType {
     ) -> FieldResult<Vec<Property>> {
         tracing::info!("Fetching properties for type {}", self.entity.id());
 
-        let properties = property::get_outbound_relations::<EntityNode>(
+        let properties = property::get_outbound_relations::<RelationEdge<EntityNode>>(
             &executor.context().neo4j,
             system_ids::PROPERTIES,
             self.entity.id(),

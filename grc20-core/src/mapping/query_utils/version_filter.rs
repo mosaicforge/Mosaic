@@ -19,7 +19,11 @@ impl VersionFilter {
         self.version = Some(version);
     }
 
-    pub fn into_query_part(&self, var: &str) -> QueryPart {
+    pub fn version_opt(&mut self, version: Option<String>) {
+        self.version = version;
+    }
+
+    pub fn compile(&self, var: &str) -> QueryPart {
         let query_part = QueryPart::default();
 
         let param_key = format!("{}_version", var);

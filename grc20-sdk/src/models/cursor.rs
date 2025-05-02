@@ -2,10 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use grc20_core::{
-    error::DatabaseError,
-    indexer_ids,
-    mapping::{entity, Entity, Query},
-    neo4rs,
+    entity, error::DatabaseError, indexer_ids, mapping::{Entity, Query}, neo4rs
 };
 
 #[derive(Clone, Default, Deserialize, Serialize)]
@@ -41,12 +38,11 @@ impl Cursor {
     }
 
     pub async fn load(neo4j: &neo4rs::Graph) -> Result<Option<Entity<Self>>, DatabaseError> {
-        entity::find_one(
+        entity::find_one::<Entity<Self>>(
             neo4j,
             indexer_ids::CURSOR_ID,
-            indexer_ids::INDEXER_SPACE_ID,
-            None,
         )
+        .space_id(indexer_ids::INDEXER_SPACE_ID)
         .send()
         .await
     }

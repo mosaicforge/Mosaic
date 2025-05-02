@@ -1,11 +1,8 @@
 use futures::TryStreamExt;
 use grc20_core::{
-    entity::Entity,
-    error::DatabaseError,
-    mapping::{
-        entity_node::EntityNodeRef, prop_filter, relation_edge, triple, QueryStream, TriplesConversionError, Value
-    },
-    neo4rs, system_ids,
+    entity::{self, Entity}, error::DatabaseError, mapping::{
+        entity::EntityNodeRef, prop_filter, triple, QueryStream, RelationEdge, TriplesConversionError, Value
+    }, neo4rs, relation, system_ids
 };
 
 use crate::models::space::ParentSpacesQuery;
@@ -38,7 +35,7 @@ pub async fn value_type(
     let property_id = property_id.into();
     let space_id = space_id.into();
 
-    let value_type_rel = get_outbound_relations::<EntityNodeRef>(
+    let value_type_rel = get_outbound_relations::<RelationEdge<EntityNodeRef>>(
         neo4j,
         system_ids::VALUE_TYPE_ATTRIBUTE,
         &property_id,
@@ -73,7 +70,7 @@ pub async fn relation_value_type(
     let property_id = property_id.into();
     let space_id = space_id.into();
 
-    let value_type_rel = get_outbound_relations::<EntityNodeRef>(
+    let value_type_rel = get_outbound_relations::<RelationEdge<EntityNodeRef>>(
         neo4j,
         system_ids::RELATION_VALUE_RELATIONSHIP_TYPE,
         &property_id,
@@ -237,7 +234,7 @@ pub async fn get_outbound_relations<T>(
     limit: Option<usize>,
     skip: Option<usize>,
     strict: bool,
-) -> Result<relation_edge::FindManyQuery<T>, DatabaseError> {
+) -> Result<relation::FindManyQuery<T>, DatabaseError> {
     let neo4j = neo4j.clone();
     let space_id = space_id.into();
     let entity_id = entity_id.into();
@@ -271,10 +268,13 @@ pub async fn get_outbound_relations<T>(
     //     }
     // };
 
-    Ok(relation_edge::find_many::<T>(&neo4j)
-        .from_id(prop_filter::value(entity_id.clone()))
+    Ok(relation::find_many::<T>(&neo4j)
+        .filter(
+            relation::RelationFilter::default()
+                .from_(entity::EntityFilter::default().id(prop_filter::value(&entity_id)))
+                .relation_type(entity::EntityFilter::default().id(prop_filter::value(&property_id))),
+        )
         .space_id(prop_filter::value_in(spaces))
-        .relation_type(prop_filter::value(property_id.clone()))
         .version(space_version.clone())
         .limit(limit.unwrap_or(100))
         .skip(skip.unwrap_or(0)))

@@ -162,9 +162,9 @@ impl<T: Clone + Into<BoltType>> PropFilter<T> {
     /// The `node_var` is the variable name of the node in the query.
     /// The `key` is the property key of the node.
     /// The `expr` is an optional expression to use instead of the property key.
-    /// If `expr` is `None`, the node_var and key will be used as the expression to 
+    /// If `expr` is `None`, the node_var and key will be used as the expression to
     /// filter, e.g. `{node_var}.{key} = $value`
-    pub(crate) fn into_query_part(&self, node_var: &str, key: &str, expr: Option<&str>) -> QueryPart {
+    pub(crate) fn compile(&self, node_var: &str, key: &str, expr: Option<&str>) -> QueryPart {
         let mut query_part = QueryPart::default();
 
         let expr = expr

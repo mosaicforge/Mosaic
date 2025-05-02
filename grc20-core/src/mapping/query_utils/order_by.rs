@@ -21,7 +21,7 @@ pub fn desc(field_name: impl Into<String>) -> FieldOrderBy {
 }
 
 impl FieldOrderBy {
-    pub(crate) fn into_query_part(self, node_var: impl Into<String>) -> QueryPart {
+    pub(crate) fn compile(&self, node_var: impl Into<String>) -> QueryPart {
         let node_var = node_var.into();
         let mut query_part = QueryPart::default().match_clause(format!(
             r#"({node_var}) -[:ATTRIBUTE]-> ({node_var}_order_by:Attribute {{id: "{}"}})"#,

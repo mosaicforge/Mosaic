@@ -1,11 +1,6 @@
 use futures::{stream, StreamExt, TryStreamExt};
 use grc20_core::{
-    block::BlockMetadata,
-    error::DatabaseError,
-    indexer_ids,
-    mapping::{self, query_utils::Query, relation_edge, triple, Entity},
-    network_ids,
-    pb::{self, geo},
+    block::BlockMetadata, entity::EntityNodeRef, error::DatabaseError, indexer_ids, mapping::{self, query_utils::Query, triple, Entity, RelationEdge}, network_ids, pb::{self, geo}, relation
 };
 use grc20_sdk::models::{
     self,
@@ -46,9 +41,9 @@ impl EventHandler {
         stream::iter(edits)
             .enumerate()
             .map(Ok) // Need to wrap the proposal in a Result to use try_for_each
-            .try_for_each(|(idx, proposal)| async move {
-                self.process_edit(block, proposal, idx).await
-            })
+            .try_for_each(
+                |(idx, proposal)| async move { self.process_edit(block, proposal, idx).await },
+            )
             .await
             .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
 
@@ -183,7 +178,7 @@ impl EventHandler {
             .await?;
 
         // Handle CREATE_RELATION ops
-        relation_edge::insert_many(&self.neo4j, block, &edit.space_id, &version_index)
+        relation::insert_many::<RelationEdge<EntityNodeRef>>(&self.neo4j, block, &edit.space_id, &version_index)
             .relations(
                 op_groups
                     .create_relations
@@ -194,7 +189,7 @@ impl EventHandler {
             .await?;
 
         // Handle DELETE_RELATION ops
-        relation_edge::delete_many(&self.neo4j, block, &edit.space_id, &version_index)
+        relation::delete_many(&self.neo4j, block, &edit.space_id, &version_index)
             .relations(
                 op_groups
                     .delete_relations

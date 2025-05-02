@@ -83,6 +83,7 @@ impl QueryPart {
     }
 
     pub fn with_clause(mut self, clause: impl Into<String>, other: QueryPart) -> Self {
+        self.params.extend(other.params.clone());
         self.with_clauses = Some((clause.into(), Box::new(other)));
         self
     }
@@ -106,8 +107,26 @@ impl QueryPart {
         self
     }
 
+    pub fn limit_mut(&mut self, limit: usize) {
+        self.limit = Some(limit);
+    }
+
+    pub fn limit_opt(mut self, limit: Option<usize>) -> Self {
+        self.limit = limit;
+        self
+    }
+
     pub fn skip(mut self, skip: usize) -> Self {
         self.skip = Some(skip);
+        self
+    }
+
+    pub fn skip_mut(&mut self, skip: usize) {
+        self.skip = Some(skip);
+    }
+
+    pub fn skip_opt(mut self, skip: Option<usize>) -> Self {
+        self.skip = skip;
         self
     }
 

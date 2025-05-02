@@ -52,18 +52,18 @@ impl AttributeFilter {
         let mut query_part = QueryPart::default()
             .match_clause(format!("({node_var}) -[{attr_rel_var}:ATTRIBUTE]-> ({attr_node_var}:Attribute {{id: $attribute}})"))
             .params("attribute", self.attribute)
-            .merge(self.space_version.into_query_part(&attr_rel_var));
+            .merge(self.space_version.compile(&attr_rel_var));
 
         if let Some(space_id) = self.space_id {
-            query_part.merge_mut(space_id.into_query_part(&attr_rel_var, "space_id", None));
+            query_part.merge_mut(space_id.compile(&attr_rel_var, "space_id", None));
         }
 
         if let Some(value) = self.value {
-            query_part.merge_mut(value.into_query_part(&attr_node_var, "value", None));
+            query_part.merge_mut(value.compile(&attr_node_var, "value", None));
         }
 
         if let Some(value_type) = self.value_type {
-            query_part.merge_mut(value_type.into_query_part(&attr_node_var, "value_type", None));
+            query_part.merge_mut(value_type.compile(&attr_node_var, "value_type", None));
         }
 
         query_part

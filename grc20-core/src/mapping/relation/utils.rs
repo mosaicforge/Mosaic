@@ -1,6 +1,7 @@
-use neo4rs::Query;
-
-use super::{query_utils::{QueryPart, VersionFilter}, EntityFilter, PropFilter};
+use crate::mapping::{
+    query_utils::{QueryPart, VersionFilter},
+    EntityFilter, PropFilter,
+};
 
 #[derive(Clone, Debug, Default)]
 pub struct RelationFilter {
@@ -31,27 +32,17 @@ impl RelationFilter {
         self
     }
 
-    pub fn into_query_part(self, edge_var: &str, from: &str, to: &str) -> QueryPart {
-        let mut query_part = QueryPart::default()
-            .match_clause(format!("(rt:Entity {{id: {edge_var}.relation_type}})"));
-
-        if let Some(id_filter) = self.id {
-            query_part.merge_mut(id_filter.into_query_part(edge_var, "id", None));
-        };
-
-        if let Some(relation_type) = self.relation_type {
-            query_part = query_part.merge(relation_type.into_query_part("rt"));
-        }
-
-        if let Some(from_filter) = self.from_ {
-            query_part = query_part.merge(from_filter.into_query_part(from));
-        }
-
-        if let Some(to_filter) = self.to_ {
-            query_part = query_part.merge(to_filter.into_query_part(to));
-        }
-
-        query_part
+    pub fn compile(&self, edge_var: &str, from: &str, to: &str) -> QueryPart {
+        QueryPart::default()
+            .match_clause(format!("(rt:Entity {{id: {edge_var}.relation_type}})"))
+            .merge_opt(self.id.as_ref().map(|id| id.compile(edge_var, "id", None)))
+            .merge_opt(self.relation_type.as_ref().map(|rt| rt.compile("rt")))
+            .merge_opt(
+                self.from_
+                    .as_ref()
+                    .map(|from_filter| from_filter.compile(from)),
+            )
+            .merge_opt(self.to_.as_ref().map(|to_filter| to_filter.compile(to)))
     }
 }
 
@@ -63,7 +54,11 @@ pub struct MatchOneRelation<'a> {
 
 impl<'a> MatchOneRelation<'a> {
     pub fn new(id: String, space_id: impl Into<String>, space_version: &'a VersionFilter) -> Self {
-        Self { id, space_id: space_id.into(), space_version }
+        Self {
+            id,
+            space_id: space_id.into(),
+            space_version,
+        }
     }
 
     pub fn chain(
@@ -81,7 +76,7 @@ impl<'a> MatchOneRelation<'a> {
             .match_clause(format!(
                 "({from_node_var}:Entity)-[{edge_var}:RELATION {{id: $id, space_id: $space_id}}]->({to_node_var}:Entity)",
             ))
-            .merge(self.space_version.into_query_part(&edge_var))
+            .merge(self.space_version.compile(&edge_var))
             .limit(1)
             .order_by_clause(format!("{edge_var}.index"))
             .with_clause(format!("{from_node_var}, {edge_var}, {to_node_var}"), next)

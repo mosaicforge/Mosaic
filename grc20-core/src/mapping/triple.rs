@@ -342,7 +342,7 @@ impl Query<Option<Triple>> for FindOneQuery {
     async fn send(self) -> Result<Option<Triple>, DatabaseError> {
         let query_part = QueryPart::default()
             .match_clause("(e:Entity {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute {id: $attribute_id})")
-            .merge(self.space_version.into_query_part("r"))
+            .merge(self.space_version.compile("r"))
             .return_clause("n{.*, entity: e.id} AS triple")
             .params("attribute_id", self.attribute_id)
             .params("entity_id", self.entity_id)
@@ -428,27 +428,27 @@ impl FindManyQuery {
             QueryPart::default().match_clause("(e:Entity) -[r:ATTRIBUTE]-> (n:Attribute)");
 
         if let Some(attribute_id) = self.attribute_id {
-            query_part = query_part.merge(attribute_id.into_query_part("n", "id", None));
+            query_part = query_part.merge(attribute_id.compile("n", "id", None));
         }
 
         if let Some(value) = self.value {
-            query_part = query_part.merge(value.into_query_part("n", "value", None));
+            query_part = query_part.merge(value.compile("n", "value", None));
         }
 
         if let Some(value_type) = self.value_type {
-            query_part = query_part.merge(value_type.into_query_part("n", "value_type", None));
+            query_part = query_part.merge(value_type.compile("n", "value_type", None));
         }
 
         if let Some(entity_id) = self.entity_id {
-            query_part = query_part.merge(entity_id.into_query_part("e", "id", None));
+            query_part = query_part.merge(entity_id.compile("e", "id", None));
         }
 
         if let Some(space_id) = self.space_id {
-            query_part = query_part.merge(space_id.into_query_part("r", "space_id", None));
+            query_part = query_part.merge(space_id.compile("r", "space_id", None));
         }
 
         query_part
-            .merge(self.space_version.into_query_part("r"))
+            .merge(self.space_version.compile("r"))
             .return_clause("n{.*, entity: e.id}")
     }
 }

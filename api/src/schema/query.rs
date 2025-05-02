@@ -2,12 +2,11 @@ use futures::TryStreamExt;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use grc20_core::{
-    indexer_ids,
-    mapping::{
-        self, entity_node, prop_filter,
+    entity::{EntityNode, EntityNodeRef}, indexer_ids, mapping::{
+        self, entity, prop_filter,
         query_utils::{Query, QueryStream},
-        relation_edge,
-    },
+        relation, RelationEdge,
+    }
 };
 use grc20_sdk::models::{account, property, space};
 
@@ -194,7 +193,7 @@ impl RootQuery {
         #[graphql(default = 0)] skip: i32,
         #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Vec<Entity>> {
-        let mut query = entity_node::find_many(&executor.context().neo4j);
+        let mut query = entity::find_many::<EntityNode>(&executor.context().neo4j);
 
         let entity_filter = if let Some(r#where) = r#where {
             mapping::EntityFilter::from(r#where).space_id(prop_filter::value(&space_id))
@@ -266,7 +265,7 @@ impl RootQuery {
         #[graphql(default = 0)] skip: i32,
         #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Vec<Relation>> {
-        let mut query = relation_edge::find_many(&executor.context().neo4j);
+        let mut query = relation::find_many::<RelationEdge<EntityNode>>(&executor.context().neo4j);
 
         if let Some(r#where) = r#where {
             query = r#where.apply_filter(query);

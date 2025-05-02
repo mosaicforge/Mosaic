@@ -3,12 +3,10 @@ use grc20_sdk::models::property;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use grc20_core::{
-    mapping::{
-        entity_node,
+    entity, mapping::{
         query_utils::{prop_filter, Query, QueryStream},
-        triple, EntityNode,
-    },
-    neo4rs, system_ids,
+        triple, EntityNode, RelationEdge,
+    }, neo4rs, relation, system_ids
 };
 
 use crate::{
@@ -51,7 +49,7 @@ impl Entity {
         let id = id.into();
         let space_id = space_id.into();
 
-        Ok(entity_node::find_one(neo4j, id)
+        Ok(entity::find_one::<EntityNode>(neo4j, id)
             .send()
             .await?
             .map(|node| Entity::new(node, space_id, space_version, strict)))
@@ -146,18 +144,22 @@ impl Entity {
     ) -> FieldResult<Vec<Entity>> {
         let blocks_rel = self
             .node
-            .get_outbound_relations::<EntityNode>(
+            .get_outbound_relations::<RelationEdge<EntityNode>>(
                 &executor.context().neo4j,
                 &self.space_id,
                 self.space_version.clone(),
             )
-            .relation_type(prop_filter::value(system_ids::BLOCKS))
+            .filter(
+                relation::RelationFilter::default()
+                    .relation_type(entity::EntityFilter::default().id(prop_filter::value(system_ids::BLOCKS))),
+            )
             .send()
             .await?
             .try_collect::<Vec<_>>()
             .await?;
 
-        Ok(blocks_rel.into_iter()
+        Ok(blocks_rel
+            .into_iter()
             .map(|rel| {
                 Entity::new(
                     rel.to,
@@ -176,18 +178,22 @@ impl Entity {
     ) -> FieldResult<Vec<Entity>> {
         let types_rel = self
             .node
-            .get_outbound_relations::<EntityNode>(
+            .get_outbound_relations::<RelationEdge<EntityNode>>(
                 &executor.context().neo4j,
                 &self.space_id,
                 self.space_version.clone(),
             )
-            .relation_type(prop_filter::value(system_ids::TYPES_ATTRIBUTE))
+            .filter(
+                relation::RelationFilter::default()
+                    .relation_type(entity::EntityFilter::default().id(prop_filter::value(system_ids::TYPES_ATTRIBUTE))),
+            )
             .send()
             .await?
             .try_collect::<Vec<_>>()
             .await?;
 
-        Ok(types_rel.into_iter()
+        Ok(types_rel
+            .into_iter()
             .map(|rel| {
                 Entity::new(
                     rel.to,
@@ -228,7 +234,7 @@ impl Entity {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         r#where: Option<EntityRelationFilter>,
     ) -> FieldResult<Vec<Relation>> {
-        let mut base_query = self.node.get_outbound_relations::<EntityNode>(
+        let mut base_query = self.node.get_outbound_relations::<RelationEdge<EntityNode>>(
             &executor.context().neo4j,
             &self.space_id,
             self.space_version.clone(),

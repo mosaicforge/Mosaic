@@ -2,13 +2,10 @@ use futures::{StreamExt, TryStreamExt};
 use juniper::{graphql_object, Executor, FieldResult, GraphQLEnum, ScalarValue};
 
 use grc20_core::{
-    error::DatabaseError,
-    indexer_ids,
-    mapping::{
-        self, entity_node, prop_filter,
+    entity::EntityNode, error::DatabaseError, indexer_ids, mapping::{
+        self, entity, prop_filter,
         query_utils::{Query, QueryStream},
-    },
-    neo4rs,
+    }, neo4rs
 };
 use grc20_sdk::models::{self, space, Space as SdkSpace};
 
@@ -289,7 +286,7 @@ impl Space {
         #[graphql(default = 0)] skip: i32,
         #[graphql(default = true)] strict: bool,
     ) -> FieldResult<Vec<Entity>> {
-        let mut query = entity_node::find_many(&executor.context().neo4j);
+        let mut query = entity::find_many::<EntityNode>(&executor.context().neo4j);
 
         let entity_filter = if let Some(r#where) = r#where {
             mapping::EntityFilter::from(r#where).space_id(prop_filter::value(self.id()))

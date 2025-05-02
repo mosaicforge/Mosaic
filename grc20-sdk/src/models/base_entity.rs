@@ -1,9 +1,6 @@
 use futures::TryStreamExt;
 use grc20_core::{
-    entity::Entity,
-    error::DatabaseError,
-    mapping::{entity_node::EntityNodeRef, prop_filter, EntityFilter, RelationFilter},
-    neo4rs, relation, system_ids,
+    entity::{Entity, EntityNodeRef}, error::DatabaseError, mapping::{prop_filter, EntityFilter, RelationEdge}, neo4rs, relation::{self, RelationFilter}, system_ids
 };
 
 #[grc20_core::entity]
@@ -23,7 +20,7 @@ pub async fn blocks(
     _strict: bool,
 ) -> Result<Vec<Entity<BaseEntity>>, DatabaseError> {
     // TODO: Implement aggregation
-    relation::find_many::<EntityNodeRef>(neo4j)
+    relation::find_many::<RelationEdge<EntityNodeRef>>(neo4j)
         .filter(
             RelationFilter::default()
                 .from_(EntityFilter::default().id(prop_filter::value(entity_id.into())))
@@ -31,7 +28,7 @@ pub async fn blocks(
         )
         .space_id(prop_filter::value(space_id.into()))
         .version(version)
-        .select_to()
+        .select_to::<Entity<BaseEntity>>()
         .send()
         .await?
         .try_collect::<Vec<_>>()
@@ -46,7 +43,7 @@ pub async fn types(
     _strict: bool,
 ) -> Result<Vec<Entity<BaseEntity>>, DatabaseError> {
     // TODO: Implement aggregation
-    relation::find_many::<EntityNodeRef>(neo4j)
+    relation::find_many::<RelationEdge<EntityNodeRef>>(neo4j)
         .filter(
             RelationFilter::default()
                 .from_(EntityFilter::default().id(prop_filter::value(entity_id.into())))
@@ -56,7 +53,7 @@ pub async fn types(
         )
         .space_id(prop_filter::value(space_id.into()))
         .version(version)
-        .select_to()
+        .select_to::<Entity<BaseEntity>>()
         .send()
         .await?
         .try_collect::<Vec<_>>()

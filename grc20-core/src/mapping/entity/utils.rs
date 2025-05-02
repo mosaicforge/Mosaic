@@ -1,11 +1,6 @@
 use rand::distributions::DistString;
 
-use crate::system_ids;
-
-use super::{
-    query_utils::{QueryPart, VersionFilter},
-    AttributeFilter, PropFilter,
-};
+use crate::{mapping::{query_utils::{QueryPart, VersionFilter}, AttributeFilter, PropFilter}, system_ids};
 
 #[derive(Clone, Debug, Default)]
 pub struct EntityFilter {
@@ -51,23 +46,19 @@ impl EntityFilter {
         self
     }
 
-    pub(crate) fn into_query_part(&self, node_var: impl Into<String>) -> QueryPart {
+    pub(crate) fn compile(&self, node_var: impl Into<String>) -> QueryPart {
         let node_var = node_var.into();
         let mut query_part = QueryPart::default();
 
         if let Some(id) = &self.id {
-            query_part.merge_mut(id.into_query_part(&node_var, "id", None));
+            query_part.merge_mut(id.compile(&node_var, "id", None));
         }
 
         if self.attributes.is_empty() {
             if let Some(space_id) = &self.space_id {
                 query_part = query_part
                     .match_clause(format!("({node_var}) -[attribute:ATTRIBUTE]- (:Attribute)",))
-                    .merge(
-                        space_id
-                            .clone()
-                            .into_query_part("attribute", "space_id", None),
-                    );
+                    .merge(space_id.clone().compile("attribute", "space_id", None));
             }
         } else {
             for mut attribute in self.attributes.clone() {
@@ -150,23 +141,19 @@ impl EntityRelationFilter {
                 .match_clause(format!(
                     "({node_var}) -[{rel_edge_var}:RELATION]-> ({to_node_var})",
                 ))
-                .merge(self.version.into_query_part(&rel_edge_var));
+                .merge(self.version.compile(&rel_edge_var));
 
             if let Some(relation_type) = self.relation_type {
-                query_part = query_part.merge(relation_type.into_query_part(
-                    &rel_edge_var,
-                    "relation_type",
-                    None,
-                ));
+                query_part =
+                    query_part.merge(relation_type.compile(&rel_edge_var, "relation_type", None));
             }
 
             if let Some(to_id) = self.to_id {
-                query_part = query_part.merge(to_id.into_query_part(&to_node_var, "id", None));
+                query_part = query_part.merge(to_id.compile(&to_node_var, "id", None));
             }
 
             if let Some(space_id) = self.space_id {
-                query_part =
-                    query_part.merge(space_id.into_query_part(&rel_edge_var, "space_id", None));
+                query_part = query_part.merge(space_id.compile(&rel_edge_var, "space_id", None));
             }
         }
 
@@ -200,11 +187,11 @@ impl<'a> MatchEntityAttributes<'a> {
             .match_clause(format!(
                 "({node_var}) -[attribute:ATTRIBUTE]- ({attrs_node_var}:Attribute)"
             ))
-            .merge(self.version.into_query_part("attribute"))
+            .merge(self.version.compile("attribute"))
             .merge_opt(
                 self.space_id
                     .as_ref()
-                    .map(|space_id| space_id.into_query_part("attribute", "space_id", None)),
+                    .map(|space_id| space_id.compile("attribute", "space_id", None)),
             )
     }
 
@@ -219,11 +206,10 @@ impl<'a> MatchEntityAttributes<'a> {
         let node_var = node_var.into();
         let attrs_node_var = attributes_node_var.into();
 
-        self.compile(&node_var, &attrs_node_var)
-            .with_clause(
-                format!("{node_var}, {attrs_node_var}{{.*}} AS {attrs_node_var}"),
-                next,
-            )
+        self.compile(&node_var, &attrs_node_var).with_clause(
+            format!("{node_var}, {attrs_node_var}{{.*}} AS {attrs_node_var}"),
+            next,
+        )
     }
 }
 
@@ -254,9 +240,9 @@ impl<'a> MatchEntityTypes<'a> {
 
         QueryPart::default()
             .match_clause(format!(r#"({node_var}) -[{types_rel_var}:RELATION {{relation_type: "{}"}}]-> ({types_node_var}:Entity)"#, system_ids::TYPES_ATTRIBUTE))
-            .merge(self.version.into_query_part(&types_rel_var))
+            .merge(self.version.compile(&types_rel_var))
             .merge_opt(self.space_id.as_ref()
-                .map(|space_id| space_id.into_query_part(&types_rel_var, "space_id", None)))
+                .map(|space_id| space_id.compile(&types_rel_var, "space_id", None)))
     }
 
     /// Returns a query part that selects the types of an entity `node_var`.
@@ -270,10 +256,10 @@ impl<'a> MatchEntityTypes<'a> {
         let node_var = node_var.into();
         let types_node_var = types_node_var.into();
 
-        self.compile(&node_var, &types_node_var)
-            .with_clause(format!(
-                "{node_var}, {types_node_var}{{.*}} AS {types_node_var}"
-            ), next)
+        self.compile(&node_var, &types_node_var).with_clause(
+            format!("{node_var}, {types_node_var}{{.*}} AS {types_node_var}"),
+            next,
+        )
     }
 }
 
