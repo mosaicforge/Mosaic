@@ -70,6 +70,7 @@ impl Space {
                 .max_depth(None)
                 .send()
                 .await?
+                .skip(1)    // The returned spaces contain the current space
                 .try_collect::<Vec<_>>()
                 .await?;
 
@@ -77,6 +78,7 @@ impl Space {
                 .max_depth(None)
                 .send()
                 .await?
+                .skip(1)    // The returned spaces contain the current space
                 .try_collect::<Vec<_>>()
                 .await?;
 
@@ -252,6 +254,7 @@ impl Space {
             .skip(skip as usize)
             .send()
             .await?
+            .skip(1)    // The returned spaces contain the current space
             .and_then(|ranking| Space::load(&executor.context().neo4j, ranking.space_id, None))
             .filter_map(|space| async move { space.transpose() })
             .try_collect::<Vec<_>>()
@@ -276,6 +279,7 @@ impl Space {
             .skip(skip as usize)
             .send()
             .await?
+            .skip(1)    // The returned spaces contain the current space
             .and_then(|ranking| Space::load(&executor.context().neo4j, ranking.space_id, None))
             .filter_map(|space| async move { space.transpose() })
             .try_collect::<Vec<_>>()
