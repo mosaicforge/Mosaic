@@ -3,8 +3,7 @@ use grc20_core::{
     entity::{self, Entity},
     error::DatabaseError,
     mapping::{
-        entity::EntityNodeRef, prop_filter, triple, QueryStream, RelationEdge,
-        TriplesConversionError, Value,
+        aggregation::{AggregationDirection, SpaceRanking}, entity::EntityNodeRef, prop_filter, triple, QueryStream, RelationEdge
     },
     neo4rs, relation, system_ids,
 };
@@ -99,39 +98,6 @@ pub async fn relation_value_type(
     }
 }
 
-#[derive(Clone, Debug)]
-pub enum AggregationDirection {
-    Up,
-    Down,
-    Bidirectional,
-}
-
-impl From<AggregationDirection> for Value {
-    fn from(direction: AggregationDirection) -> Self {
-        match direction {
-            AggregationDirection::Up => Value::text("Up"),
-            AggregationDirection::Down => Value::text("Down"),
-            AggregationDirection::Bidirectional => Value::text("Bidirectional"),
-        }
-    }
-}
-
-impl TryFrom<Value> for AggregationDirection {
-    type Error = TriplesConversionError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        match value.value.as_str() {
-            "Up" => Ok(AggregationDirection::Up),
-            "Down" => Ok(AggregationDirection::Down),
-            "Bidirectional" => Ok(AggregationDirection::Bidirectional),
-            _ => Err(TriplesConversionError::InvalidValue(format!(
-                "Invalid aggregation direction: {}",
-                value.value
-            ))),
-        }
-    }
-}
-
 async fn attribute_aggregation_direction(
     neo4j: &neo4rs::Graph,
     space_id: &str,
@@ -157,7 +123,7 @@ async fn attribute_aggregation_direction(
     }
 
     // Get all spaces to query (just the given space if strict, or all parent spaces if not)
-    let mut spaces_to_query = vec![(space_id.to_string(), 0)];
+    let mut spaces_to_query = vec![SpaceRanking {space_id: space_id.to_string(), depth: 0}];
 
     let parent_spaces = ParentSpacesQuery::new(neo4j.clone(), space_id.to_string())
         .max_depth(None)
@@ -170,9 +136,9 @@ async fn attribute_aggregation_direction(
 
     // Note: This may not be necessary since the parent spaces are collected using DFS
     // (i.e. the parent spaces *should* be sorted by depth)
-    spaces_to_query.sort_by_key(|(_, depth)| *depth);
+    spaces_to_query.sort_by_key(|ranking| ranking.depth);
 
-    for (space_id, _) in spaces_to_query {
+    for SpaceRanking {space_id, ..} in spaces_to_query {
         let maybe_triple = triple::find_one(
             neo4j,
             system_ids::AGGREGATION_DIRECTION,
@@ -207,9 +173,9 @@ pub async fn get_triple(
 
     let mut spaces = spaces_for_property(neo4j, &property_id, &space_id, strict).await?;
 
-    spaces.sort_by_key(|(_, depth)| *depth);
+    spaces.sort_by_key(|ranking| ranking.depth);
 
-    for (space_id, _) in spaces {
+    for SpaceRanking {space_id, ..} in spaces {
         let maybe_triple = triple::find_one(
             neo4j,
             &property_id,
@@ -247,7 +213,7 @@ pub async fn get_outbound_relations<T>(
     let spaces = spaces_for_property(&neo4j, &property_id, &space_id, strict)
         .await?
         .into_iter()
-        .map(|(space_id, _)| space_id)
+        .map(|ranking| ranking.space_id)
         .collect::<Vec<_>>();
     // spaces.sort_by_key(|(_, depth)| *depth);
 
@@ -292,11 +258,11 @@ async fn spaces_for_property(
     property_id: impl Into<String>,
     space_id: impl Into<String>,
     strict: bool,
-) -> Result<Vec<(String, usize)>, DatabaseError> {
+) -> Result<Vec<SpaceRanking>, DatabaseError> {
     let space_id = space_id.into();
     let property_id = property_id.into();
 
-    let mut spaces = vec![(space_id.clone(), 0)];
+    let mut spaces = vec![SpaceRanking {space_id: space_id.clone(), depth: 0}];
 
     if strict {
         return Ok(spaces);

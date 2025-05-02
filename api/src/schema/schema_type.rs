@@ -1,6 +1,6 @@
 use futures::TryStreamExt;
 use grc20_core::{
-    mapping::{query_utils::QueryStream, EntityNode, RelationEdge},
+    mapping::{aggregation::SpaceRanking, query_utils::QueryStream, EntityNode, RelationEdge},
     system_ids,
 };
 use grc20_sdk::models::property;
@@ -26,6 +26,19 @@ impl SchemaType {
     ) -> Self {
         Self {
             entity: Entity::new(node, space_id, space_version, strict),
+        }
+    }
+
+    pub fn with_hierarchy(
+        node: EntityNode,
+        space_id: String,
+        parent_spaces: Vec<SpaceRanking>,
+        subspaces: Vec<SpaceRanking>,
+        space_version: Option<String>,
+        strict: bool,
+    ) -> Self {
+        Self {
+            entity: Entity::with_hierarchy(node, space_id, parent_spaces, subspaces, space_version, strict),
         }
     }
 }
@@ -157,9 +170,11 @@ impl SchemaType {
         Ok(properties
             .into_iter()
             .map(|prop_rel| {
-                Property::new(
+                Property::with_hierarchy(
                     prop_rel.to,
                     self.space_id().to_string(),
+                    self.entity.parent_spaces.clone(),
+                    self.entity.subspaces.clone(),    
                     self.entity.space_version.clone(),
                     self.entity.strict,
                 )

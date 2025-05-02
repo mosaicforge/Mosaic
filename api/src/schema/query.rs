@@ -96,7 +96,7 @@ impl RootQuery {
             .skip(skip as usize)
             .send()
             .await?
-            .map_ok(|entity| Space::new(entity, version.clone()))
+            .and_then(|entity| Space::from_entity(&executor.context().neo4j, entity, version.clone()))
             .try_collect::<Vec<_>>()
             .await?)
     }

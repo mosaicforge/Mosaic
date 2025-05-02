@@ -1,12 +1,10 @@
 use futures::TryStreamExt;
-use grc20_sdk::models::property;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use grc20_core::{
     entity,
     mapping::{
-        query_utils::{prop_filter, Query, QueryStream},
-        triple, EntityNode, RelationEdge,
+        aggregation::SpaceRanking, query_utils::{prop_filter, Query, QueryStream}, triple, EntityNode, Pluralism, RelationEdge
     },
     neo4rs, relation, system_ids,
 };
@@ -24,6 +22,8 @@ pub struct Entity {
     pub space_id: String,
     pub space_version: Option<String>,
     pub strict: bool,
+    pub parent_spaces: Vec<SpaceRanking>,
+    pub subspaces: Vec<SpaceRanking>,
 }
 
 impl Entity {
@@ -38,6 +38,26 @@ impl Entity {
             space_id,
             space_version,
             strict,
+            parent_spaces: vec![],
+            subspaces: vec![],
+        }
+    }
+
+    pub fn with_hierarchy(
+        node: EntityNode,
+        space_id: String,
+        parent_spaces: Vec<SpaceRanking>,
+        subspaces: Vec<SpaceRanking>,
+        space_version: Option<String>,
+        strict: bool,
+    ) -> Self {
+        Self {
+            node,
+            space_id,
+            space_version,
+            strict,
+            parent_spaces,
+            subspaces,
         }
     }
 
@@ -93,14 +113,15 @@ impl Entity {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Option<String>> {
-        Ok(property::get_triple(
+        Ok(triple::find_one(
             &executor.context().neo4j,
             system_ids::NAME_ATTRIBUTE,
             &self.node.id,
             &self.space_id,
             self.space_version.clone(),
-            self.strict,
         )
+        .pluralism(if self.strict {Pluralism::None} else { Pluralism::Hierarchy(self.parent_spaces.clone()) })
+        .send()
         .await?
         .map(|triple| triple.value.value))
     }
@@ -110,14 +131,15 @@ impl Entity {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Option<String>> {
-        Ok(property::get_triple(
+        Ok(triple::find_one(
             &executor.context().neo4j,
             system_ids::DESCRIPTION_ATTRIBUTE,
             &self.node.id,
             &self.space_id,
             self.space_version.clone(),
-            self.strict,
         )
+        .pluralism(if self.strict {Pluralism::None} else { Pluralism::Hierarchy(self.parent_spaces.clone()) })
+        .send()
         .await?
         .map(|triple| triple.value.value))
     }
@@ -127,14 +149,15 @@ impl Entity {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Option<String>> {
-        Ok(property::get_triple(
+        Ok(triple::find_one(
             &executor.context().neo4j,
             system_ids::COVER_ATTRIBUTE,
             &self.node.id,
             &self.space_id,
             self.space_version.clone(),
-            self.strict,
         )
+        .pluralism(if self.strict {Pluralism::None} else { Pluralism::Hierarchy(self.parent_spaces.clone()) })
+        .send()
         .await?
         .map(|triple| triple.value.value))
     }

@@ -5,6 +5,7 @@ pub mod attributes_filter;
 pub mod order_by;
 pub mod prop_filter;
 pub mod query_part;
+pub mod query_builder;
 pub mod types_filter;
 pub mod version_filter;
 

@@ -7,7 +7,7 @@ use serde::Deserialize;
 use crate::{block::BlockMetadata, error::DatabaseError, indexer_ids};
 
 use super::{
-    query_utils::{query_part, Query, QueryPart, QueryStream, VersionFilter},
+    query_utils::{query_builder::{MatchQuery, QueryBuilder, Subquery}, query_part, Query, QueryPart, QueryStream, VersionFilter},
     AttributeFilter, AttributeNode, PropFilter, Triple, TriplesConversionError, Value,
 };
 
@@ -393,15 +393,14 @@ impl FindOneQuery {
         }
     }
 
-    fn into_query_part(self) -> QueryPart {
-        QueryPart::default()
-            .match_clause(
-                "(:Entity {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute)",
+    fn subquery(self) -> impl Subquery {
+        QueryBuilder::default()
+            .subquery(MatchQuery::new("(:Entity {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute)")
+                .r#where(self.space_version.subquery("r"))
             )
-            .merge(self.space_version.compile("r"))
-            .with_clause("collect(n{.*}) AS attrs", query_part::return_query("attrs"))
             .params("entity_id", self.entity_id)
             .params("space_id", self.space_id)
+            .with(vec!["collect(n{.*}) AS attrs".to_string()], "RETURN attrs")
     }
 }
 
@@ -411,13 +410,16 @@ where
 {
     async fn send(self) -> Result<Option<T>, DatabaseError> {
         let neo4j = self.neo4j.clone();
-        let query = if cfg!(debug_assertions) || cfg!(test) {
-            let query_part = self.into_query_part();
-            tracing::info!("attributes::FindOneQuery:\n{}", query_part);
-            query_part.build()
-        } else {
-            self.into_query_part().build()
-        };
+
+        let query = self.subquery();
+
+        if cfg!(debug_assertions) || cfg!(test) {
+            println!(
+                "entity::FindOneQuery::<Entity<T>>:\n{}\nparams:{:?}",
+                query.compile(),
+                query.params()
+            );
+        }
 
         #[derive(Debug, Deserialize)]
         struct RowResult {
@@ -425,7 +427,7 @@ where
         }
 
         let result = neo4j
-            .execute(query)
+            .execute(query.build())
             .await?
             .next()
             .await?
@@ -494,24 +496,17 @@ impl FindManyQuery {
         self
     }
 
-    pub(crate) fn into_query_part(self) -> QueryPart {
-        let mut query = QueryPart::default()
-            .match_clause("(e:Entity) -[r:ATTRIBUTE]-> (n:Attribute)")
-            .merge(self.version.compile("r"))
-            .with_clause(
-                "e, collect(n{.*}) AS attrs",
-                query_part::return_query("e{.id, attributes: attrs}"),
-            );
-
-        if let Some(id) = self.id {
-            query = query.merge(id.compile("e", "id", None));
-        }
-
-        if let Some(space_id) = self.space_id {
-            query = query.merge(space_id.compile("r", "space_id", None));
-        }
-
-        query
+    pub(crate) fn subquery(self) -> impl Subquery {
+        QueryBuilder::default()
+            .subquery(MatchQuery::new("(e:Entity) -[r:ATTRIBUTE]-> (n:Attribute)")
+                .r#where(self.version.subquery("r"))
+                .where_opt(self.id.as_ref().map(|id| id.subquery("e", "id", None)))
+                .where_opt(self.space_id.as_ref().map(|space_id| space_id.subquery("r", "space_id", None)))
+            )
+            .with(
+                vec!["e".to_string(), "collect(n{.*}) AS attrs".to_string()],
+                "RETURN e{.id, attributes: attrs}",
+            )
     }
 }
 
@@ -521,7 +516,7 @@ where
 {
     async fn send(self) -> Result<impl Stream<Item = Result<T, DatabaseError>>, DatabaseError> {
         let neo4j = self.neo4j.clone();
-        let query = self.into_query_part().build();
+        let query = self.subquery().build();
 
         #[derive(Debug, Deserialize)]
         struct RowResult {
@@ -670,9 +665,6 @@ mod tests {
     use super::*;
 
     use futures::pin_mut;
-
-    const BOLT_PORT: u16 = 7687;
-    const HTTP_PORT: u16 = 7474;
 
     #[derive(Clone, Debug, PartialEq)]
     struct Foo {

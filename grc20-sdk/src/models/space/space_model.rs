@@ -209,12 +209,12 @@ pub fn editors(neo4j: &neo4rs::Graph, space_id: &str) -> SpaceEditorsQuery {
 }
 
 /// Find all parent spaces of a given space
-pub fn parent_spaces(neo4j: &neo4rs::Graph, space_id: &str) -> ParentSpacesQuery {
+pub fn parent_spaces<T>(neo4j: &neo4rs::Graph, space_id: &str) -> ParentSpacesQuery<T> {
     ParentSpacesQuery::new(neo4j.clone(), space_id.to_string())
 }
 
 /// Find all subspaces of a given space
-pub fn subspaces(neo4j: &neo4rs::Graph, space_id: &str) -> SubspacesQuery {
+pub fn subspaces<T>(neo4j: &neo4rs::Graph, space_id: &str) -> SubspacesQuery<T> {
     SubspacesQuery::new(neo4j.clone(), space_id.to_string())
 }
 

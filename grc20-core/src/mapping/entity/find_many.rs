@@ -5,7 +5,7 @@ use crate::{
     error::DatabaseError,
     mapping::{
         order_by::FieldOrderBy,
-        query_utils::{query_part, QueryPart, VersionFilter},
+        query_utils::{query_builder::{MatchQuery, QueryBuilder, Subquery}, VersionFilter},
         AttributeFilter, AttributeNode, EntityFilter, FromAttributes, PropFilter, QueryStream,
     },
 };
@@ -102,11 +102,11 @@ impl<T> FindManyQuery<T> {
         self
     }
 
-    fn compile(&self) -> QueryPart {
-        QueryPart::default()
-            .match_clause("(e:Entity)")
-            .merge(self.filter.compile("e"))
-            .merge_opt(self.order_by.as_ref().map(|o| o.compile("e")))
+    fn subquery(&self) -> QueryBuilder {
+        QueryBuilder::default()
+            .subquery(MatchQuery::new("(e:Entity)"))
+            .subquery(self.filter.subquery("e"))
+            .subquery_opt(self.order_by.as_ref().map(|o| o.subquery("e")))
             .limit(self.limit)
             .skip_opt(self.skip)
     }
@@ -118,17 +118,15 @@ impl QueryStream<EntityNode> for FindManyQuery<EntityNode> {
     ) -> Result<impl Stream<Item = Result<EntityNode, DatabaseError>>, DatabaseError> {
         let neo4j = self.neo4j.clone();
 
-        let query_part = self.compile().return_clause("e");
+        let query = self.subquery().r#return("e");
 
         if cfg!(debug_assertions) || cfg!(test) {
             tracing::info!(
                 "entity_node::FindManyQuery::<EntityNode>:\n{}\nparams:{:?}",
-                query_part.query(),
-                query_part.params
+                query.compile(),
+                query.params()
             );
         };
-
-        let query = query_part.build();
 
         #[derive(Debug, serde::Deserialize)]
         struct RowResult {
@@ -136,7 +134,7 @@ impl QueryStream<EntityNode> for FindManyQuery<EntityNode> {
         }
 
         Ok(neo4j
-            .execute(query)
+            .execute(query.build())
             .await?
             .into_stream_as::<RowResult>()
             .map_err(DatabaseError::from)
@@ -148,28 +146,25 @@ impl<T: FromAttributes> QueryStream<Entity<T>> for FindManyQuery<Entity<T>> {
     async fn send(
         self,
     ) -> Result<impl Stream<Item = Result<Entity<T>, DatabaseError>>, DatabaseError> {
-        let neo4j = self.neo4j.clone();
         let match_entity = MatchEntity::new(&self.space_id, &self.version);
 
-        let query_part = self.compile().with_clause(
-            "e",
+        let query = self.subquery().with(
+            vec!["e".to_string()],
             match_entity.chain(
                 "e",
                 "attrs",
                 "types",
-                query_part::return_query("e{.*, attrs: attrs, types: types}"),
+                "RETURN e{.*, attrs: attrs, types: types}",
             ),
         );
 
         if cfg!(debug_assertions) || cfg!(test) {
             tracing::info!(
                 "entity_node::FindManyQuery::<Entity<T>>:\n{}\nparams:{:?}",
-                query_part.query(),
-                query_part.params
+                query.compile(),
+                query.params
             );
         };
-
-        let query = query_part.build();
 
         #[derive(Debug, serde::Deserialize)]
         struct RowResult {
@@ -179,8 +174,8 @@ impl<T: FromAttributes> QueryStream<Entity<T>> for FindManyQuery<Entity<T>> {
             types: Vec<EntityNode>,
         }
 
-        let stream = neo4j
-            .execute(query)
+        let stream = self.neo4j
+            .execute(query.build())
             .await?
             .into_stream_as::<RowResult>()
             .map_err(DatabaseError::from)

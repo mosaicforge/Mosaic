@@ -2,7 +2,7 @@ use crate::{
     error::DatabaseError,
     mapping::{
         prop_filter,
-        query_utils::{query_part, QueryPart, VersionFilter},
+        query_utils::{query_builder::{MatchQuery, QueryBuilder, Subquery}, query_part, QueryPart, VersionFilter},
         AttributeNode, EntityNode, EntityNodeRef, FromAttributes, Query,
     },
 };
@@ -38,7 +38,7 @@ impl<T> FindOneQuery<T> {
             neo4j: self.neo4j,
             id: self.id,
             space_id: self.space_id,
-            space_version: self.version,
+            version: self.version,
             _phantom: std::marker::PhantomData,
         }
     }
@@ -47,19 +47,18 @@ impl<T> FindOneQuery<T> {
 impl Query<Option<RelationEdge<EntityNodeRef>>> for FindOneQuery<RelationEdge<EntityNodeRef>> {
     async fn send(self) -> Result<Option<RelationEdge<EntityNodeRef>>, DatabaseError> {
         let neo4j = self.neo4j.clone();
-        let query = QueryPart::default()
-            .match_clause(
-                "(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)",
+        let query = QueryBuilder::default()
+            .subquery(
+                MatchQuery::new("(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)")
+                    .r#where(self.version.subquery("r"))
+                    .params("id", self.id)
+                    .params("space_id", self.space_id),
             )
-            .merge(self.version.compile("r"))
-            .return_clause("r{.*, from: from.id, to: to.id} as r")
-            .order_by_clause("r.index")
-            .params("id", self.id)
-            .params("space_id", self.space_id)
-            .build();
+            .subquery("ORDER BY r.index")
+            .r#return("r{.*, from: from.id, to: to.id} as r");
 
         neo4j
-            .execute(query)
+            .execute(query.build())
             .await?
             .next()
             .await?
@@ -71,19 +70,18 @@ impl Query<Option<RelationEdge<EntityNodeRef>>> for FindOneQuery<RelationEdge<En
 impl Query<Option<RelationEdge<EntityNode>>> for FindOneQuery<RelationEdge<EntityNode>> {
     async fn send(self) -> Result<Option<RelationEdge<EntityNode>>, DatabaseError> {
         let neo4j = self.neo4j.clone();
-        let query = QueryPart::default()
-            .match_clause(
-                "(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)",
+        let query = QueryBuilder::default()
+            .subquery(
+                MatchQuery::new("(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)")
+                    .r#where(self.version.subquery("r"))
+                    .params("id", self.id)
+                    .params("space_id", self.space_id),
             )
-            .merge(self.version.compile("r"))
-            .return_clause("r{.*, from: from, to: to} as r")
-            .order_by_clause("r.index")
-            .params("id", self.id)
-            .params("space_id", self.space_id)
-            .build();
+            .subquery("ORDER BY r.index")
+            .r#return("r{.*, from: from, to: to} as r");
 
         neo4j
-            .execute(query)
+            .execute(query.build())
             .await?
             .next()
             .await?
@@ -96,31 +94,35 @@ impl<T: FromAttributes> Query<Option<Relation<T, EntityNodeRef>>>
     for FindOneQuery<Relation<T, EntityNodeRef>>
 {
     async fn send(self) -> Result<Option<Relation<T, EntityNodeRef>>, DatabaseError> {
-        let neo4j = self.neo4j.clone();
-        let query = QueryPart::default()
-            .match_clause(
-                "(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)",
+        let query = QueryBuilder::default()
+            .subquery(
+                MatchQuery::new("(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)")
+                    .r#where(self.version.subquery("r"))
+                    .params("id", self.id)
+                    .params("space_id", self.space_id),
             )
-            .merge(self.version.clone().compile("r"))
-            .order_by_clause("r.index")
-            .with_clause("r, from, to", {
-                QueryPart::default()
-                    .match_clause("(r_e:Entity {id: r.id}) -[r_attr:ATTRIBUTE]-> (n:Attribute)")
-                    .merge(
-                        prop_filter::value::<String>(self.space_id.clone())
-                            .compile("r_attr", "space_id", None),
-                    )
-                    .merge(self.version.compile("r_attr"))
-                    .with_clause(
-                        "r, r_e, from, to, collect(n{.*}) AS attrs",
-                        query_part::return_query(
-                            "r{.*, from: from.id, to: to.id, attributes: attrs} as r",
-                        ),
-                    )
-            })
-            .params("id", self.id)
-            .params("space_id", self.space_id)
-            .build();
+            .subquery("ORDER BY r.index")
+            .with(
+                vec!["r".to_string(), "from".to_string(), "to".to_string()],
+                    QueryBuilder::default()
+                        .subquery(MatchQuery::new("(r_e:Entity {id: r.id})"))
+                        .subquery(
+                            MatchQuery::new_optional(
+                                "(r_e) -[r_attr:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute)",
+                            )
+                            .r#where(self.version.subquery("r_attr")),
+                        )
+                        .with(
+                            vec![
+                                "r".to_string(),
+                                "r_e".to_string(),
+                                "from".to_string(),
+                                "to".to_string(),
+                                "COLLECT(DISTINCT n{.*}) AS attrs".to_string(),
+                            ],
+                            "RETURN r{.*, from: from.id, to: to.id, attributes: attrs} as r",
+                        )
+            );
 
         #[derive(Debug, serde::Deserialize)]
         struct RowResult {
@@ -129,8 +131,8 @@ impl<T: FromAttributes> Query<Option<Relation<T, EntityNodeRef>>>
             attributes: Vec<AttributeNode>,
         }
 
-        neo4j
-            .execute(query)
+        self.neo4j
+            .execute(query.build())
             .await?
             .next()
             .await?
@@ -149,31 +151,35 @@ impl<T: FromAttributes> Query<Option<Relation<T, EntityNode>>>
     for FindOneQuery<Relation<T, EntityNode>>
 {
     async fn send(self) -> Result<Option<Relation<T, EntityNode>>, DatabaseError> {
-        let neo4j = self.neo4j.clone();
-        let query = QueryPart::default()
-            .match_clause(
-                "(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)",
+        let query = QueryBuilder::default()
+            .subquery(
+                MatchQuery::new("(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)")
+                    .r#where(self.version.subquery("r"))
+                    .params("id", self.id)
+                    .params("space_id", self.space_id),
             )
-            .merge(self.version.clone().compile("r"))
-            .order_by_clause("r.index")
-            .with_clause("r, from, to", {
-                QueryPart::default()
-                    .match_clause("(r_e:Entity {id: r.id}) -[r_attr:ATTRIBUTE]-> (n:Attribute)")
-                    .merge(
-                        prop_filter::value::<String>(self.space_id.clone())
-                            .compile("r_attr", "space_id", None),
-                    )
-                    .merge(self.version.compile("r_attr"))
-                    .with_clause(
-                        "r, r_e, from, to, collect(n{.*}) AS attrs",
-                        query_part::return_query(
-                            "r{.*, from: from, to: to, attributes: attrs} as r",
-                        ),
-                    )
-            })
-            .params("id", self.id)
-            .params("space_id", self.space_id)
-            .build();
+            .subquery("ORDER BY r.index")
+            .with(
+                vec!["r".to_string(), "from".to_string(), "to".to_string()],
+                    QueryBuilder::default()
+                        .subquery(MatchQuery::new("(r_e:Entity {id: r.id})"))
+                        .subquery(
+                            MatchQuery::new_optional(
+                                "(r_e) -[r_attr:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute)",
+                            )
+                            .r#where(self.version.subquery("r_attr")),
+                        )
+                        .with(
+                            vec![
+                                "r".to_string(),
+                                "r_e".to_string(),
+                                "from".to_string(),
+                                "to".to_string(),
+                                "COLLECT(DISTINCT n{.*}) AS attrs".to_string(),
+                            ],
+                            "RETURN r{.*, from: from, to: to, attributes: attrs} as r",
+                        )
+            );
 
         #[derive(Debug, serde::Deserialize)]
         struct RowResult {
@@ -182,8 +188,8 @@ impl<T: FromAttributes> Query<Option<Relation<T, EntityNode>>>
             attributes: Vec<AttributeNode>,
         }
 
-        neo4j
-            .execute(query)
+        self.neo4j
+            .execute(query.build())
             .await?
             .next()
             .await?

@@ -6,8 +6,7 @@ use grc20_core::{
     error::DatabaseError,
     indexer_ids,
     mapping::{
-        self, entity, prop_filter,
-        query_utils::{Query, QueryStream},
+        self, aggregation::SpaceRanking, entity, prop_filter, query_utils::{Query, QueryStream}
     },
     neo4rs,
 };
@@ -20,11 +19,40 @@ use super::{entity_order_by::OrderDirection, Account, Entity, EntityFilter, Sche
 pub struct Space {
     entity: mapping::Entity<SdkSpace>,
     version: Option<String>,
+    parent_spaces: Vec<SpaceRanking>,
+    subspaces: Vec<SpaceRanking>,
 }
 
 impl Space {
-    pub fn new(entity: mapping::Entity<SdkSpace>, version: Option<String>) -> Self {
-        Self { entity, version }
+    pub fn new(
+        entity: mapping::Entity<SdkSpace>, 
+        version: Option<String>,
+        parent_spaces: Vec<SpaceRanking>,
+        subspaces: Vec<SpaceRanking>,
+    ) -> Self {
+        Self { entity, version, parent_spaces, subspaces }
+    }
+
+    pub async fn from_entity(
+        neo4j: &neo4rs::Graph,
+        entity: mapping::Entity<SdkSpace>,
+        version: Option<String>,
+    ) -> Result<Self, DatabaseError> {
+        let parent_spaces = models::space::parent_spaces(neo4j, entity.id())
+            .max_depth(None)
+            .send()
+            .await?
+            .try_collect::<Vec<_>>()
+            .await?;
+
+        let subspaces = models::space::subspaces(neo4j, entity.id())
+            .max_depth(None)
+            .send()
+            .await?
+            .try_collect::<Vec<_>>()
+            .await?;
+
+        Ok(Self::new(entity, version, parent_spaces, subspaces))
     }
 
     pub async fn load(
@@ -34,10 +62,28 @@ impl Space {
     ) -> Result<Option<Self>, DatabaseError> {
         let id = id.into();
 
-        Ok(space::find_one(neo4j, &id, indexer_ids::INDEXER_SPACE_ID)
+        if let Some(space) = space::find_one(neo4j, &id, indexer_ids::INDEXER_SPACE_ID)
             .send()
-            .await?
-            .map(|entity| Space::new(entity, version)))
+            .await? 
+        {
+            let parent_spaces = models::space::parent_spaces(&neo4j, &id)
+                .max_depth(None)
+                .send()
+                .await?
+                .try_collect::<Vec<_>>()
+                .await?;
+
+            let subspaces = models::space::subspaces(&neo4j, &id)
+                .max_depth(None)
+                .send()
+                .await?
+                .try_collect::<Vec<_>>()
+                .await?;
+
+            Ok(Some(Self::new(space, version.clone(), parent_spaces, subspaces)))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -206,7 +252,7 @@ impl Space {
             .skip(skip as usize)
             .send()
             .await?
-            .and_then(|(space_id, _)| Space::load(&executor.context().neo4j, space_id, None))
+            .and_then(|ranking| Space::load(&executor.context().neo4j, ranking.space_id, None))
             .filter_map(|space| async move { space.transpose() })
             .try_collect::<Vec<_>>()
             .await?)
@@ -230,7 +276,7 @@ impl Space {
             .skip(skip as usize)
             .send()
             .await?
-            .and_then(|(space_id, _)| Space::load(&executor.context().neo4j, space_id, None))
+            .and_then(|ranking| Space::load(&executor.context().neo4j, ranking.space_id, None))
             .filter_map(|space| async move { space.transpose() })
             .try_collect::<Vec<_>>()
             .await?)
@@ -251,7 +297,14 @@ impl Space {
             .await?;
 
         Ok(types
-            .map_ok(|node| SchemaType::new(node, self.entity.id().to_string(), None, strict))
+            .map_ok(|node| SchemaType::with_hierarchy(
+                node, 
+                self.entity.id().to_string(), 
+                self.parent_spaces.clone(),
+                self.subspaces.clone(),
+                None, 
+                strict,
+            ))
             .try_collect()
             .await?)
     }
@@ -268,9 +321,11 @@ impl Space {
             .await?;
 
         if let Some(type_) = type_ {
-            Ok(Some(SchemaType::new(
+            Ok(Some(SchemaType::with_hierarchy(
                 type_,
                 self.entity.id().to_string(),
+                self.parent_spaces.clone(),
+                self.subspaces.clone(),
                 None,
                 strict,
             )))

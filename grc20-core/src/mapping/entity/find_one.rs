@@ -3,7 +3,7 @@ use crate::{
     error::DatabaseError,
     mapping::{
         prop_filter,
-        query_utils::{query_part, QueryPart, VersionFilter},
+        query_utils::{query_builder::{MatchQuery, QueryBuilder, Subquery}, VersionFilter},
         AttributeNode, FromAttributes, Query,
     },
 };
@@ -77,27 +77,26 @@ impl<T: FromAttributes> Query<Option<Entity<T>>> for FindOneQuery<Entity<T>> {
         let space_filter = self.space_id.map(prop_filter::value);
         let match_entity = MatchEntity::new(&space_filter, &self.version);
 
-        let query_part = QueryPart::default()
-            .match_clause("(e:Entity {id: $id})")
-            .with_clause(
-                "e",
+        let query = QueryBuilder::default()
+            .subquery(MatchQuery::new("(e:Entity {id: $id})"))
+            .with(
+                vec!["e".to_string()],
                 match_entity.chain(
                     "e",
                     "attrs",
                     "types",
-                    query_part::return_query("e{.*, attrs: attrs, types: types}"),
+                    "RETURN e{.*, attrs: attrs, types: types}",
                 ),
             )
             .params("id", self.id);
 
         if cfg!(debug_assertions) || cfg!(test) {
-            tracing::info!(
+            println!(
                 "entity::FindOneQuery::<Entity<T>>:\n{}\nparams:{:?}",
-                query_part,
-                query_part.params
+                query.compile(),
+                query.params
             );
         };
-        let query = query_part.build();
 
         #[derive(Debug, serde::Deserialize)]
         struct RowResult {
@@ -108,7 +107,7 @@ impl<T: FromAttributes> Query<Option<Entity<T>>> for FindOneQuery<Entity<T>> {
         }
 
         self.neo4j
-            .execute(query)
+            .execute(query.build())
             .await?
             .next()
             .await?
@@ -213,6 +212,7 @@ mod tests {
             .expect("Failed to insert triples");
 
         let entity = Entity::new("abc", foo).with_type("foo_type");
+        println!("Entity: {:?}", entity);
 
         entity
             .clone()

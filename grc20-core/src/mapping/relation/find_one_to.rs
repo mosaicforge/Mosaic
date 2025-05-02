@@ -3,7 +3,7 @@ use crate::{
     error::DatabaseError,
     mapping::{
         prop_filter,
-        query_utils::{query_part, QueryPart, VersionFilter},
+        query_utils::{query_builder::{MatchQuery, QueryBuilder, Subquery}, VersionFilter},
         AttributeNode, Entity, EntityNode, FromAttributes, Query,
     },
     relation::utils::MatchOneRelation,
@@ -13,7 +13,7 @@ pub struct FindOneToQuery<T> {
     pub(super) neo4j: neo4rs::Graph,
     pub(super) id: String,
     pub(super) space_id: String,
-    pub(super) space_version: VersionFilter,
+    pub(super) version: VersionFilter,
     pub(super) _phantom: std::marker::PhantomData<T>,
 }
 
@@ -22,13 +22,13 @@ impl<T> FindOneToQuery<T> {
         neo4j: &neo4rs::Graph,
         id: String,
         space_id: String,
-        space_version: Option<String>,
+        version: Option<String>,
     ) -> Self {
         Self {
             neo4j: neo4j.clone(),
             id,
             space_id,
-            space_version: VersionFilter::new(space_version),
+            version: VersionFilter::new(version),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -36,27 +36,22 @@ impl<T> FindOneToQuery<T> {
 
 impl Query<Option<EntityNode>> for FindOneToQuery<EntityNode> {
     async fn send(self) -> Result<Option<EntityNode>, DatabaseError> {
-        let neo4j = self.neo4j.clone();
-
-        let query = QueryPart::default()
-            .match_clause(
-                "(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)",
+        let query = QueryBuilder::default()
+            .subquery(
+                MatchQuery::new("(from:Entity) -[r:RELATION {id: $id, space_id: $space_id}]-> (to:Entity)")
+                    .r#where(self.version.subquery("r"))
+                    .params("id", self.id)
+                    .params("space_id", self.space_id)
             )
-            .merge(self.space_version.compile("r"))
-            .return_clause("to")
-            .limit(1)
-            .order_by_clause("r.index")
-            .params("id", self.id)
-            .params("space_id", self.space_id)
-            .build();
+            .r#return("to");
 
         #[derive(Debug, serde::Deserialize)]
         struct RowResult {
             to: EntityNode,
         }
 
-        neo4j
-            .execute(query)
+        self.neo4j
+            .execute(query.build())
             .await?
             .next()
             .await?
@@ -71,10 +66,10 @@ impl Query<Option<EntityNode>> for FindOneToQuery<EntityNode> {
 impl<T: FromAttributes> Query<Option<Entity<T>>> for FindOneToQuery<Entity<T>> {
     async fn send(self) -> Result<Option<Entity<T>>, DatabaseError> {
         let match_relation =
-            MatchOneRelation::new(self.id.clone(), self.space_id.clone(), &self.space_version);
+            MatchOneRelation::new(self.id.clone(), self.space_id.clone(), &self.version);
 
         let space_filter = Some(prop_filter::value(self.space_id.clone()));
-        let match_entity = MatchEntity::new(&space_filter, &self.space_version);
+        let match_entity = MatchEntity::new(&space_filter, &self.version);
 
         let query = match_relation.chain(
             "from",
@@ -84,7 +79,7 @@ impl<T: FromAttributes> Query<Option<Entity<T>>> for FindOneToQuery<Entity<T>> {
                 "to",
                 "attrs",
                 "types",
-                query_part::return_query("to{.*, attrs: attrs, types: types}"),
+                "RETURN to{.*, attrs: attrs, types: types}",
             ),
         );
 

@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 use crate::{error::DatabaseError, indexer_ids};
 
-use super::{query_utils::QueryPart, PropFilter, Query};
+use super::{query_utils::query_builder::{MatchQuery, QueryBuilder, Subquery}, PropFilter, Query};
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct EntityVersion {
@@ -47,28 +47,33 @@ impl Query<Vec<EntityVersion>> for FindManyQuery {
         //     MATCH (e:Entity) -[:ATTRIBUTE]-> ({id: $EDIT_INDEX_ATTR, value: version})
         //     RETURN {entity_id: $id, id: e.id, index: version}
         // "#;
-        let mut query = QueryPart::default()
-            .match_clause("(:Entity {id: $id}) -[r:ATTRIBUTE]-> (:Attribute)")
-            .with_clause(
-                "COLLECT(DISTINCT r.min_version) AS versions",
-                QueryPart::default()
-                    .unwind_clause("versions AS version")
-                    .match_clause(
+        let query = QueryBuilder::default()
+            .subquery(
+                MatchQuery::new("(:Entity {id: $id}) -[r:ATTRIBUTE]-> (:Attribute)")
+                    .where_opt(self.space_id.as_ref().map(|s| s.subquery("r", "space_id", None))),
+            )
+            .with(
+                vec!["COLLECT(DISTINCT r.min_version) AS versions".to_string()],
+                QueryBuilder::default()
+                    .subquery("versions AS version")
+                    .subquery(MatchQuery::new(
                         "(e:Entity) -[:ATTRIBUTE]-> ({id: $EDIT_INDEX_ATTR, value: version})",
-                    )
-                    .return_clause("{entity_id: $id, id: e.id, index: version}"),
+                    ))
+                    .subquery("RETURN {entity_id: $id, id: e.id, index: version}"),
             )
             .params("id", self.entity_id.clone())
             .params("EDIT_INDEX_ATTR", indexer_ids::EDIT_INDEX_ATTRIBUTE);
 
-        if let Some(space_id) = self.space_id {
-            query.merge_mut(space_id.compile("r", "space_id", None))
+        if cfg!(debug_assertions) || cfg!(test) {
+            println!(
+                "entity_version::FindManyQuery::<EntityVersion>:\n{}\nparams:{:?}",
+                query.compile(),
+                query.params
+            );
         }
 
-        let query = query.build();
-
         self.neo4j
-            .execute(query)
+            .execute(query.build())
             .await?
             .into_stream_as::<EntityVersion>()
             .map_err(DatabaseError::from)

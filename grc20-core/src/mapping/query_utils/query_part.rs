@@ -7,6 +7,7 @@ pub struct QueryPart {
 
     /// Match clauses, e.g.: "(n {id: "123"})", "(n:Foo)", "(n)-[:REL]->(m)"
     pub(crate) match_clauses: Vec<String>,
+    pub(crate) optional_match_clauses: Vec<String>,
 
     /// Where clauses, e.g.: "n.foo = $foo", "n.bar IN $bar"
     pub(crate) where_clauses: Vec<String>,
@@ -31,6 +32,13 @@ pub struct QueryPart {
 pub fn match_query(query: impl Into<String>) -> QueryPart {
     QueryPart {
         match_clauses: vec![query.into()],
+        ..Default::default()
+    }
+}
+
+pub fn optional_match_query(query: impl Into<String>) -> QueryPart {
+    QueryPart {
+        optional_match_clauses: vec![query.into()],
         ..Default::default()
     }
 }
@@ -65,6 +73,11 @@ impl QueryPart {
     // Builder methods
     pub fn match_clause(mut self, clause: impl Into<String>) -> Self {
         self.match_clauses.push(clause.into());
+        self
+    }
+
+    pub fn optional_match_clause(mut self, clause: impl Into<String>) -> Self {
+        self.optional_match_clauses.push(clause.into());
         self
     }
 
@@ -140,6 +153,8 @@ impl QueryPart {
 
     pub fn merge_mut(&mut self, other: QueryPart) {
         self.match_clauses.extend(other.match_clauses);
+        self.optional_match_clauses
+            .extend(other.optional_match_clauses);
         self.where_clauses.extend(other.where_clauses);
         self.return_clauses.extend(other.return_clauses);
         if self.with_clauses.is_none() {
@@ -176,6 +191,10 @@ impl QueryPart {
 
         self.match_clauses.iter().for_each(|clause| {
             query.push_str(&format!("MATCH {clause}\n"));
+        });
+
+        self.optional_match_clauses.iter().for_each(|clause| {
+            query.push_str(&format!("OPTIONAL MATCH {clause}\n"));
         });
 
         if !self.where_clauses.is_empty() {

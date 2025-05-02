@@ -1,8 +1,10 @@
+pub mod aggregation;
 pub mod attribute_node;
 pub mod attributes;
 pub mod entity;
 pub mod entity_version;
 pub mod error;
+pub mod pluralism;
 pub mod query_utils;
 pub mod relation;
 pub mod triple;
@@ -10,10 +12,16 @@ pub mod value;
 
 pub use attribute_node::AttributeNode;
 pub use attributes::{Attributes, FromAttributes, IntoAttributes};
+pub use aggregation::AggregationDirection;
 pub use entity::{Entity, EntityFilter, EntityNode, EntityNodeRef, EntityRelationFilter};
 pub use entity_version::EntityVersion;
 pub use error::TriplesConversionError;
-pub use query_utils::{order_by, prop_filter, AttributeFilter, PropFilter, Query, QueryStream};
+pub use pluralism::Pluralism;
+pub use query_utils::{
+    order_by, prop_filter, PropFilter,
+    query_builder::{MatchQuery, QueryBuilder, Subquery, WhereClause},
+    AttributeFilter, Query, QueryStream,
+};
 pub use relation::{Relation, RelationEdge};
 pub use triple::Triple;
 pub use value::{Options, Value, ValueType};

@@ -66,7 +66,7 @@ async fn test_handle_subspace_added() {
         .expect("Failed to collect parent spaces");
 
     assert_eq!(parent_spaces.len(), 1);
-    assert_eq!(parent_spaces[0].0, parent_space_id);
+    assert_eq!(parent_spaces[0].space_id, parent_space_id);
 
     // Also verify using subspaces query
     let subspaces = space::subspaces(&neo4j, &parent_space_id)
@@ -78,7 +78,7 @@ async fn test_handle_subspace_added() {
         .expect("Failed to collect subspaces");
 
     assert_eq!(subspaces.len(), 1);
-    assert_eq!(subspaces[0].0, subspace_id);
+    assert_eq!(subspaces[0].space_id, subspace_id);
 }
 
 #[test_log::test(tokio::test)]

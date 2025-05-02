@@ -48,7 +48,7 @@ impl Query<Option<EntityNode>> for FindSpaceTypeQuery {
                     .max_depth(None)
                     .send()
                     .await?
-                    .map_ok(|(space, _)| space)
+                    .map_ok(|ranking| ranking.space_id)
                     .try_collect()
                     .await?;
 
@@ -129,7 +129,7 @@ impl QueryStream<EntityNode> for FindSpaceTypesQuery {
                     .max_depth(None)
                     .send()
                     .await?
-                    .map_ok(|(space, _)| space)
+                    .map_ok(|ranking| ranking.space_id)
                     .try_collect()
                     .await?;
 

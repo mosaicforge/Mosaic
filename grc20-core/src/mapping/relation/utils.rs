@@ -1,5 +1,5 @@
 use crate::mapping::{
-    query_utils::{QueryPart, VersionFilter},
+    query_utils::{query_builder::{MatchQuery, QueryBuilder, Subquery}, VersionFilter},
     EntityFilter, PropFilter,
 };
 
@@ -32,17 +32,16 @@ impl RelationFilter {
         self
     }
 
-    pub fn compile(&self, edge_var: &str, from: &str, to: &str) -> QueryPart {
-        QueryPart::default()
-            .match_clause(format!("(rt:Entity {{id: {edge_var}.relation_type}})"))
-            .merge_opt(self.id.as_ref().map(|id| id.compile(edge_var, "id", None)))
-            .merge_opt(self.relation_type.as_ref().map(|rt| rt.compile("rt")))
-            .merge_opt(
+    pub fn subquery(&self, edge_var: &str, from: &str, to: &str) -> QueryBuilder {
+        QueryBuilder::default()
+            .subquery_opt(
                 self.from_
-                    .as_ref()
-                    .map(|from_filter| from_filter.compile(from)),
+                .as_ref()
+                .map(|from_filter| from_filter.subquery(from)),
             )
-            .merge_opt(self.to_.as_ref().map(|to_filter| to_filter.compile(to)))
+            .subquery_opt(self.to_.as_ref().map(|to_filter| to_filter.subquery(to)))
+            .subquery(MatchQuery::new(format!("(rt:Entity {{id: {edge_var}.relation_type}})")))
+            .subquery_opt(self.relation_type.as_ref().map(|rt| rt.subquery("rt")))
     }
 }
 
@@ -66,21 +65,21 @@ impl<'a> MatchOneRelation<'a> {
         from_node_var: impl Into<String>,
         to_node_var: impl Into<String>,
         edge_var: impl Into<String>,
-        next: QueryPart,
-    ) -> QueryPart {
+        next: impl Subquery,
+    ) -> QueryBuilder {
         let from_node_var = from_node_var.into();
         let to_node_var = to_node_var.into();
         let edge_var = edge_var.into();
 
-        QueryPart::default()
-            .match_clause(format!(
-                "({from_node_var}:Entity)-[{edge_var}:RELATION {{id: $id, space_id: $space_id}}]->({to_node_var}:Entity)",
-            ))
-            .merge(self.space_version.compile(&edge_var))
+        QueryBuilder::default()
+            .subquery(
+                MatchQuery::new(format!("({from_node_var}:Entity)-[{edge_var}:RELATION {{id: $id, space_id: $space_id}}]->({to_node_var}:Entity)"))
+                    .r#where(self.space_version.subquery(&edge_var))
+            )
             .limit(1)
-            .order_by_clause(format!("{edge_var}.index"))
-            .with_clause(format!("{from_node_var}, {edge_var}, {to_node_var}"), next)
+            .subquery(format!("ORDER BY {edge_var}.index"))
             .params("id", self.id)
             .params("space_id", self.space_id)
+            .with(vec![from_node_var, edge_var, to_node_var], next)
     }
 }
