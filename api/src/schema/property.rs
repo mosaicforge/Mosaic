@@ -156,7 +156,6 @@ impl Property {
         //     .limit(1)
         //     .send()
         //     .await?;
-        tracing::info!("Fetching value type for property {}", self.entity.id());
 
         let value_type = property::get_outbound_relations::<RelationEdge<EntityNode>>(
             &executor.context().neo4j,
