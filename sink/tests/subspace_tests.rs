@@ -1,4 +1,4 @@
-use futures::TryStreamExt;
+use futures::{StreamExt, TryStreamExt};
 use grc20_core::{mapping::QueryStream, pb::geo};
 use grc20_sdk::models::space;
 
@@ -61,6 +61,7 @@ async fn test_handle_subspace_added() {
         .send()
         .await
         .unwrap()
+        .skip(1)
         .try_collect::<Vec<_>>()
         .await
         .expect("Failed to collect parent spaces");
@@ -73,6 +74,7 @@ async fn test_handle_subspace_added() {
         .send()
         .await
         .unwrap()
+        .skip(1)
         .try_collect::<Vec<_>>()
         .await
         .expect("Failed to collect subspaces");
@@ -137,6 +139,7 @@ async fn test_handle_subspace_removed() {
         .send()
         .await
         .unwrap()
+        .skip(1)
         .try_collect::<Vec<_>>()
         .await
         .expect("Failed to collect parent spaces");
@@ -162,6 +165,7 @@ async fn test_handle_subspace_removed() {
         .send()
         .await
         .unwrap()
+        .skip(1)
         .try_collect::<Vec<_>>()
         .await
         .expect("Failed to collect parent spaces");
@@ -173,6 +177,7 @@ async fn test_handle_subspace_removed() {
         .send()
         .await
         .unwrap()
+        .skip(1)
         .try_collect::<Vec<_>>()
         .await
         .expect("Failed to collect subspaces");

@@ -1,7 +1,6 @@
 pub mod ipfs_mock;
 pub mod neo4j;
 
-use chrono::Utc;
 use grc20_core::block::BlockMetadata;
 use grc20_core::neo4rs;
 use ipfs::IpfsClient;
@@ -15,10 +14,5 @@ pub fn create_handler(
 }
 
 pub fn create_block_metadata() -> BlockMetadata {
-    BlockMetadata {
-        cursor: "test-cursor".to_string(),
-        block_number: 12345,
-        timestamp: Utc::now(),
-        request_id: "test-request-id".to_string(),
-    }
+    BlockMetadata::default()
 }

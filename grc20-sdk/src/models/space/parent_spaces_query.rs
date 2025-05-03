@@ -56,7 +56,7 @@ impl<T> ParentSpacesQuery<T> {
     fn subquery(&self) -> QueryBuilder {
         QueryBuilder::default()
             .subquery(format!(
-                r#"MATCH (start:Entity {{id: $space_id}}) (() -[r:RELATION {{relation_type: "{}", space_id: "{}"}}]-> (s:Entity)){{,}}"#,
+                r#"MATCH (start:Entity {{id: $space_id}}) (() -[r:RELATION {{relation_type: "{}", space_id: "{}"}} WHERE r.max_version IS NULL]-> (s:Entity)){{,}}"#,
                 indexer_ids::PARENT_SPACE,
                 indexer_ids::INDEXER_SPACE_ID,
             ))
