@@ -1,11 +1,13 @@
 use futures::{stream, StreamExt, TryStreamExt};
 use grc20_core::{
     block::BlockMetadata,
+    entity::EntityNodeRef,
     error::DatabaseError,
     indexer_ids,
-    mapping::{self, query_utils::Query, relation_node, triple, Entity},
+    mapping::{self, query_utils::Query, triple, Entity, RelationEdge},
     network_ids,
     pb::{self, geo},
+    relation,
 };
 use grc20_sdk::models::{
     self,
@@ -46,17 +48,9 @@ impl EventHandler {
         stream::iter(edits)
             .enumerate()
             .map(Ok) // Need to wrap the proposal in a Result to use try_for_each
-            .try_for_each(|(idx, proposal)| async move {
-                tracing::info!(
-                    "Block #{} ({}): Processing {} ops for proposal {}",
-                    block.block_number,
-                    block.timestamp,
-                    proposal.ops.len(),
-                    proposal.proposal_id
-                );
-
-                self.process_edit(block, proposal, idx).await
-            })
+            .try_for_each(
+                |(idx, proposal)| async move { self.process_edit(block, proposal, idx).await },
+            )
             .await
             .map_err(|e| HandlerError::Other(format!("{e:?}").into()))?; // TODO: Convert anyhow::Error to HandlerError properly
 
@@ -153,7 +147,20 @@ impl EventHandler {
             .await?;
 
         // Group ops by type
+        let num_ops = edit.ops.len();
         let op_groups = OpGroups::from_ops(edit.ops);
+
+        tracing::info!(
+            "Block #{} ({}): Processing {} ops for proposal {}: {} set triples, {} delete triples, {} create relations, {} delete relations",
+            block.block_number,
+            block.timestamp,
+            num_ops,
+            edit.proposal_id,
+            op_groups.set_triples.len(),
+            op_groups.delete_triples.len(),
+            op_groups.create_relations.len(),
+            op_groups.delete_relations.len(),
+        );
 
         // Handle SET_TRIPLE ops
         triple::insert_many(&self.neo4j, block, &edit.space_id, &version_index)
@@ -178,18 +185,23 @@ impl EventHandler {
             .await?;
 
         // Handle CREATE_RELATION ops
-        relation_node::insert_many(&self.neo4j, block, &edit.space_id, &version_index)
-            .relations(
-                op_groups
-                    .create_relations
-                    .into_iter()
-                    .map(|relation| relation.into()),
-            )
-            .send()
-            .await?;
+        relation::insert_many::<RelationEdge<EntityNodeRef>>(
+            &self.neo4j,
+            block,
+            &edit.space_id,
+            &version_index,
+        )
+        .relations(
+            op_groups
+                .create_relations
+                .into_iter()
+                .map(|relation| relation.into()),
+        )
+        .send()
+        .await?;
 
         // Handle DELETE_RELATION ops
-        relation_node::delete_many(&self.neo4j, block, &edit.space_id, &version_index)
+        relation::delete_many(&self.neo4j, block, &edit.space_id, &version_index)
             .relations(
                 op_groups
                     .delete_relations

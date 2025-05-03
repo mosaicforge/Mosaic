@@ -1,10 +1,11 @@
 use futures::{Stream, StreamExt};
 
 use grc20_core::{
+    entity::{self, EntityNodeRef},
     error::DatabaseError,
     indexer_ids,
-    mapping::{entity, query_utils::QueryStream, relation_node, Entity, PropFilter, Query},
-    neo4rs,
+    mapping::{prop_filter, query_utils::QueryStream, Entity, PropFilter, Query, RelationEdge},
+    neo4rs, relation,
 };
 
 use crate::models::Account;
@@ -45,9 +46,15 @@ impl QueryStream<Entity<Account>> for SpaceEditorsQuery {
         self,
     ) -> Result<impl Stream<Item = Result<Entity<Account>, DatabaseError>>, DatabaseError> {
         // Find all editor relations for the space
-        let relations_stream = relation_node::find_many(&self.neo4j)
-            .relation_type(PropFilter::default().value(indexer_ids::EDITOR_RELATION))
-            .to_id(PropFilter::default().value(self.space_id.clone()))
+        let relations_stream = relation::find_many::<RelationEdge<EntityNodeRef>>(&self.neo4j)
+            .filter(
+                relation::RelationFilter::default()
+                    .to_(entity::EntityFilter::default().id(prop_filter::value(self.space_id)))
+                    .relation_type(
+                        entity::EntityFilter::default()
+                            .id(prop_filter::value(indexer_ids::EDITOR_RELATION)),
+                    ),
+            )
             .space_id(PropFilter::default().value(indexer_ids::INDEXER_SPACE_ID))
             .limit(self.limit)
             .send()
@@ -60,7 +67,8 @@ impl QueryStream<Entity<Account>> for SpaceEditorsQuery {
                 let neo4j = neo4j.clone();
                 async move {
                     let relation = relation_result?;
-                    entity::find_one(&neo4j, &relation.from, indexer_ids::INDEXER_SPACE_ID, None)
+                    entity::find_one::<Entity<Account>>(&neo4j, &relation.from)
+                        .space_id(indexer_ids::INDEXER_SPACE_ID)
                         .send()
                         .await?
                         .ok_or_else(|| {

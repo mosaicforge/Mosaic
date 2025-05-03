@@ -1,11 +1,13 @@
-use futures::{Stream, TryStreamExt};
+use futures::TryStreamExt;
 use grc20_core::{
-    entity::Entity,
+    entity::{self, Entity},
     error::DatabaseError,
     mapping::{
-        prop_filter, relation_node, triple, Query, QueryStream, TriplesConversionError, Value,
+        aggregation::{AggregationDirection, SpaceRanking},
+        entity::EntityNodeRef,
+        prop_filter, triple, QueryStream, RelationEdge,
     },
-    neo4rs, system_ids,
+    neo4rs, relation, system_ids,
 };
 
 use crate::models::space::ParentSpacesQuery;
@@ -38,7 +40,7 @@ pub async fn value_type(
     let property_id = property_id.into();
     let space_id = space_id.into();
 
-    let value_type_rel = get_outbound_relations(
+    let value_type_rel = get_outbound_relations::<RelationEdge<EntityNodeRef>>(
         neo4j,
         system_ids::VALUE_TYPE_ATTRIBUTE,
         &property_id,
@@ -48,6 +50,8 @@ pub async fn value_type(
         None,
         strict,
     )
+    .await?
+    .send()
     .await?
     .try_collect::<Vec<_>>()
     .await?;
@@ -71,7 +75,7 @@ pub async fn relation_value_type(
     let property_id = property_id.into();
     let space_id = space_id.into();
 
-    let value_type_rel = get_outbound_relations(
+    let value_type_rel = get_outbound_relations::<RelationEdge<EntityNodeRef>>(
         neo4j,
         system_ids::RELATION_VALUE_RELATIONSHIP_TYPE,
         &property_id,
@@ -82,6 +86,8 @@ pub async fn relation_value_type(
         strict,
     )
     .await?
+    .send()
+    .await?
     .try_collect::<Vec<_>>()
     .await?;
 
@@ -91,39 +97,6 @@ pub async fn relation_value_type(
             .await
     } else {
         Ok(None)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum AggregationDirection {
-    Up,
-    Down,
-    Bidirectional,
-}
-
-impl From<AggregationDirection> for Value {
-    fn from(direction: AggregationDirection) -> Self {
-        match direction {
-            AggregationDirection::Up => Value::text("Up"),
-            AggregationDirection::Down => Value::text("Down"),
-            AggregationDirection::Bidirectional => Value::text("Bidirectional"),
-        }
-    }
-}
-
-impl TryFrom<Value> for AggregationDirection {
-    type Error = TriplesConversionError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        match value.value.as_str() {
-            "Up" => Ok(AggregationDirection::Up),
-            "Down" => Ok(AggregationDirection::Down),
-            "Bidirectional" => Ok(AggregationDirection::Bidirectional),
-            _ => Err(TriplesConversionError::InvalidValue(format!(
-                "Invalid aggregation direction: {}",
-                value.value
-            ))),
-        }
     }
 }
 
@@ -152,7 +125,10 @@ async fn attribute_aggregation_direction(
     }
 
     // Get all spaces to query (just the given space if strict, or all parent spaces if not)
-    let mut spaces_to_query = vec![(space_id.to_string(), 0)];
+    let mut spaces_to_query = vec![SpaceRanking {
+        space_id: space_id.to_string(),
+        depth: 0,
+    }];
 
     let parent_spaces = ParentSpacesQuery::new(neo4j.clone(), space_id.to_string())
         .max_depth(None)
@@ -165,9 +141,9 @@ async fn attribute_aggregation_direction(
 
     // Note: This may not be necessary since the parent spaces are collected using DFS
     // (i.e. the parent spaces *should* be sorted by depth)
-    spaces_to_query.sort_by_key(|(_, depth)| *depth);
+    spaces_to_query.sort_by_key(|ranking| ranking.depth);
 
-    for (space_id, _) in spaces_to_query {
+    for SpaceRanking { space_id, .. } in spaces_to_query {
         let maybe_triple = triple::find_one(
             neo4j,
             system_ids::AGGREGATION_DIRECTION,
@@ -202,9 +178,9 @@ pub async fn get_triple(
 
     let mut spaces = spaces_for_property(neo4j, &property_id, &space_id, strict).await?;
 
-    spaces.sort_by_key(|(_, depth)| *depth);
+    spaces.sort_by_key(|ranking| ranking.depth);
 
-    for (space_id, _) in spaces {
+    for SpaceRanking { space_id, .. } in spaces {
         let maybe_triple = triple::find_one(
             neo4j,
             &property_id,
@@ -224,7 +200,7 @@ pub async fn get_triple(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn get_outbound_relations(
+pub async fn get_outbound_relations<T>(
     neo4j: &neo4rs::Graph,
     property_id: impl Into<String>,
     entity_id: impl Into<String>,
@@ -233,7 +209,7 @@ pub async fn get_outbound_relations(
     limit: Option<usize>,
     skip: Option<usize>,
     strict: bool,
-) -> Result<impl Stream<Item = Result<relation_node::RelationNode, DatabaseError>>, DatabaseError> {
+) -> Result<relation::FindManyQuery<T>, DatabaseError> {
     let neo4j = neo4j.clone();
     let space_id = space_id.into();
     let entity_id = entity_id.into();
@@ -242,7 +218,7 @@ pub async fn get_outbound_relations(
     let spaces = spaces_for_property(&neo4j, &property_id, &space_id, strict)
         .await?
         .into_iter()
-        .map(|(space_id, _)| space_id)
+        .map(|ranking| ranking.space_id)
         .collect::<Vec<_>>();
     // spaces.sort_by_key(|(_, depth)| *depth);
 
@@ -267,15 +243,18 @@ pub async fn get_outbound_relations(
     //     }
     // };
 
-    relation_node::FindManyQuery::new(&neo4j)
-        .from_id(prop_filter::value(entity_id.clone()))
+    Ok(relation::find_many::<T>(&neo4j)
+        .filter(
+            relation::RelationFilter::default()
+                .from_(entity::EntityFilter::default().id(prop_filter::value(&entity_id)))
+                .relation_type(
+                    entity::EntityFilter::default().id(prop_filter::value(&property_id)),
+                ),
+        )
         .space_id(prop_filter::value_in(spaces))
-        .relation_type(prop_filter::value(property_id.clone()))
         .version(space_version.clone())
         .limit(limit.unwrap_or(100))
-        .skip(skip.unwrap_or(0))
-        .send()
-        .await
+        .skip(skip.unwrap_or(0)))
 }
 
 /// Returns the spaces from which the property is inherited
@@ -284,11 +263,14 @@ async fn spaces_for_property(
     property_id: impl Into<String>,
     space_id: impl Into<String>,
     strict: bool,
-) -> Result<Vec<(String, usize)>, DatabaseError> {
+) -> Result<Vec<SpaceRanking>, DatabaseError> {
     let space_id = space_id.into();
     let property_id = property_id.into();
 
-    let mut spaces = vec![(space_id.clone(), 0)];
+    let mut spaces = vec![SpaceRanking {
+        space_id: space_id.clone(),
+        depth: 0,
+    }];
 
     if strict {
         return Ok(spaces);

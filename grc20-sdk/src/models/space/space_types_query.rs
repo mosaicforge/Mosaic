@@ -1,9 +1,10 @@
 use futures::{Stream, TryStreamExt};
 
 use grc20_core::{
+    entity,
     error::DatabaseError,
     mapping::{
-        entity_node, prop_filter,
+        prop_filter,
         query_utils::{QueryStream, TypesFilter},
         EntityFilter, EntityNode, PropFilter, Query,
     },
@@ -47,7 +48,7 @@ impl Query<Option<EntityNode>> for FindSpaceTypeQuery {
                     .max_depth(None)
                     .send()
                     .await?
-                    .map_ok(|(space, _)| space)
+                    .map_ok(|ranking| ranking.space_id)
                     .try_collect()
                     .await?;
 
@@ -55,7 +56,7 @@ impl Query<Option<EntityNode>> for FindSpaceTypeQuery {
         }
 
         // Find all entities that have a TYPES relation to the Type entity
-        let mut results = entity_node::find_many(&self.neo4j)
+        let mut results = entity::find_many::<EntityNode>(&self.neo4j)
             .with_filter(
                 EntityFilter::default()
                     .id(prop_filter::value(self.id.clone()))
@@ -128,7 +129,7 @@ impl QueryStream<EntityNode> for FindSpaceTypesQuery {
                     .max_depth(None)
                     .send()
                     .await?
-                    .map_ok(|(space, _)| space)
+                    .map_ok(|ranking| ranking.space_id)
                     .try_collect()
                     .await?;
 
@@ -136,7 +137,7 @@ impl QueryStream<EntityNode> for FindSpaceTypesQuery {
         }
 
         // Find all entities that have a TYPES relation to the Type entity
-        let mut query = entity_node::find_many(&self.neo4j)
+        let mut query = entity::find_many::<EntityNode>(&self.neo4j)
             .with_filter(
                 EntityFilter::default()
                     .relations(TypesFilter::default().r#type(system_ids::SCHEMA_TYPE))

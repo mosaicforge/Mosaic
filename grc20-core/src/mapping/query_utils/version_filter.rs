@@ -1,4 +1,4 @@
-use super::query_part::QueryPart;
+use super::query_builder::WhereClause;
 
 #[derive(Debug, Default, Clone)]
 pub struct VersionFilter {
@@ -19,16 +19,18 @@ impl VersionFilter {
         self.version = Some(version);
     }
 
-    pub fn into_query_part(self, var: &str) -> QueryPart {
-        let query_part = QueryPart::default();
+    pub fn version_opt(&mut self, version: Option<String>) {
+        self.version = version;
+    }
 
-        let param_key = format!("{}_version", var);
+    pub fn subquery(&self, var: &str) -> WhereClause {
+        if let Some(version) = &self.version {
+            let param_key = format!("{}_version", var);
 
-        if let Some(version) = self.version {
-            query_part.where_clause(format!("{var}.min_version <= ${param_key} AND ({var}.max_version IS NULL OR {var}.max_version > ${param_key})"))
-                .params(param_key, version)
+            WhereClause::new(format!("{var}.min_version <= ${param_key} AND ({var}.max_version IS NULL OR {var}.max_version > ${param_key})"))
+                .params(param_key, version.clone())
         } else {
-            query_part.where_clause(format!("{var}.max_version IS NULL"))
+            WhereClause::new(format!("{var}.max_version IS NULL"))
         }
     }
 }

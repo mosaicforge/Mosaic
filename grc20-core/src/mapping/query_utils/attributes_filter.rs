@@ -1,4 +1,4 @@
-use super::{prop_filter::PropFilter, query_part::QueryPart, version_filter::VersionFilter};
+use super::{prop_filter::PropFilter, query_builder::MatchQuery, version_filter::VersionFilter};
 
 #[derive(Clone, Debug)]
 pub struct AttributeFilter {
@@ -6,7 +6,7 @@ pub struct AttributeFilter {
     space_id: Option<PropFilter<String>>,
     value: Option<PropFilter<String>>,
     value_type: Option<PropFilter<String>>,
-    space_version: VersionFilter,
+    version: VersionFilter,
 }
 
 impl AttributeFilter {
@@ -16,7 +16,7 @@ impl AttributeFilter {
             space_id: None,
             value: None,
             value_type: None,
-            space_version: VersionFilter::default(),
+            version: VersionFilter::default(),
         }
     }
 
@@ -40,32 +40,38 @@ impl AttributeFilter {
         self
     }
 
-    pub fn space_version(mut self, space_version: impl Into<String>) -> Self {
-        self.space_version.version_mut(space_version.into());
+    pub fn version(mut self, space_version: impl Into<String>) -> Self {
+        self.version.version_mut(space_version.into());
         self
     }
 
-    pub fn into_query_part(self, node_var: &str) -> QueryPart {
+    pub fn version_opt(mut self, space_version: Option<String>) -> Self {
+        self.version.version_opt(space_version);
+        self
+    }
+
+    pub fn version_mut(&mut self, space_version: impl Into<String>) -> &mut Self {
+        self.version.version_mut(space_version.into());
+        self
+    }
+
+    pub fn subquery(&self, node_var: &str) -> MatchQuery {
         let attr_rel_var = format!("r_{node_var}_{}", self.attribute);
         let attr_node_var = format!("{node_var}_{}", self.attribute);
 
-        let mut query_part = QueryPart::default()
-            .match_clause(format!("({node_var}) -[{attr_rel_var}:ATTRIBUTE]-> ({attr_node_var}:Attribute {{id: $attribute}})"))
-            .params("attribute", self.attribute)
-            .merge(self.space_version.into_query_part(&attr_rel_var));
-
-        if let Some(space_id) = self.space_id {
-            query_part.merge_mut(space_id.into_query_part(&attr_rel_var, "space_id"));
-        }
-
-        if let Some(value) = self.value {
-            query_part.merge_mut(value.into_query_part(&attr_node_var, "value"));
-        }
-
-        if let Some(value_type) = self.value_type {
-            query_part.merge_mut(value_type.into_query_part(&attr_node_var, "value_type"));
-        }
-
-        query_part
+        MatchQuery::new(
+            format!("({node_var}) -[{attr_rel_var}:ATTRIBUTE]-> ({attr_node_var}:Attribute {{id: $attribute}})")
+        )
+            .r#where(self.version.subquery(&attr_rel_var))
+            .where_opt(
+                self.space_id.as_ref().map(|space_id| space_id.subquery(&attr_rel_var, "space_id", None))
+            )
+            .where_opt(
+                self.value.as_ref().map(|value| value.subquery(&attr_node_var, "value", None))
+            )
+            .where_opt(
+                self.value_type.as_ref().map(|value_type| value_type.subquery(&attr_node_var, "value_type", None))
+            )
+            .params("attribute", self.attribute.clone())
     }
 }

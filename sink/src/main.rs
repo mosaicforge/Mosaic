@@ -83,7 +83,7 @@ async fn main() -> Result<(), Error> {
         end_block
             .parse()
             .unwrap_or_else(|_| panic!("Invalid end block: {}! Must be integer", end_block)),
-        Some(32),
+        Some(64),
     )
     .await?;
 
@@ -151,6 +151,9 @@ pub async fn reset_db(neo4j: &neo4rs::Graph) -> anyhow::Result<()> {
     neo4j
         .run(neo4rs::query("DROP INDEX relation_id_index IF EXISTS"))
         .await?;
+    neo4j
+        .run(neo4rs::query("DROP INDEX relation_type_index IF EXISTS"))
+        .await?;
 
     // Create indexes
     neo4j
@@ -160,7 +163,12 @@ pub async fn reset_db(neo4j: &neo4rs::Graph) -> anyhow::Result<()> {
         .await?;
     neo4j
         .run(neo4rs::query(
-            "CREATE INDEX relation_id_index FOR (r:Relation) ON (r.id)",
+            "CREATE INDEX relation_id_index FOR () -[r:RELATION]-> () ON (r.id)",
+        ))
+        .await?;
+    neo4j
+        .run(neo4rs::query(
+            "CREATE INDEX relation_type_index FOR () -[r:RELATION]-> () ON (r.relation_type)",
         ))
         .await?;
 

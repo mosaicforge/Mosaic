@@ -1,6 +1,6 @@
 use grc20_core::{
     ids, indexer_ids,
-    mapping::{Entity, Relation},
+    mapping::{entity::EntityNodeRef, Entity, Relation},
     system_ids,
 };
 
@@ -44,7 +44,10 @@ impl Edits {
         ids::create_id_from_unique_string(format!("{}:{}", space_id, edit_id))
     }
 
-    pub fn new(space_id: impl Into<String>, edit_id: impl Into<String>) -> Relation<Self> {
+    pub fn new(
+        space_id: impl Into<String>,
+        edit_id: impl Into<String>,
+    ) -> Relation<Self, EntityNodeRef> {
         let space_id = space_id.into();
         let edit_id = edit_id.into();
 
@@ -70,7 +73,10 @@ impl ProposedEdit {
         ids::create_id_from_unique_string(format!("{}:{}", proposal_id, edit_id))
     }
 
-    pub fn new(proposal_id: impl Into<String>, edit_id: impl Into<String>) -> Relation<Self> {
+    pub fn new(
+        proposal_id: impl Into<String>,
+        edit_id: impl Into<String>,
+    ) -> Relation<Self, EntityNodeRef> {
         let proposal_id = proposal_id.into();
         let edit_id = edit_id.into();
 

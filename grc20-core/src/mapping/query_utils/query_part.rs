@@ -7,6 +7,7 @@ pub struct QueryPart {
 
     /// Match clauses, e.g.: "(n {id: "123"})", "(n:Foo)", "(n)-[:REL]->(m)"
     pub(crate) match_clauses: Vec<String>,
+    pub(crate) optional_match_clauses: Vec<String>,
 
     /// Where clauses, e.g.: "n.foo = $foo", "n.bar IN $bar"
     pub(crate) where_clauses: Vec<String>,
@@ -31,6 +32,13 @@ pub struct QueryPart {
 pub fn match_query(query: impl Into<String>) -> QueryPart {
     QueryPart {
         match_clauses: vec![query.into()],
+        ..Default::default()
+    }
+}
+
+pub fn optional_match_query(query: impl Into<String>) -> QueryPart {
+    QueryPart {
+        optional_match_clauses: vec![query.into()],
         ..Default::default()
     }
 }
@@ -68,6 +76,11 @@ impl QueryPart {
         self
     }
 
+    pub fn optional_match_clause(mut self, clause: impl Into<String>) -> Self {
+        self.optional_match_clauses.push(clause.into());
+        self
+    }
+
     pub fn where_clause(mut self, clause: impl Into<String>) -> Self {
         self.where_clauses.push(clause.into());
         self
@@ -83,6 +96,7 @@ impl QueryPart {
     }
 
     pub fn with_clause(mut self, clause: impl Into<String>, other: QueryPart) -> Self {
+        self.params.extend(other.params.clone());
         self.with_clauses = Some((clause.into(), Box::new(other)));
         self
     }
@@ -106,8 +120,26 @@ impl QueryPart {
         self
     }
 
+    pub fn limit_mut(&mut self, limit: usize) {
+        self.limit = Some(limit);
+    }
+
+    pub fn limit_opt(mut self, limit: Option<usize>) -> Self {
+        self.limit = limit;
+        self
+    }
+
     pub fn skip(mut self, skip: usize) -> Self {
         self.skip = Some(skip);
+        self
+    }
+
+    pub fn skip_mut(&mut self, skip: usize) {
+        self.skip = Some(skip);
+    }
+
+    pub fn skip_opt(mut self, skip: Option<usize>) -> Self {
+        self.skip = skip;
         self
     }
 
@@ -121,6 +153,8 @@ impl QueryPart {
 
     pub fn merge_mut(&mut self, other: QueryPart) {
         self.match_clauses.extend(other.match_clauses);
+        self.optional_match_clauses
+            .extend(other.optional_match_clauses);
         self.where_clauses.extend(other.where_clauses);
         self.return_clauses.extend(other.return_clauses);
         if self.with_clauses.is_none() {
@@ -130,8 +164,15 @@ impl QueryPart {
         self.params.extend(other.params);
     }
 
-    pub fn merge(mut self, other: QueryPart) -> Self {
-        self.merge_mut(other);
+    pub fn merge(mut self, other: impl Into<QueryPart>) -> Self {
+        self.merge_mut(other.into());
+        self
+    }
+
+    pub fn merge_opt(mut self, other: Option<impl Into<QueryPart>>) -> Self {
+        if let Some(other) = other {
+            self.merge_mut(other.into());
+        }
         self
     }
 
@@ -150,6 +191,10 @@ impl QueryPart {
 
         self.match_clauses.iter().for_each(|clause| {
             query.push_str(&format!("MATCH {clause}\n"));
+        });
+
+        self.optional_match_clauses.iter().for_each(|clause| {
+            query.push_str(&format!("OPTIONAL MATCH {clause}\n"));
         });
 
         if !self.where_clauses.is_empty() {

@@ -1,25 +1,29 @@
-use std::collections::HashSet;
-
-use async_stream::stream;
-use futures::{pin_mut, Stream, StreamExt};
+use futures::{Stream, TryStreamExt};
 
 use grc20_core::{
     error::DatabaseError,
     indexer_ids,
-    mapping::{query_utils::QueryStream, relation_node, PropFilter},
+    mapping::{
+        aggregation::SpaceRanking,
+        query_utils::{
+            query_builder::{QueryBuilder, Subquery},
+            QueryStream,
+        },
+    },
     neo4rs,
 };
 
 /// Query to find all subspaces of a given space
-pub struct SubspacesQuery {
+pub struct SubspacesQuery<T> {
     neo4j: neo4rs::Graph,
     space_id: String,
     limit: usize,
     skip: Option<usize>,
     max_depth: Option<usize>,
+    _marker: std::marker::PhantomData<T>,
 }
 
-impl SubspacesQuery {
+impl<T> SubspacesQuery<T> {
     pub(crate) fn new(neo4j: neo4rs::Graph, space_id: String) -> Self {
         Self {
             neo4j,
@@ -27,6 +31,7 @@ impl SubspacesQuery {
             limit: 100,
             skip: None,
             max_depth: Some(1),
+            _marker: std::marker::PhantomData,
         }
     }
 
@@ -46,6 +51,21 @@ impl SubspacesQuery {
     pub fn max_depth(mut self, max_depth: Option<usize>) -> Self {
         self.max_depth = max_depth;
         self
+    }
+
+    fn subquery(&self) -> QueryBuilder {
+        QueryBuilder::default()
+            .subquery(format!(
+                r#"MATCH (start:Entity {{id: $space_id}}) (() <-[r:RELATION {{relation_type: "{}", space_id: "{}"}} WHERE r.max_version IS NULL]- (s:Entity)){{,}}"#,
+                indexer_ids::PARENT_SPACE,
+                indexer_ids::INDEXER_SPACE_ID,
+            ))
+            .subquery("WHERE size(s) = size(COLLECT { WITH s UNWIND s AS _ RETURN DISTINCT _ })")
+            .subquery_opt(self.max_depth.map(|depth| format!("AND size(s) <= {}", depth)))
+            .subquery("WITH {space_id: LAST([start] + s).id, depth: SIZE(s)} AS subspaces")
+            .limit(self.limit)
+            .skip_opt(self.skip)
+            .params("space_id", self.space_id.clone())
     }
 }
 
@@ -86,73 +106,18 @@ impl SubspacesQuery {
 //     }
 // }
 
-impl QueryStream<(String, usize)> for SubspacesQuery {
+impl QueryStream<SpaceRanking> for SubspacesQuery<SpaceRanking> {
     async fn send(
         self,
-    ) -> Result<impl Stream<Item = Result<(String, usize), DatabaseError>>, DatabaseError> {
-        let mut visited = HashSet::new();
-        let mut queue = vec![(self.space_id.clone(), 0)]; // (space_id, depth)
+    ) -> Result<impl Stream<Item = Result<SpaceRanking, DatabaseError>>, DatabaseError> {
+        let query = self.subquery().r#return("subspaces");
 
-        // Add initial space to visited set
-        visited.insert(self.space_id.to_string());
-
-        // Create and return the stream
-        let stream = stream! {
-            // Process queue until empty
-            while let Some((current_space, depth)) = queue.pop() {
-                // Check if we've reached max depth
-                if let Some(max_depth) = self.max_depth {
-                    if depth >= max_depth {
-                        continue;
-                    }
-                }
-
-                // Get immediate subspaces
-                let subspaces = immediate_subspaces(&self.neo4j, &current_space, self.limit).await?;
-                pin_mut!(subspaces);
-
-                // Process each subspace
-                while let Some(subspace_result) = subspaces.next().await {
-                    match subspace_result {
-                        Ok(subspace) => {
-                            // Skip if already visited (handles cycles)
-                            if !visited.insert(subspace.clone()) {
-                                continue;
-                            }
-
-                            // Yield the subspace ID
-                            yield Ok((subspace.clone(), depth));
-
-                            // Add to queue for further processing
-                            queue.push((subspace, depth + 1));
-                        },
-                        Err(e) => yield Err(e),
-                    }
-                }
-            }
-        };
-
-        Ok(stream.skip(self.skip.unwrap_or(0)).take(self.limit))
+        Ok(self
+            .neo4j
+            .execute(query.build())
+            .await?
+            .into_stream_as::<SpaceRanking>()
+            .map_err(DatabaseError::from)
+            .and_then(|row| async move { Ok(row) }))
     }
-}
-
-async fn immediate_subspaces(
-    neo4j: &neo4rs::Graph,
-    space_id: &str,
-    limit: usize,
-) -> Result<impl Stream<Item = Result<String, DatabaseError>>, DatabaseError> {
-    // Find all parent space relations where this space is the parent
-    let relations_stream = relation_node::find_many(neo4j)
-        .relation_type(PropFilter::default().value(indexer_ids::PARENT_SPACE))
-        .to_id(PropFilter::default().value(space_id))
-        .space_id(PropFilter::default().value(indexer_ids::INDEXER_SPACE_ID))
-        .limit(limit)
-        .send()
-        .await?;
-
-    // Convert the stream of relations to a stream of spaces
-    let space_stream =
-        relations_stream.map(move |relation_result| relation_result.map(|relation| relation.from));
-
-    Ok(space_stream)
 }

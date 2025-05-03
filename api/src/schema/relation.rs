@@ -1,7 +1,7 @@
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use grc20_core::{
-    mapping::{query_utils::Query, relation_node, RelationNode},
+    mapping::{query_utils::Query, relation, EntityNode, RelationEdge},
     neo4rs,
 };
 
@@ -11,7 +11,7 @@ use super::Entity;
 
 #[derive(Debug)]
 pub struct Relation {
-    node: RelationNode,
+    node: RelationEdge<EntityNode>,
     space_id: String,
     space_version: Option<String>,
     strict: bool,
@@ -19,7 +19,7 @@ pub struct Relation {
 
 impl Relation {
     pub fn new(
-        node: RelationNode,
+        node: RelationEdge<EntityNode>,
         space_id: String,
         space_version: Option<String>,
         strict: bool,
@@ -42,12 +42,15 @@ impl Relation {
         let id = id.into();
         let space_id = space_id.into();
 
-        Ok(
-            relation_node::find_one(neo4j, id, space_id.clone(), space_version.clone())
-                .send()
-                .await?
-                .map(|node| Relation::new(node, space_id, space_version, strict)),
+        Ok(relation::find_one::<RelationEdge<EntityNode>>(
+            neo4j,
+            id,
+            space_id.clone(),
+            space_version.clone(),
         )
+        .send()
+        .await?
+        .map(|node| Relation::new(node, space_id, space_version, strict)))
     }
 }
 
@@ -93,34 +96,22 @@ impl Relation {
     }
 
     /// Entity from which the relation originates
-    async fn from<'a, S: ScalarValue>(
-        &'a self,
-        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-    ) -> FieldResult<Entity> {
-        Ok(Entity::load(
-            &executor.context().neo4j,
-            &self.node.from,
+    async fn from(&self) -> FieldResult<Entity> {
+        Ok(Entity::new(
+            self.node.from.clone(),
             self.space_id.clone(),
             self.space_version.clone(),
             self.strict,
-        )
-        .await?
-        .expect("Relation from entity not found"))
+        ))
     }
 
     /// Entity to which the relation points
-    async fn to<'a, S: ScalarValue>(
-        &'a self,
-        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
-    ) -> FieldResult<Entity> {
-        Ok(Entity::load(
-            &executor.context().neo4j,
-            &self.node.to,
+    async fn to(&self) -> FieldResult<Entity> {
+        Ok(Entity::new(
+            self.node.to.clone(),
             self.space_id.clone(),
             self.space_version.clone(),
             self.strict,
-        )
-        .await?
-        .expect("Relation to entity not found"))
+        ))
     }
 }

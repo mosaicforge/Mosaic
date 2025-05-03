@@ -2,7 +2,7 @@
 
 use grc20_core::{
     ids, indexer_ids,
-    mapping::{self, Relation, TriplesConversionError},
+    mapping::{self, entity::EntityNodeRef, Relation, TriplesConversionError},
 };
 
 /// A vote cast by a user on a proposal.
@@ -22,7 +22,11 @@ impl VoteCast {
     }
 
     /// Creates a new vote cast with the given vote type.
-    pub fn new(account_id: &str, proposal_id: &str, vote_type: VoteType) -> Relation<Self> {
+    pub fn new(
+        account_id: &str,
+        proposal_id: &str,
+        vote_type: VoteType,
+    ) -> Relation<Self, EntityNodeRef> {
         Relation::new(
             Self::new_id(account_id, proposal_id),
             account_id,

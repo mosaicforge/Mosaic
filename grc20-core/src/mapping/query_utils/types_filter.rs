@@ -1,7 +1,5 @@
 use crate::{mapping::EntityRelationFilter, system_ids};
 
-use super::{prop_filter, EdgeFilter};
-
 #[derive(Clone, Debug, Default)]
 pub struct TypesFilter {
     types_contains: Vec<String>,
@@ -24,13 +22,13 @@ impl From<TypesFilter> for EntityRelationFilter {
         let mut filter = EntityRelationFilter::default();
 
         if !types_filter.types_contains.is_empty() {
-            filter = filter.relation_type(
-                EdgeFilter::default().to_id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)),
-            );
+            filter = filter.relation_type(system_ids::TYPES_ATTRIBUTE);
 
-            filter = filter.to_id(
-                EdgeFilter::default().to_id(prop_filter::value_in(types_filter.types_contains)),
-            );
+            if let [r#type] = &types_filter.types_contains[..] {
+                filter = filter.to_id(r#type.to_string());
+            } else {
+                filter = filter.to_id(types_filter.types_contains);
+            }
         }
 
         filter

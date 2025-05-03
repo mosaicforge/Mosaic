@@ -1,14 +1,14 @@
 use futures::TryStreamExt;
-use grc20_sdk::models::property;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
 use grc20_core::{
+    entity,
     mapping::{
-        entity_node,
+        aggregation::SpaceRanking,
         query_utils::{prop_filter, Query, QueryStream},
-        triple, EntityNode,
+        triple, EntityNode, Pluralism, RelationEdge,
     },
-    neo4rs, system_ids,
+    neo4rs, relation, system_ids,
 };
 
 use crate::{
@@ -24,6 +24,8 @@ pub struct Entity {
     pub space_id: String,
     pub space_version: Option<String>,
     pub strict: bool,
+    pub parent_spaces: Vec<SpaceRanking>,
+    pub subspaces: Vec<SpaceRanking>,
 }
 
 impl Entity {
@@ -38,6 +40,26 @@ impl Entity {
             space_id,
             space_version,
             strict,
+            parent_spaces: vec![],
+            subspaces: vec![],
+        }
+    }
+
+    pub fn with_hierarchy(
+        node: EntityNode,
+        space_id: String,
+        parent_spaces: Vec<SpaceRanking>,
+        subspaces: Vec<SpaceRanking>,
+        space_version: Option<String>,
+        strict: bool,
+    ) -> Self {
+        Self {
+            node,
+            space_id,
+            space_version,
+            strict,
+            parent_spaces,
+            subspaces,
         }
     }
 
@@ -51,7 +73,7 @@ impl Entity {
         let id = id.into();
         let space_id = space_id.into();
 
-        Ok(entity_node::find_one(neo4j, id)
+        Ok(entity::find_one::<EntityNode>(neo4j, id)
             .send()
             .await?
             .map(|node| Entity::new(node, space_id, space_version, strict)))
@@ -93,14 +115,19 @@ impl Entity {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Option<String>> {
-        Ok(property::get_triple(
+        Ok(triple::find_one(
             &executor.context().neo4j,
             system_ids::NAME_ATTRIBUTE,
             &self.node.id,
             &self.space_id,
             self.space_version.clone(),
-            self.strict,
         )
+        .pluralism(if self.strict {
+            Pluralism::None
+        } else {
+            Pluralism::Hierarchy(self.parent_spaces.clone())
+        })
+        .send()
         .await?
         .map(|triple| triple.value.value))
     }
@@ -110,14 +137,19 @@ impl Entity {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Option<String>> {
-        Ok(property::get_triple(
+        Ok(triple::find_one(
             &executor.context().neo4j,
             system_ids::DESCRIPTION_ATTRIBUTE,
             &self.node.id,
             &self.space_id,
             self.space_version.clone(),
-            self.strict,
         )
+        .pluralism(if self.strict {
+            Pluralism::None
+        } else {
+            Pluralism::Hierarchy(self.parent_spaces.clone())
+        })
+        .send()
         .await?
         .map(|triple| triple.value.value))
     }
@@ -127,14 +159,19 @@ impl Entity {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Option<String>> {
-        Ok(property::get_triple(
+        Ok(triple::find_one(
             &executor.context().neo4j,
             system_ids::COVER_ATTRIBUTE,
             &self.node.id,
             &self.space_id,
             self.space_version.clone(),
-            self.strict,
         )
+        .pluralism(if self.strict {
+            Pluralism::None
+        } else {
+            Pluralism::Hierarchy(self.parent_spaces.clone())
+        })
+        .send()
         .await?
         .map(|triple| triple.value.value))
     }
@@ -144,35 +181,32 @@ impl Entity {
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
     ) -> FieldResult<Vec<Entity>> {
-        let types_rel = self
+        let blocks_rel = self
             .node
-            .get_outbound_relations(
+            .get_outbound_relations::<RelationEdge<EntityNode>>(
                 &executor.context().neo4j,
                 &self.space_id,
                 self.space_version.clone(),
             )
-            .relation_type(prop_filter::value(system_ids::BLOCKS))
+            .filter(relation::RelationFilter::default().relation_type(
+                entity::EntityFilter::default().id(prop_filter::value(system_ids::BLOCKS)),
+            ))
             .send()
             .await?
             .try_collect::<Vec<_>>()
             .await?;
 
-        Ok(entity_node::find_many(&executor.context().neo4j)
-            .id(prop_filter::value_in(
-                types_rel.into_iter().map(|rel| rel.to).collect(),
-            ))
-            .send()
-            .await?
-            .map_ok(|node| {
+        Ok(blocks_rel
+            .into_iter()
+            .map(|rel| {
                 Entity::new(
-                    node,
+                    rel.to,
                     self.space_id.clone(),
                     self.space_version.clone(),
                     self.strict,
                 )
             })
-            .try_collect::<Vec<_>>()
-            .await?)
+            .collect::<Vec<_>>())
     }
 
     /// Types of the entity (which are entities themselves)
@@ -182,33 +216,30 @@ impl Entity {
     ) -> FieldResult<Vec<Entity>> {
         let types_rel = self
             .node
-            .get_outbound_relations(
+            .get_outbound_relations::<RelationEdge<EntityNode>>(
                 &executor.context().neo4j,
                 &self.space_id,
                 self.space_version.clone(),
             )
-            .relation_type(prop_filter::value(system_ids::TYPES_ATTRIBUTE))
+            .filter(relation::RelationFilter::default().relation_type(
+                entity::EntityFilter::default().id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)),
+            ))
             .send()
             .await?
             .try_collect::<Vec<_>>()
             .await?;
 
-        Ok(entity_node::find_many(&executor.context().neo4j)
-            .id(prop_filter::value_in(
-                types_rel.into_iter().map(|rel| rel.to).collect(),
-            ))
-            .send()
-            .await?
-            .map_ok(|node| {
+        Ok(types_rel
+            .into_iter()
+            .map(|rel| {
                 Entity::new(
-                    node,
+                    rel.to,
                     self.space_id.clone(),
                     self.space_version.clone(),
                     self.strict,
                 )
             })
-            .try_collect::<Vec<_>>()
-            .await?)
+            .collect::<Vec<_>>())
     }
 
     // TODO: Add entity attributes filtering
@@ -240,11 +271,13 @@ impl Entity {
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         r#where: Option<EntityRelationFilter>,
     ) -> FieldResult<Vec<Relation>> {
-        let mut base_query = self.node.get_outbound_relations(
-            &executor.context().neo4j,
-            &self.space_id,
-            self.space_version.clone(),
-        );
+        let mut base_query = self
+            .node
+            .get_outbound_relations::<RelationEdge<EntityNode>>(
+                &executor.context().neo4j,
+                &self.space_id,
+                self.space_version.clone(),
+            );
 
         if let Some(filter) = r#where {
             base_query = filter.apply_filter(base_query);

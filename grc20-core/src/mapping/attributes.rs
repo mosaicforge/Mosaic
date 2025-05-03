@@ -7,7 +7,10 @@ use serde::Deserialize;
 use crate::{block::BlockMetadata, error::DatabaseError, indexer_ids};
 
 use super::{
-    query_utils::{query_part, Query, QueryPart, QueryStream, VersionFilter},
+    query_utils::{
+        query_builder::{MatchQuery, QueryBuilder, Subquery},
+        Query, QueryStream, VersionFilter,
+    },
     AttributeFilter, AttributeNode, PropFilter, Triple, TriplesConversionError, Value,
 };
 
@@ -393,15 +396,14 @@ impl FindOneQuery {
         }
     }
 
-    fn into_query_part(self) -> QueryPart {
-        QueryPart::default()
-            .match_clause(
-                "(:Entity {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute)",
+    fn subquery(self) -> impl Subquery {
+        QueryBuilder::default()
+            .subquery(MatchQuery::new("(:Entity {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute)")
+                .r#where(self.space_version.subquery("r"))
             )
-            .merge(self.space_version.into_query_part("r"))
-            .with_clause("collect(n{.*}) AS attrs", query_part::return_query("attrs"))
             .params("entity_id", self.entity_id)
             .params("space_id", self.space_id)
+            .with(vec!["collect(n{.*}) AS attrs".to_string()], "RETURN attrs")
     }
 }
 
@@ -411,13 +413,16 @@ where
 {
     async fn send(self) -> Result<Option<T>, DatabaseError> {
         let neo4j = self.neo4j.clone();
-        let query = if cfg!(debug_assertions) || cfg!(test) {
-            let query_part = self.into_query_part();
-            tracing::info!("attributes::FindOneQuery:\n{}", query_part);
-            query_part.build()
-        } else {
-            self.into_query_part().build()
-        };
+
+        let query = self.subquery();
+
+        if cfg!(debug_assertions) || cfg!(test) {
+            println!(
+                "entity::FindOneQuery::<Entity<T>>:\n{}\nparams:{:?}",
+                query.compile(),
+                query.params()
+            );
+        }
 
         #[derive(Debug, Deserialize)]
         struct RowResult {
@@ -425,7 +430,7 @@ where
         }
 
         let result = neo4j
-            .execute(query)
+            .execute(query.build())
             .await?
             .next()
             .await?
@@ -494,24 +499,22 @@ impl FindManyQuery {
         self
     }
 
-    pub(crate) fn into_query_part(self) -> QueryPart {
-        let mut query = QueryPart::default()
-            .match_clause("(e:Entity) -[r:ATTRIBUTE]-> (n:Attribute)")
-            .merge(self.version.into_query_part("r"))
-            .with_clause(
-                "e, collect(n{.*}) AS attrs",
-                query_part::return_query("e{.id, attributes: attrs}"),
-            );
-
-        if let Some(id) = self.id {
-            query = query.merge(id.into_query_part("e", "id"));
-        }
-
-        if let Some(space_id) = self.space_id {
-            query = query.merge(space_id.into_query_part("r", "space_id"));
-        }
-
-        query
+    pub(crate) fn subquery(self) -> impl Subquery {
+        QueryBuilder::default()
+            .subquery(
+                MatchQuery::new("(e:Entity) -[r:ATTRIBUTE]-> (n:Attribute)")
+                    .r#where(self.version.subquery("r"))
+                    .where_opt(self.id.as_ref().map(|id| id.subquery("e", "id", None)))
+                    .where_opt(
+                        self.space_id
+                            .as_ref()
+                            .map(|space_id| space_id.subquery("r", "space_id", None)),
+                    ),
+            )
+            .with(
+                vec!["e".to_string(), "collect(n{.*}) AS attrs".to_string()],
+                "RETURN e{.id, attributes: attrs}",
+            )
     }
 }
 
@@ -521,7 +524,7 @@ where
 {
     async fn send(self) -> Result<impl Stream<Item = Result<T, DatabaseError>>, DatabaseError> {
         let neo4j = self.neo4j.clone();
-        let query = self.into_query_part().build();
+        let query = self.subquery().build();
 
         #[derive(Debug, Deserialize)]
         struct RowResult {
@@ -670,14 +673,6 @@ mod tests {
     use super::*;
 
     use futures::pin_mut;
-    use testcontainers::{
-        core::{IntoContainerPort, WaitFor},
-        runners::AsyncRunner,
-        GenericImage, ImageExt,
-    };
-
-    const BOLT_PORT: u16 = 7687;
-    const HTTP_PORT: u16 = 7474;
 
     #[derive(Clone, Debug, PartialEq)]
     struct Foo {
@@ -707,23 +702,7 @@ mod tests {
     #[tokio::test]
     async fn test_attributes_insert_find_one() {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
-        let container = GenericImage::new("neo4j", "2025.01.0-community")
-            .with_wait_for(WaitFor::Duration {
-                length: std::time::Duration::from_secs(5),
-            })
-            .with_exposed_port(BOLT_PORT.tcp())
-            .with_exposed_port(HTTP_PORT.tcp())
-            .with_env_var("NEO4J_AUTH", "none")
-            .start()
-            .await
-            .expect("Failed to start Neo 4J container");
-
-        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
-        let host = container.get_host().await.unwrap().to_string();
-
-        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
-            .await
-            .unwrap();
+        let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
         let attributes = Attributes::from(vec![
             AttributeNode {
@@ -761,23 +740,7 @@ mod tests {
     #[tokio::test]
     async fn test_attributes_insert_find_many() {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
-        let container = GenericImage::new("neo4j", "2025.01.0-community")
-            .with_wait_for(WaitFor::Duration {
-                length: std::time::Duration::from_secs(5),
-            })
-            .with_exposed_port(BOLT_PORT.tcp())
-            .with_exposed_port(HTTP_PORT.tcp())
-            .with_env_var("NEO4J_AUTH", "none")
-            .start()
-            .await
-            .expect("Failed to start Neo 4J container");
-
-        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
-        let host = container.get_host().await.unwrap().to_string();
-
-        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
-            .await
-            .unwrap();
+        let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
         let attributes = Attributes::from(vec![
             AttributeNode {
@@ -824,23 +787,7 @@ mod tests {
     #[tokio::test]
     async fn test_attributes_insert_find_one_parse() {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
-        let container = GenericImage::new("neo4j", "2025.01.0-community")
-            .with_wait_for(WaitFor::Duration {
-                length: std::time::Duration::from_secs(5),
-            })
-            .with_exposed_port(BOLT_PORT.tcp())
-            .with_exposed_port(HTTP_PORT.tcp())
-            .with_env_var("NEO4J_AUTH", "none")
-            .start()
-            .await
-            .expect("Failed to start Neo 4J container");
-
-        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
-        let host = container.get_host().await.unwrap().to_string();
-
-        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
-            .await
-            .unwrap();
+        let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
         let foo = Foo {
             foo: "abc".into(),
@@ -871,23 +818,7 @@ mod tests {
     #[tokio::test]
     async fn test_versioning() {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
-        let container = GenericImage::new("neo4j", "2025.01.0-community")
-            .with_wait_for(WaitFor::Duration {
-                length: std::time::Duration::from_secs(5),
-            })
-            .with_exposed_port(BOLT_PORT.tcp())
-            .with_exposed_port(HTTP_PORT.tcp())
-            .with_env_var("NEO4J_AUTH", "none")
-            .start()
-            .await
-            .expect("Failed to start Neo 4J container");
-
-        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
-        let host = container.get_host().await.unwrap().to_string();
-
-        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
-            .await
-            .unwrap();
+        let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
         let foo = Foo {
             foo: "hello".into(),
@@ -916,7 +847,8 @@ mod tests {
         .await
         .expect("Failed to insert triple");
 
-        let foo_v2 = entity::find_one(&neo4j, "abc", "space_id", None)
+        let foo_v2 = entity::find_one::<Entity<Foo>>(&neo4j, "abc")
+            .space_id("space_id")
             .send()
             .await
             .expect("Failed to find entity")
@@ -933,7 +865,9 @@ mod tests {
             )
         );
 
-        let foo_v1 = entity::find_one(&neo4j, "abc", "space_id", Some("0".into()))
+        let foo_v1 = entity::find_one::<Entity<Foo>>(&neo4j, "abc")
+            .space_id("space_id")
+            .version("0")
             .send()
             .await
             .expect("Failed to find entity")

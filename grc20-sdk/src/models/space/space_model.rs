@@ -3,10 +3,11 @@ use web3_utils::checksum_address;
 
 use grc20_core::{
     block::BlockMetadata,
+    entity::{self, EntityNodeRef},
     error::DatabaseError,
     ids, indexer_ids,
     mapping::{
-        entity, entity_node, prop_filter,
+        prop_filter,
         query_utils::{AttributeFilter, PropFilter, Query, QueryStream},
         relation, Entity, EntityNode, Relation, TriplesConversionError, Value,
     },
@@ -63,21 +64,17 @@ pub async fn find_by_dao_address(
     neo4j: &neo4rs::Graph,
     dao_contract_address: &str,
 ) -> Result<Option<Entity<Space>>, DatabaseError> {
-    entity::find_one(
-        neo4j,
-        new_id(network_ids::GEO, dao_contract_address),
-        indexer_ids::INDEXER_SPACE_ID,
-        None,
-    )
-    .send()
-    .await
+    entity::find_one::<Entity<Space>>(neo4j, new_id(network_ids::GEO, dao_contract_address))
+        .space_id(indexer_ids::INDEXER_SPACE_ID)
+        .send()
+        .await
 }
 
 pub async fn find_entity_by_dao_address(
     neo4j: &neo4rs::Graph,
     dao_contract_address: &str,
 ) -> Result<Option<EntityNode>, DatabaseError> {
-    entity_node::find_one(neo4j, new_id(network_ids::GEO, dao_contract_address))
+    entity::find_one::<EntityNode>(neo4j, new_id(network_ids::GEO, dao_contract_address))
         .send()
         .await
 }
@@ -87,7 +84,8 @@ pub async fn find_by_space_plugin_address(
     neo4j: &neo4rs::Graph,
     space_plugin_address: &str,
 ) -> Result<Option<Entity<Space>>, DatabaseError> {
-    let stream = entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
+    let stream = entity::find_many::<Entity<Space>>(neo4j)
+        .space_id(indexer_ids::INDEXER_SPACE_ID)
         .attribute(
             AttributeFilter::new(indexer_ids::SPACE_PLUGIN_ADDRESS)
                 .value(PropFilter::default().value(checksum_address(space_plugin_address))),
@@ -105,7 +103,7 @@ pub async fn find_entity_by_space_plugin_address(
     neo4j: &neo4rs::Graph,
     space_plugin_address: &str,
 ) -> Result<Option<EntityNode>, DatabaseError> {
-    let stream = entity_node::find_many(neo4j)
+    let stream = entity::find_many::<EntityNode>(neo4j)
         .attribute(
             AttributeFilter::new(indexer_ids::SPACE_PLUGIN_ADDRESS)
                 .space_id(prop_filter::value(indexer_ids::INDEXER_SPACE_ID))
@@ -125,7 +123,8 @@ pub async fn find_by_voting_plugin_address(
     neo4j: &neo4rs::Graph,
     voting_plugin_address: &str,
 ) -> Result<Option<Entity<Space>>, DatabaseError> {
-    let stream = entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
+    let stream = entity::find_many::<Entity<Space>>(neo4j)
+        .space_id(indexer_ids::INDEXER_SPACE_ID)
         .attribute(
             AttributeFilter::new(indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS)
                 .value(PropFilter::default().value(checksum_address(voting_plugin_address))),
@@ -143,7 +142,8 @@ pub async fn find_entity_by_voting_plugin_address(
     neo4j: &neo4rs::Graph,
     voting_plugin_address: &str,
 ) -> Result<Option<EntityNode>, DatabaseError> {
-    let stream = entity_node::find_many(neo4j)
+    let stream = entity::find_many::<EntityNode>(neo4j)
+        .space_id(indexer_ids::INDEXER_SPACE_ID)
         .attribute(
             AttributeFilter::new(indexer_ids::SPACE_VOTING_PLUGIN_ADDRESS)
                 .space_id(prop_filter::value(indexer_ids::INDEXER_SPACE_ID))
@@ -163,7 +163,8 @@ pub async fn find_by_member_access_plugin(
     neo4j: &neo4rs::Graph,
     member_access_plugin: &str,
 ) -> Result<Option<Entity<Space>>, DatabaseError> {
-    let stream = entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
+    let stream = entity::find_many::<Entity<Space>>(neo4j)
+        .space_id(indexer_ids::INDEXER_SPACE_ID)
         .attribute(
             AttributeFilter::new(indexer_ids::SPACE_MEMBER_PLUGIN_ADDRESS)
                 .value(PropFilter::default().value(checksum_address(member_access_plugin))),
@@ -182,7 +183,8 @@ pub async fn find_by_personal_plugin_address(
     neo4j: &neo4rs::Graph,
     personal_space_admin_plugin: &str,
 ) -> Result<Option<Entity<Space>>, DatabaseError> {
-    let stream = entity::find_many(neo4j, indexer_ids::INDEXER_SPACE_ID, None)
+    let stream = entity::find_many::<Entity<Space>>(neo4j)
+        .space_id(indexer_ids::INDEXER_SPACE_ID)
         .attribute(
             AttributeFilter::new(indexer_ids::SPACE_PERSONAL_PLUGIN_ADDRESS)
                 .value(PropFilter::default().value(checksum_address(personal_space_admin_plugin))),
@@ -207,12 +209,12 @@ pub fn editors(neo4j: &neo4rs::Graph, space_id: &str) -> SpaceEditorsQuery {
 }
 
 /// Find all parent spaces of a given space
-pub fn parent_spaces(neo4j: &neo4rs::Graph, space_id: &str) -> ParentSpacesQuery {
+pub fn parent_spaces<T>(neo4j: &neo4rs::Graph, space_id: &str) -> ParentSpacesQuery<T> {
     ParentSpacesQuery::new(neo4j.clone(), space_id.to_string())
 }
 
 /// Find all subspaces of a given space
-pub fn subspaces(neo4j: &neo4rs::Graph, space_id: &str) -> SubspacesQuery {
+pub fn subspaces<T>(neo4j: &neo4rs::Graph, space_id: &str) -> SubspacesQuery<T> {
     SubspacesQuery::new(neo4j.clone(), space_id.to_string())
 }
 
@@ -346,7 +348,7 @@ impl ParentSpace {
         ids::create_id_from_unique_string(format!("PARENT_SPACE:{space_id}:{parent_space_id}"))
     }
 
-    pub fn new(space_id: &str, parent_space_id: &str) -> Relation<Self> {
+    pub fn new(space_id: &str, parent_space_id: &str) -> Relation<Self, EntityNodeRef> {
         Relation::new(
             Self::generate_id(space_id, parent_space_id),
             space_id,

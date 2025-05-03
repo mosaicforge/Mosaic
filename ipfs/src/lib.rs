@@ -43,8 +43,11 @@ impl IpfsClient {
         let cache_path = Path::new(IPFS_CACHE_DIR).join(hash);
 
         if cache && cache_path.exists() {
+            tracing::info!("Cache hit for {}", hash);
             let cached_data = fs::read(&cache_path)?;
             return Ok(cached_data);
+        } else {
+            tracing::info!("Cache miss for {}", hash);
         }
 
         let url = format!("{}{}", self.url, hash);

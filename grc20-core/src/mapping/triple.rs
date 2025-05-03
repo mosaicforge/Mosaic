@@ -4,11 +4,18 @@ use futures::{Stream, TryStreamExt};
 use neo4rs::{BoltMap, BoltType};
 use serde::Deserialize;
 
-use crate::{block::BlockMetadata, error::DatabaseError, indexer_ids, pb};
+use crate::{
+    block::BlockMetadata, error::DatabaseError, indexer_ids,
+    mapping::query_utils::query_builder::Subquery, pb,
+};
 
 use super::{
-    query_utils::{PropFilter, Query, QueryPart, QueryStream, VersionFilter},
-    Value,
+    aggregation::AggregationDirection,
+    query_utils::{
+        query_builder::{MatchQuery, QueryBuilder},
+        PropFilter, Query, QueryStream, VersionFilter,
+    },
+    Pluralism, Value,
 };
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
@@ -317,7 +324,8 @@ pub struct FindOneQuery {
     attribute_id: String,
     entity_id: String,
     space_id: String,
-    space_version: VersionFilter,
+    version: VersionFilter,
+    pluralism: Pluralism,
 }
 
 impl FindOneQuery {
@@ -326,35 +334,112 @@ impl FindOneQuery {
         attribute_id: String,
         entity_id: String,
         space_id: String,
-        space_version: Option<String>,
+        version: Option<String>,
     ) -> Self {
         Self {
             neo4j: neo4j.clone(),
             attribute_id,
             entity_id,
             space_id,
-            space_version: VersionFilter::new(space_version),
+            version: VersionFilter::new(version),
+            pluralism: Pluralism::None,
+        }
+    }
+
+    pub fn pluralism(mut self, pluralism_config: Pluralism) -> Self {
+        self.pluralism = pluralism_config;
+        self
+    }
+
+    fn subquery(&self) -> impl Subquery {
+        match &self.pluralism {
+            Pluralism::None => {
+                QueryBuilder::default()
+                    .subquery(
+                        MatchQuery::new("(e:Entity {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (attr:Attribute {id: $attribute_id})")
+                            .r#where(self.version.subquery("r"))
+                    )
+                    .params("attribute_id", self.attribute_id.clone())
+                    .params("entity_id", self.entity_id.clone())
+                    .params("space_id", self.space_id.clone())
+                    .r#return("attr{.*, entity: e.id} AS triple")
+            }
+            Pluralism::Direction(AggregationDirection::Up) => {
+                QueryBuilder::default()
+                    .subquery(format!(
+                        r#"MATCH (start:Entity {{id: $space_id}}) (() <-[r:RELATION {{relation_type: "{}", space_id: "{}"}}]- (s:Entity)){{,}}"#,
+                        indexer_ids::PARENT_SPACE,
+                        indexer_ids::INDEXER_SPACE_ID,
+                    ))
+                    .subquery("WHERE size(s) = size(COLLECT { WITH s UNWIND s AS _ RETURN DISTINCT _ })")
+                    .subquery("WITH COLLECT({space_id: LAST([start] + s).id, depth: SIZE(s)}) AS subspaces")
+                    .subquery("UNWIND subspaces AS subspace")
+                    .subquery(r#"MATCH (e:Entity {id: $entity_id}) -[r_attr:ATTRIBUTE {space_id: subspace.space_id}]-> (attr:Attribute {id: $attribute_id})"#)
+                    .subquery(self.version.subquery("r_attr"))
+                    .subquery("ORDER BY subspace.depth")
+                    .limit(1)
+                    .params("attribute_id", self.attribute_id.clone())
+                    .params("entity_id", self.entity_id.clone())
+                    .params("space_id", self.space_id.clone())
+                    .r#return("attr{.*, entity: e.id} AS triple")
+            }
+            Pluralism::Direction(AggregationDirection::Down) => {
+                QueryBuilder::default()
+                    .subquery(format!(
+                        r#"MATCH (start:Entity {{id: $space_id}}) (() -[r:RELATION {{relation_type: "{}", space_id: "{}"}}]-> (s:Entity)){{,}}"#,
+                        indexer_ids::PARENT_SPACE,
+                        indexer_ids::INDEXER_SPACE_ID,
+                    ))
+                    .subquery("WHERE size(s) = size(COLLECT { WITH s UNWIND s AS _ RETURN DISTINCT _ })")
+                    .subquery("WITH COLLECT({space_id: LAST([start] + s).id, depth: SIZE(s)}) AS parent_spaces")
+                    .subquery("UNWIND parent_spaces AS parent_space")
+                    .subquery(r#"MATCH (e:Entity {id: $entity_id}) -[r_attr:ATTRIBUTE {space_id: parent_space.space_id}]-> (attr:Attribute {id: $attribute_id})"#)
+                    .subquery(self.version.subquery("r_attr"))
+                    .subquery("ORDER BY parent_space.depth")
+                    .limit(1)
+                    .params("attribute_id", self.attribute_id.clone())
+                    .params("entity_id", self.entity_id.clone())
+                    .params("space_id", self.space_id.clone())
+                    .r#return("attr{.*, entity: e.id} AS triple")
+            }
+            Pluralism::Direction(AggregationDirection::Bidirectional) => {
+                tracing::warn!("Bidirectional aggregation direction is not implemented yet! Defaulting to None.");
+                QueryBuilder::default()
+                    .subquery(
+                        MatchQuery::new("(e:Entity {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (attr:Attribute {id: $attribute_id})")
+                            .r#where(self.version.subquery("r"))
+                    )
+                    .params("attribute_id", self.attribute_id.clone())
+                    .params("entity_id", self.entity_id.clone())
+                    .params("space_id", self.space_id.clone())
+                    .r#return("attr{.*, entity: e.id} AS triple")
+            }
+            Pluralism::Hierarchy(spaces) => {
+                QueryBuilder::default()
+                    .subquery("UNWIND $spaces AS space")
+                    .subquery(r#"MATCH (e:Entity {id: $entity_id}) -[r_attr:ATTRIBUTE {space_id: space.space_id}]-> (attr:Attribute {id: $attribute_id})"#)
+                    .subquery(self.version.subquery("r_attr"))
+                    .subquery("ORDER BY space.depth")
+                    .limit(1)
+                    .params("attribute_id", self.attribute_id.clone())
+                    .params("entity_id", self.entity_id.clone())
+                    .params("spaces", spaces.clone())
+                    .r#return("attr{.*, entity: e.id} AS triple")
+            }
         }
     }
 }
 
 impl Query<Option<Triple>> for FindOneQuery {
     async fn send(self) -> Result<Option<Triple>, DatabaseError> {
-        let query_part = QueryPart::default()
-            .match_clause("(e:Entity {id: $entity_id}) -[r:ATTRIBUTE {space_id: $space_id}]-> (n:Attribute {id: $attribute_id})")
-            .merge(self.space_version.into_query_part("r"))
-            .return_clause("n{.*, entity: e.id} AS triple")
-            .params("attribute_id", self.attribute_id)
-            .params("entity_id", self.entity_id)
-            .params("space_id", self.space_id);
+        let query = self.subquery();
 
         if cfg!(debug_assertions) || cfg!(test) {
-            tracing::info!("triple::FindOneQuery:\n{}", query_part.query());
+            println!("triple::FindOneQuery:\n{}", query.compile());
         }
-        let query = query_part.build();
 
         self.neo4j
-            .execute(query)
+            .execute(query.build())
             .await?
             .next()
             .await?
@@ -423,33 +508,30 @@ impl FindManyQuery {
         self
     }
 
-    fn into_query_part(self) -> QueryPart {
-        let mut query_part =
-            QueryPart::default().match_clause("(e:Entity) -[r:ATTRIBUTE]-> (n:Attribute)");
-
-        if let Some(attribute_id) = self.attribute_id {
-            query_part = query_part.merge(attribute_id.into_query_part("n", "id"));
-        }
-
-        if let Some(value) = self.value {
-            query_part = query_part.merge(value.into_query_part("n", "value"));
-        }
-
-        if let Some(value_type) = self.value_type {
-            query_part = query_part.merge(value_type.into_query_part("n", "value_type"));
-        }
-
-        if let Some(entity_id) = self.entity_id {
-            query_part = query_part.merge(entity_id.into_query_part("e", "id"));
-        }
-
-        if let Some(space_id) = self.space_id {
-            query_part = query_part.merge(space_id.into_query_part("r", "space_id"));
-        }
-
-        query_part
-            .merge(self.space_version.into_query_part("r"))
-            .return_clause("n{.*, entity: e.id}")
+    fn subquery(&self) -> QueryBuilder {
+        QueryBuilder::default()
+            .subquery(
+                MatchQuery::new("(e:Entity) -[r:ATTRIBUTE]-> (n:Attribute)")
+                    .where_opt(self.entity_id.as_ref().map(|s| s.subquery("e", "id", None)))
+                    .where_opt(
+                        self.attribute_id
+                            .as_ref()
+                            .map(|s| s.subquery("n", "id", None)),
+                    )
+                    .where_opt(self.value.as_ref().map(|s| s.subquery("n", "value", None)))
+                    .where_opt(
+                        self.value_type
+                            .as_ref()
+                            .map(|s| s.subquery("n", "value_type", None)),
+                    )
+                    .where_opt(
+                        self.space_id
+                            .as_ref()
+                            .map(|s| s.subquery("r", "space_id", None)),
+                    )
+                    .r#where(self.space_version.subquery("r")),
+            )
+            .subquery("RETURN n{.*, entity: e.id}")
     }
 }
 
@@ -457,18 +539,15 @@ impl QueryStream<Triple> for FindManyQuery {
     async fn send(
         self,
     ) -> Result<impl Stream<Item = Result<Triple, DatabaseError>>, DatabaseError> {
-        let neo4j = self.neo4j.clone();
+        let query = self.subquery();
 
-        let query = if cfg!(debug_assertions) || cfg!(test) {
-            let query_part = self.into_query_part();
-            tracing::info!("triple::FindManyQuery:\n{}", query_part.query());
-            query_part.build()
-        } else {
-            self.into_query_part().build()
-        };
+        if cfg!(debug_assertions) || cfg!(test) {
+            println!("triple::FindManyQuery:\n{}", query.compile());
+        }
 
-        Ok(neo4j
-            .execute(query)
+        Ok(self
+            .neo4j
+            .execute(query.build())
             .await?
             .into_stream_as::<Triple>()
             .map_err(DatabaseError::from))

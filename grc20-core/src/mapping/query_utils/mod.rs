@@ -1,16 +1,15 @@
 use crate::error::DatabaseError;
+use futures::Stream;
 
 pub mod attributes_filter;
-pub mod edge_filter;
 pub mod order_by;
 pub mod prop_filter;
+pub mod query_builder;
 pub mod query_part;
 pub mod types_filter;
 pub mod version_filter;
 
 pub use attributes_filter::AttributeFilter;
-pub use edge_filter::EdgeFilter;
-use futures::Stream;
 pub use order_by::{FieldOrderBy, OrderDirection};
 pub use prop_filter::PropFilter;
 pub use query_part::QueryPart;

@@ -1,5 +1,8 @@
 use futures::{pin_mut, StreamExt};
-use grc20_core::{mapping::query_utils::QueryStream, neo4rs};
+use grc20_core::{
+    mapping::{aggregation::SpaceRanking, query_utils::QueryStream},
+    neo4rs,
+};
 use grc20_sdk::models::space;
 
 #[tokio::main]
@@ -24,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Found subspaces:");
     while let Some(result) = stream.next().await {
         match result {
-            Ok((subspace_id, _)) => println!("  {}", subspace_id),
+            Ok(SpaceRanking { space_id, .. }) => println!("  {}", space_id),
             Err(e) => eprintln!("Error getting subspace: {}", e),
         }
     }

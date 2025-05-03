@@ -1,5 +1,8 @@
 use futures::TryStreamExt;
-use grc20_core::{mapping::EntityNode, system_ids};
+use grc20_core::{
+    mapping::{aggregation::SpaceRanking, EntityNode, QueryStream, RelationEdge},
+    system_ids,
+};
 use grc20_sdk::models::property;
 use juniper::{graphql_object, Executor, FieldResult, ScalarValue};
 
@@ -21,6 +24,26 @@ impl Property {
     ) -> Self {
         Self {
             entity: Entity::new(node, space_id, space_version, strict),
+        }
+    }
+
+    pub fn with_hierarchy(
+        node: EntityNode,
+        space_id: String,
+        parent_spaces: Vec<SpaceRanking>,
+        subspaces: Vec<SpaceRanking>,
+        space_version: Option<String>,
+        strict: bool,
+    ) -> Self {
+        Self {
+            entity: Entity::with_hierarchy(
+                node,
+                space_id,
+                parent_spaces,
+                subspaces,
+                space_version,
+                strict,
+            ),
         }
     }
 }
@@ -140,9 +163,8 @@ impl Property {
         //     .limit(1)
         //     .send()
         //     .await?;
-        tracing::info!("Fetching value type for property {}", self.entity.id());
 
-        let value_type = property::get_outbound_relations(
+        let value_type = property::get_outbound_relations::<RelationEdge<EntityNode>>(
             &executor.context().neo4j,
             system_ids::VALUE_TYPE_ATTRIBUTE,
             self.entity.id(),
@@ -153,21 +175,21 @@ impl Property {
             self.entity.strict,
         )
         .await?
+        .send()
+        .await?
         .try_collect::<Vec<_>>()
         .await?;
 
-        if let Some(value_type) = value_type.first() {
-            Ok(Entity::load(
-                &executor.context().neo4j,
-                &value_type.to,
+        Ok(value_type.first().map(|value_type| {
+            Entity::with_hierarchy(
+                value_type.to.clone(),
                 self.space_id().to_string(),
+                self.entity.parent_spaces.clone(),
+                self.entity.subspaces.clone(),
                 self.entity.space_version.clone(),
                 self.entity.strict,
             )
-            .await?)
-        } else {
-            Ok(None)
-        }
+        }))
     }
 
     /// Value type of the property
@@ -187,12 +209,8 @@ impl Property {
         //     .limit(1)
         //     .send()
         //     .await?;
-        tracing::info!(
-            "Fetching relation value type for property {}",
-            self.entity.id()
-        );
 
-        let rel_value_type = property::get_outbound_relations(
+        let rel_value_type = property::get_outbound_relations::<RelationEdge<EntityNode>>(
             &executor.context().neo4j,
             system_ids::RELATION_VALUE_RELATIONSHIP_TYPE,
             self.entity.id(),
@@ -203,22 +221,20 @@ impl Property {
             self.entity.strict,
         )
         .await?
+        .send()
+        .await?
         .try_collect::<Vec<_>>()
         .await?;
 
-        // pin_mut!(rel_value_type);
-
-        if let Some(value_type) = rel_value_type.first() {
-            Ok(Entity::load(
-                &executor.context().neo4j,
-                &value_type.to,
+        Ok(rel_value_type.first().map(|rel_value_type| {
+            Entity::with_hierarchy(
+                rel_value_type.to.clone(),
                 self.space_id().to_string(),
+                self.entity.parent_spaces.clone(),
+                self.entity.subspaces.clone(),
                 self.entity.space_version.clone(),
                 self.entity.strict,
             )
-            .await?)
-        } else {
-            Ok(None)
-        }
+        }))
     }
 }
