@@ -78,7 +78,6 @@ impl Space {
                 .max_depth(None)
                 .send()
                 .await?
-                .skip(1) // The returned spaces contain the current space
                 .try_collect::<Vec<_>>()
                 .await?;
 
@@ -86,7 +85,6 @@ impl Space {
                 .max_depth(None)
                 .send()
                 .await?
-                .skip(1) // The returned spaces contain the current space
                 .try_collect::<Vec<_>>()
                 .await?;
 
