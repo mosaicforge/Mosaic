@@ -713,35 +713,10 @@ impl Query<()> for DeleteManyQuery {
 mod tests {
     use super::*;
 
-    use testcontainers::{
-        core::{IntoContainerPort, WaitFor},
-        runners::AsyncRunner,
-        GenericImage, ImageExt,
-    };
-
-    const BOLT_PORT: u16 = 7687;
-    const HTTP_PORT: u16 = 7474;
-
     #[tokio::test]
     async fn test_find_one() {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
-        let container = GenericImage::new("neo4j", "2025.01.0-community")
-            .with_wait_for(WaitFor::Duration {
-                length: std::time::Duration::from_secs(5),
-            })
-            .with_exposed_port(BOLT_PORT.tcp())
-            .with_exposed_port(HTTP_PORT.tcp())
-            .with_env_var("NEO4J_AUTH", "none")
-            .start()
-            .await
-            .expect("Failed to start Neo 4J container");
-
-        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
-        let host = container.get_host().await.unwrap().to_string();
-
-        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
-            .await
-            .unwrap();
+        let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
         neo4j.run(
             neo4rs::query(r#"CREATE (:Entity {id: "abc"}) -[:ATTRIBUTE {space_id: "ROOT", min_version: 0}]-> (:Attribute {id: "name", value: "Alice", value_type: "TEXT"})"#)
@@ -767,23 +742,7 @@ mod tests {
     #[tokio::test]
     async fn test_insert_find_one() {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
-        let container = GenericImage::new("neo4j", "2025.01.0-community")
-            .with_wait_for(WaitFor::Duration {
-                length: std::time::Duration::from_secs(5),
-            })
-            .with_exposed_port(BOLT_PORT.tcp())
-            .with_exposed_port(HTTP_PORT.tcp())
-            .with_env_var("NEO4J_AUTH", "none")
-            .start()
-            .await
-            .expect("Failed to start Neo 4J container");
-
-        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
-        let host = container.get_host().await.unwrap().to_string();
-
-        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
-            .await
-            .unwrap();
+        let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
         let triple = Triple {
             entity: "abc".to_string(),
@@ -810,23 +769,7 @@ mod tests {
     #[tokio::test]
     pub async fn test_insert_many() {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
-        let container = GenericImage::new("neo4j", "2025.01.0-community")
-            .with_wait_for(WaitFor::Duration {
-                length: std::time::Duration::from_secs(5),
-            })
-            .with_exposed_port(BOLT_PORT.tcp())
-            .with_exposed_port(HTTP_PORT.tcp())
-            .with_env_var("NEO4J_AUTH", "none")
-            .start()
-            .await
-            .expect("Failed to start Neo 4J container");
-
-        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
-        let host = container.get_host().await.unwrap().to_string();
-
-        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
-            .await
-            .unwrap();
+        let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
         let triple = Triple {
             entity: "abc".to_string(),
@@ -866,23 +809,7 @@ mod tests {
     #[tokio::test]
     pub async fn test_insert_find_many() {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
-        let container = GenericImage::new("neo4j", "2025.01.0-community")
-            .with_wait_for(WaitFor::Duration {
-                length: std::time::Duration::from_secs(5),
-            })
-            .with_exposed_port(BOLT_PORT.tcp())
-            .with_exposed_port(HTTP_PORT.tcp())
-            .with_env_var("NEO4J_AUTH", "none")
-            .start()
-            .await
-            .expect("Failed to start Neo 4J container");
-
-        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
-        let host = container.get_host().await.unwrap().to_string();
-
-        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
-            .await
-            .unwrap();
+        let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
         let triple = Triple {
             entity: "abc".to_string(),
@@ -930,23 +857,7 @@ mod tests {
     #[tokio::test]
     async fn test_versioning() {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
-        let container = GenericImage::new("neo4j", "2025.01.0-community")
-            .with_wait_for(WaitFor::Duration {
-                length: std::time::Duration::from_secs(5),
-            })
-            .with_exposed_port(BOLT_PORT.tcp())
-            .with_exposed_port(HTTP_PORT.tcp())
-            .with_env_var("NEO4J_AUTH", "none")
-            .start()
-            .await
-            .expect("Failed to start Neo 4J container");
-
-        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
-        let host = container.get_host().await.unwrap().to_string();
-
-        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
-            .await
-            .unwrap();
+        let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
         let triple_v1 = Triple {
             entity: "abc".to_string(),
@@ -1008,23 +919,7 @@ mod tests {
     #[tokio::test]
     async fn test_update_no_versioning() {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
-        let container = GenericImage::new("neo4j", "2025.01.0-community")
-            .with_wait_for(WaitFor::Duration {
-                length: std::time::Duration::from_secs(5),
-            })
-            .with_exposed_port(BOLT_PORT.tcp())
-            .with_exposed_port(HTTP_PORT.tcp())
-            .with_env_var("NEO4J_AUTH", "none")
-            .start()
-            .await
-            .expect("Failed to start Neo 4J container");
-
-        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
-        let host = container.get_host().await.unwrap().to_string();
-
-        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
-            .await
-            .unwrap();
+        let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
         let triple_v1 = Triple {
             entity: "abc".to_string(),
@@ -1085,23 +980,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete() {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
-        let container = GenericImage::new("neo4j", "2025.01.0-community")
-            .with_wait_for(WaitFor::Duration {
-                length: std::time::Duration::from_secs(5),
-            })
-            .with_exposed_port(BOLT_PORT.tcp())
-            .with_exposed_port(HTTP_PORT.tcp())
-            .with_env_var("NEO4J_AUTH", "none")
-            .start()
-            .await
-            .expect("Failed to start Neo 4J container");
-
-        let port = container.get_host_port_ipv4(BOLT_PORT).await.unwrap();
-        let host = container.get_host().await.unwrap().to_string();
-
-        let neo4j = neo4rs::Graph::new(format!("neo4j://{host}:{port}"), "user", "password")
-            .await
-            .unwrap();
+        let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
         let triple = Triple {
             entity: "abc".to_string(),

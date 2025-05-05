@@ -121,7 +121,7 @@ impl QueryStream<EntityNode> for FindManyQuery<EntityNode> {
     ) -> Result<impl Stream<Item = Result<EntityNode, DatabaseError>>, DatabaseError> {
         let neo4j = self.neo4j.clone();
 
-        let query = self.subquery().r#return("e");
+        let query = self.subquery().r#return("DISTINCT e");
 
         if cfg!(debug_assertions) || cfg!(test) {
             tracing::info!(
