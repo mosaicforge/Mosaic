@@ -1,10 +1,10 @@
-FROM rust:1.81.0 AS builder
+FROM rust:1.87.0 AS builder
 
 WORKDIR /kg-node
 COPY . .
 RUN apt-get update && apt-get upgrade -y
 RUN apt-get install libssl-dev protobuf-compiler -y
-RUN cargo build --release --bin sink --bin api
+RUN CFLAGS='-std=gnu17' cargo build --release --bin sink --bin api
 
 # Run image
 FROM debian:bookworm-slim AS run

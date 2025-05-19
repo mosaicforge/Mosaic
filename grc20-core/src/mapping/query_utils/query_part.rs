@@ -89,7 +89,7 @@ impl QueryPart {
     pub fn return_clause(mut self, clause: impl Into<String>) -> Self {
         // Not the most efficient but important to keep the return clauses unique
         let clause = clause.into();
-        if !self.return_clauses.iter().any(|x| *x == clause) {
+        if !self.return_clauses.contains(&clause) {
             self.return_clauses.push(clause);
         }
         self
@@ -104,7 +104,7 @@ impl QueryPart {
     pub fn order_by_clause(mut self, clause: impl Into<String>) -> Self {
         // Not the most efficient but important to keep the return clauses unique
         let clause = clause.into();
-        if !self.order_by_clauses.iter().any(|x| *x == clause) {
+        if !self.order_by_clauses.contains(&clause) {
             self.order_by_clauses.push(clause);
         }
         self

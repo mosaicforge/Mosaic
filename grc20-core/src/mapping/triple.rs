@@ -5,7 +5,7 @@ use neo4rs::{BoltMap, BoltType};
 use serde::Deserialize;
 
 use crate::{
-    block::BlockMetadata, error::DatabaseError, indexer_ids,
+    block::BlockMetadata, error::DatabaseError, ids, indexer_ids,
     mapping::query_utils::query_builder::Subquery, pb,
 };
 
@@ -27,6 +27,8 @@ pub struct Triple {
 
     #[serde(flatten)]
     pub value: Value,
+
+    pub embedding: Option<Vec<f64>>,
 }
 
 impl Triple {
@@ -39,6 +41,21 @@ impl Triple {
             entity: entity.into(),
             attribute: attribute.into(),
             value: value.into(),
+            embedding: None,
+        }
+    }
+
+    pub fn with_embedding(
+        entity: impl Into<String>,
+        attribute: impl Into<String>,
+        value: impl Into<Value>,
+        embedding: Vec<f64>,
+    ) -> Self {
+        Self {
+            entity: entity.into(),
+            attribute: attribute.into(),
+            value: value.into(),
+            embedding: Some(embedding),
         }
     }
 
@@ -119,6 +136,10 @@ pub fn find_many(neo4j: &neo4rs::Graph) -> FindManyQuery {
     FindManyQuery::new(neo4j)
 }
 
+pub fn semantic_search(neo4j: &neo4rs::Graph, vector: Vec<f64>) -> SemanticSearchQuery {
+    SemanticSearchQuery::new(neo4j, vector)
+}
+
 impl TryFrom<pb::ipfs::Triple> for Triple {
     type Error = String;
 
@@ -128,6 +149,25 @@ impl TryFrom<pb::ipfs::Triple> for Triple {
                 entity: triple.entity,
                 attribute: triple.attribute,
                 value: value.try_into()?,
+                embedding: None,
+            })
+        } else {
+            Err("Triple value is required".to_string())
+        }
+    }
+}
+
+impl TryFrom<(pb::ipfs::Triple, Vec<f64>)> for Triple {
+    type Error = String;
+
+    fn try_from(triple_and_embedding: (pb::ipfs::Triple, Vec<f64>)) -> Result<Self, Self::Error> {
+        let (triple, embedding) = triple_and_embedding;
+        if let Some(value) = triple.value {
+            Ok(Triple {
+                entity: triple.entity,
+                attribute: triple.attribute,
+                value: value.try_into()?,
+                embedding: Some(embedding),
             })
         } else {
             Err("Triple value is required".to_string())
@@ -138,6 +178,16 @@ impl TryFrom<pb::ipfs::Triple> for Triple {
 impl From<Triple> for BoltType {
     fn from(triple: Triple) -> Self {
         let mut triple_bolt_map = HashMap::new();
+        triple_bolt_map.insert(
+            neo4rs::BoltString {
+                value: "attr_labels".into(),
+            },
+            if ids::indexed(&triple.attribute) {
+                vec!["Attribute", "Indexed"].into()
+            } else {
+                "Attribute".into()
+            },
+        );
         triple_bolt_map.insert(
             neo4rs::BoltString {
                 value: "entity".into(),
@@ -156,6 +206,15 @@ impl From<Triple> for BoltType {
             },
             triple.value.into(),
         );
+
+        if let Some(embedding) = triple.embedding {
+            triple_bolt_map.insert(
+                neo4rs::BoltString {
+                    value: "embedding".into(),
+                },
+                embedding.into(),
+            );
+        }
 
         BoltType::Map(neo4rs::BoltMap {
             value: triple_bolt_map,
@@ -204,13 +263,14 @@ impl Query<()> for InsertOneQuery {
             }}
             WITH e
             CALL (e) {{
-                MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> (:Attribute {{id: $triple.attribute}})
+                MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> (:$($triple.attr_labels) {{id: $triple.attribute}})
                 WHERE r.max_version IS null AND r.min_version <> $space_version
                 SET r.max_version = $space_version
             }}
             CALL (e) {{
-                MERGE (e) -[r:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m:Attribute {{id: $triple.attribute}})
+                MERGE (e) -[r:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m:$($triple.attr_labels) {{id: $triple.attribute}})
                 SET m += $triple.value
+                SET m.embedding = $triple.embedding
             }}
             "#,
             CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
@@ -291,13 +351,14 @@ impl Query<()> for InsertManyQuery {
             }}
             WITH e, triple
             CALL (e, triple) {{
-                MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> (:Attribute {{id: triple.attribute}})
+                MATCH (e) -[r:ATTRIBUTE {{space_id: $space_id}}]-> (:$(triple.attr_labels) {{id: triple.attribute}})
                 WHERE r.max_version IS null AND r.min_version <> $space_version
                 SET r.max_version = $space_version
             }}
             CALL (e, triple) {{
-                MERGE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m:Attribute {{id: triple.attribute}})
+                MERGE (e) -[:ATTRIBUTE {{space_id: $space_id, min_version: $space_version}}]-> (m:$(triple.attr_labels) {{id: triple.attribute}})
                 SET m += triple.value
+                SET m.embedding = triple.embedding
             }}
             "#,
             CREATED_AT = indexer_ids::CREATED_AT_TIMESTAMP,
@@ -554,6 +615,107 @@ impl QueryStream<Triple> for FindManyQuery {
     }
 }
 
+pub struct SemanticSearchQuery {
+    neo4j: neo4rs::Graph,
+    vector: Vec<f64>,
+    // space_id: Option<PropFilter<String>>,
+    // space_version: VersionFilter,
+    limit: usize,
+    // skip: Option<usize>,
+}
+
+impl SemanticSearchQuery {
+    pub fn new(neo4j: &neo4rs::Graph, vector: Vec<f64>) -> Self {
+        Self {
+            neo4j: neo4j.clone(),
+            vector,
+            // space_id: None,
+            // space_version: VersionFilter::default(),
+            limit: 100,
+            // skip: None,
+        }
+    }
+
+    // pub fn space_id(mut self, filter: PropFilter<String>) -> Self {
+    //     self.space_id = Some(filter);
+    //     self
+    // }
+
+    // pub fn space_version(mut self, space_version: impl Into<String>) -> Self {
+    //     self.space_version.version_mut(space_version.into());
+    //     self
+    // }
+
+    pub fn limit(mut self, limit: usize) -> Self {
+        self.limit = limit;
+        self
+    }
+
+    pub fn limit_opt(mut self, limit: Option<usize>) -> Self {
+        if let Some(limit) = limit {
+            self.limit = limit;
+        }
+        self
+    }
+
+    // pub fn skip(mut self, skip: usize) -> Self {
+    //     self.skip = Some(skip);
+    //     self
+    // }
+
+    // pub fn skip_opt(mut self, skip: Option<usize>) -> Self {
+    //     self.skip = skip;
+    //     self
+    // }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+pub struct SemanticSearchResult {
+    #[serde(flatten)]
+    pub triple: Triple,
+    pub score: f64,
+    pub space_id: String,
+    pub space_version: String,
+}
+
+impl QueryStream<SemanticSearchResult> for SemanticSearchQuery {
+    async fn send(
+        self,
+    ) -> Result<impl Stream<Item = Result<SemanticSearchResult, DatabaseError>>, DatabaseError>
+    {
+        // const QUERY: &str = const_format::formatcp!(
+        //     r#"
+        //     CALL db.index.vector.queryNodes('vector_index', $limit, $vector)
+        //     YIELD node AS n, score AS score
+        //     MATCH (e:Entity) -[r:ATTRIBUTE]-> (n)
+        //     RETURN n{{.*, entity: e.id, space_version: r.min_version, space_id: r.space_id, score: score}}
+        //     "#
+        // );
+        const QUERY: &str = const_format::formatcp!(
+            r#"
+            MATCH (e:Entity) -[r:ATTRIBUTE]-> (a:Attribute:Indexed)
+            WHERE r.max_version IS null
+            WITH e, a, r, vector.similarity.cosine(a.embedding, $vector) AS score
+            ORDER BY score DESC
+            WHERE score IS NOT null
+            LIMIT $limit
+            RETURN a{{.*, entity: e.id, space_version: r.min_version, space_id: r.space_id, score: score}}
+            "#,
+        );
+
+        let query = neo4rs::query(QUERY)
+            .param("vector", self.vector)
+            .param("limit", self.limit as i64);
+
+        Ok(self
+            .neo4j
+            .execute(query)
+            .await?
+            .into_stream_as::<SemanticSearchResult>()
+            .map_err(DatabaseError::from))
+    }
+}
+
 pub struct DeleteOneQuery {
     neo4j: neo4rs::Graph,
     block: BlockMetadata,
@@ -724,11 +886,7 @@ mod tests {
         .await
         .expect("Failed to create test data");
 
-        let triple = Triple {
-            entity: "abc".to_string(),
-            attribute: "name".to_string(),
-            value: "Alice".into(),
-        };
+        let triple = Triple::new("abc", "name", "Alice");
 
         let found_triple = find_one(&neo4j, "name", "abc", "ROOT", None)
             .send()
@@ -744,11 +902,7 @@ mod tests {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
         let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
-        let triple = Triple {
-            entity: "abc".to_string(),
-            attribute: "name".to_string(),
-            value: "Alice".into(),
-        };
+        let triple = Triple::new("abc", "name", "Alice");
 
         triple
             .clone()
@@ -771,17 +925,8 @@ mod tests {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
         let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
-        let triple = Triple {
-            entity: "abc".to_string(),
-            attribute: "name".to_string(),
-            value: "Alice".into(),
-        };
-
-        let other_triple = Triple {
-            entity: "def".to_string(),
-            attribute: "name".to_string(),
-            value: "Bob".into(),
-        };
+        let triple = Triple::new("abc", "name", "Alice");
+        let other_triple = Triple::new("def", "name", "Bob");
 
         insert_many(&neo4j, &BlockMetadata::default(), "ROOT", "0")
             .triples(vec![triple.clone(), other_triple])
@@ -811,11 +956,7 @@ mod tests {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
         let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
-        let triple = Triple {
-            entity: "abc".to_string(),
-            attribute: "name".to_string(),
-            value: "Alice".into(),
-        };
+        let triple = Triple::new("abc", "name", "Alice");
 
         triple
             .clone()
@@ -824,11 +965,7 @@ mod tests {
             .await
             .expect("Failed to insert triple");
 
-        let other_triple = Triple {
-            entity: "def".to_string(),
-            attribute: "name".to_string(),
-            value: "Bob".into(),
-        };
+        let other_triple = Triple::new("def", "name", "Bob");
 
         other_triple
             .clone()
@@ -859,11 +996,7 @@ mod tests {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
         let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
-        let triple_v1 = Triple {
-            entity: "abc".to_string(),
-            attribute: "name".to_string(),
-            value: "Alice".into(),
-        };
+        let triple_v1 = Triple::new("abc", "name", "Alice");
 
         triple_v1
             .clone()
@@ -872,11 +1005,7 @@ mod tests {
             .await
             .expect("Failed to insert triple");
 
-        let triple_v2 = Triple {
-            entity: "abc".to_string(),
-            attribute: "name".to_string(),
-            value: "NotAlice".into(),
-        };
+        let triple_v2 = Triple::new("abc", "name", "NotAlice");
 
         triple_v2
             .clone()
@@ -921,11 +1050,7 @@ mod tests {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
         let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
-        let triple_v1 = Triple {
-            entity: "abc".to_string(),
-            attribute: "name".to_string(),
-            value: "Alice".into(),
-        };
+        let triple_v1 = Triple::new("abc", "name", "Alice");
 
         triple_v1
             .insert(&neo4j, &BlockMetadata::default(), "ROOT", "0")
@@ -933,11 +1058,7 @@ mod tests {
             .await
             .expect("Failed to insert triple");
 
-        let triple_v2 = Triple {
-            entity: "abc".to_string(),
-            attribute: "name".to_string(),
-            value: "NotAlice".into(),
-        };
+        let triple_v2 = Triple::new("abc", "name", "NotAlice");
 
         triple_v2
             .clone()
@@ -982,11 +1103,7 @@ mod tests {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
         let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
-        let triple = Triple {
-            entity: "abc".to_string(),
-            attribute: "name".to_string(),
-            value: "Alice".into(),
-        };
+        let triple = Triple::new("abc", "name", "Alice");
 
         triple
             .clone()

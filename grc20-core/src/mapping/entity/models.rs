@@ -85,11 +85,7 @@ impl EntityNode {
             block,
             space_id.into(),
             space_version.into(),
-            Triple {
-                entity: self.id.clone(),
-                attribute: attribute.id,
-                value: attribute.value,
-            },
+            Triple::new(self.id.clone(), attribute.id, attribute.value),
         )
     }
 

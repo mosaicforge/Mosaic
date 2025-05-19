@@ -3,8 +3,8 @@ use grc20_core::{
     block::BlockMetadata,
     entity::EntityNodeRef,
     error::DatabaseError,
-    indexer_ids,
-    mapping::{self, query_utils::Query, triple, Entity, RelationEdge},
+    ids, indexer_ids,
+    mapping::{self, query_utils::Query, triple, Entity, RelationEdge, Triple},
     network_ids,
     pb::{self, geo},
     relation,
@@ -164,12 +164,21 @@ impl EventHandler {
 
         // Handle SET_TRIPLE ops
         triple::insert_many(&self.neo4j, block, &edit.space_id, &version_index)
-            .triples(
-                op_groups
-                    .set_triples
-                    .into_iter()
-                    .map(|triple| triple.try_into().expect("Failed to convert triple")),
-            )
+            .triples(op_groups.set_triples.into_iter().map(|triple| {
+                let mut triple: Triple = triple.try_into().expect("Failed to convert triple");
+
+                if ids::indexed(&triple.attribute) {
+                    let embedding = self
+                        .embedding_model
+                        .embed(vec![&triple.value.value], None)
+                        .expect("Failed to get embedding")
+                        .pop()
+                        .expect("Embedding is empty");
+                    triple.embedding = Some(embedding.into_iter().map(|v| v as f64).collect());
+                }
+
+                triple
+            }))
             .send()
             .await?;
 

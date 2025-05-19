@@ -837,15 +837,11 @@ mod tests {
         .await
         .expect("Insert failed");
 
-        Triple {
-            entity: "abc".to_string(),
-            attribute: "bar".to_string(),
-            value: 456u64.into(),
-        }
-        .insert(&neo4j, &BlockMetadata::default(), "space_id", "1")
-        .send()
-        .await
-        .expect("Failed to insert triple");
+        Triple::new("abc", "bar", 456u64)
+            .insert(&neo4j, &BlockMetadata::default(), "space_id", "1")
+            .send()
+            .await
+            .expect("Failed to insert triple");
 
         let foo_v2 = entity::find_one::<Entity<Foo>>(&neo4j, "abc")
             .space_id("space_id")

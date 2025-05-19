@@ -1,4 +1,5 @@
 use chrono::DateTime;
+use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 use futures::{stream, StreamExt, TryStreamExt};
 use grc20_core::{
     block::BlockMetadata, error::DatabaseError, ids::create_geo_id, indexer_ids, mapping::Query,
@@ -14,6 +15,8 @@ use crate::{
 };
 use cache::KgCache;
 use std::sync::Arc;
+
+const EMBEDDING_MODEL: EmbeddingModel = EmbeddingModel::AllMiniLML6V2;
 
 #[derive(thiserror::Error, Debug)]
 pub enum HandlerError {
@@ -41,9 +44,19 @@ pub struct EventHandler {
     #[allow(dead_code)]
     pub(crate) cache: Option<Arc<KgCache>>,
     pub(crate) spaces_blacklist: Vec<String>,
+    pub(crate) embedding_model: fastembed::TextEmbedding,
+    pub(crate) embedding_model_dim: usize,
 }
 
 impl EventHandler {
+    pub fn neo4j(&self) -> &neo4rs::Graph {
+        &self.neo4j
+    }
+
+    pub fn embedding_dim(&self) -> usize {
+        self.embedding_model_dim
+    }
+
     pub fn new(neo4j: neo4rs::Graph, cache: Option<Arc<KgCache>>) -> Result<Self, HandlerError> {
         Self::new_with_ipfs(
             neo4j,
@@ -75,6 +88,21 @@ impl EventHandler {
                     vec![]
                 }
             },
+            embedding_model: TextEmbedding::try_new(
+                InitOptions::new(EMBEDDING_MODEL).with_show_download_progress(true),
+            )
+            .map_err(|e| {
+                tracing::error!("Error initializing embedding model: {:?}", e);
+                HandlerError::Other(format!("Error initializing embedding model: {:?}", e).into())
+            })?,
+            embedding_model_dim: TextEmbedding::get_model_info(&EMBEDDING_MODEL)
+                .map_err(|e| {
+                    tracing::error!("Error getting embedding model info: {:?}", e);
+                    HandlerError::Other(
+                        format!("Error getting embedding model info: {:?}", e).into(),
+                    )
+                })?
+                .dim,
         })
     }
 }

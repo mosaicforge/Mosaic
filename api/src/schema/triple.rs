@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use juniper::{graphql_object, Executor, GraphQLEnum, GraphQLObject, ScalarValue};
+use juniper::{graphql_object, Executor, FieldResult, GraphQLEnum, GraphQLObject, ScalarValue};
 
 use grc20_core::{
     mapping::{self, query_utils::Query, triple},
@@ -9,8 +9,11 @@ use grc20_core::{
 
 use crate::context::KnowledgeGraph;
 
+use super::Entity;
+
 #[derive(Debug)]
 pub struct Triple {
+    entity_id: String,
     pub attribute: String,
     pub value: String,
     pub value_type: ValueType,
@@ -23,6 +26,7 @@ pub struct Triple {
 impl Triple {
     pub fn new(triple: mapping::Triple, space_id: String, space_version: Option<String>) -> Self {
         Self {
+            entity_id: triple.entity,
             attribute: triple.attribute,
             value: triple.value.value,
             value_type: triple.value.value_type.into(),
@@ -78,6 +82,20 @@ impl Triple {
         .await
         .expect("Failed to find triple name attribute")
         .map(|triple| triple.value.value)
+    }
+
+    async fn entity<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+    ) -> FieldResult<Option<Entity>> {
+        Entity::load(
+            &executor.context().neo4j,
+            self.entity_id.clone(),
+            self.space_id.clone(),
+            self.space_version.clone(),
+            false,
+        )
+        .await
     }
 }
 
