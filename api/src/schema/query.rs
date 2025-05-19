@@ -317,4 +317,33 @@ impl RootQuery {
         .await?
         .map(|triple| Triple::new(triple, space_id, version_index)))
     }
+
+    async fn search<'a, S: ScalarValue>(
+        &'a self,
+        executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
+        query: String,
+        #[graphql(default = 100)] first: i32,
+        // #[graphql(default = 0)] skip: i32,
+    ) -> FieldResult<Vec<Triple>> {
+        let embedding = executor
+            .context()
+            .embedding_model
+            .embed(vec![&query], None)
+            .expect("Failed to get embedding")
+            .pop()
+            .expect("Embedding is empty")
+            .into_iter()
+            .map(|v| v as f64)
+            .collect::<Vec<_>>();
+
+        let query = mapping::triple::semantic_search(&executor.context().neo4j, embedding)
+            .limit(first as usize);
+
+        Ok(query
+            .send()
+            .await?
+            .map_ok(|search_result| Triple::new(search_result.triple, search_result.space_id, None))
+            .try_collect::<Vec<_>>()
+            .await?)
+    }
 }

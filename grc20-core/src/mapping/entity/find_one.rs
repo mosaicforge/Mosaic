@@ -168,11 +168,7 @@ mod tests {
         // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
         let (_container, neo4j) = crate::test_utils::setup_neo4j().await;
 
-        let triple = Triple {
-            entity: "abc".to_string(),
-            attribute: "name".to_string(),
-            value: "Alice".into(),
-        };
+        let triple = Triple::new("abc", "name", "Alice");
 
         triple
             .insert(&neo4j, &BlockMetadata::default(), "space_id", "0")

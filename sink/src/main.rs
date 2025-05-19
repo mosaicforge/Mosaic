@@ -55,12 +55,6 @@ async fn main() -> Result<(), Error> {
     )
     .await?;
 
-    if args.reset_db {
-        reset_db(&neo4j).await?;
-    } else {
-        migration_check(&neo4j).await?;
-    }
-
     let cache = if let Some(uri) = args.cache_args.memcache_uri {
         let cache_config = CacheConfig::new(vec![uri])
             .with_default_expiry(Duration::from_secs(args.cache_args.memcache_default_expiry));
@@ -70,6 +64,12 @@ async fn main() -> Result<(), Error> {
     };
 
     let sink = EventHandler::new(neo4j, cache)?;
+
+    if args.reset_db {
+        reset_db(&sink).await?;
+    } else {
+        migration_check(&sink).await?;
+    }
 
     start_http_server().await;
 
@@ -138,43 +138,61 @@ struct CacheArgs {
     memcache_default_expiry: u64,
 }
 
-pub async fn reset_db(neo4j: &neo4rs::Graph) -> anyhow::Result<()> {
+pub async fn reset_db(handler: &EventHandler) -> anyhow::Result<()> {
     // Delete all nodes and relations
-    neo4j
+    handler
+        .neo4j()
         .run(neo4rs::query("MATCH (n) DETACH DELETE n"))
         .await?;
 
     // Delete indexes
-    neo4j
+    handler
+        .neo4j()
         .run(neo4rs::query("DROP INDEX entity_id_index IF EXISTS"))
         .await?;
-    neo4j
+    handler
+        .neo4j()
         .run(neo4rs::query("DROP INDEX relation_id_index IF EXISTS"))
         .await?;
-    neo4j
+    handler
+        .neo4j()
         .run(neo4rs::query("DROP INDEX relation_type_index IF EXISTS"))
+        .await?;
+    handler
+        .neo4j()
+        .run(neo4rs::query("DROP INDEX vector_index IF EXISTS"))
         .await?;
 
     // Create indexes
-    neo4j
+    handler
+        .neo4j()
         .run(neo4rs::query(
             "CREATE INDEX entity_id_index FOR (e:Entity) ON (e.id)",
         ))
         .await?;
-    neo4j
+    handler
+        .neo4j()
         .run(neo4rs::query(
             "CREATE INDEX relation_id_index FOR () -[r:RELATION]-> () ON (r.id)",
         ))
         .await?;
-    neo4j
+    handler
+        .neo4j()
         .run(neo4rs::query(
             "CREATE INDEX relation_type_index FOR () -[r:RELATION]-> () ON (r.relation_type)",
         ))
         .await?;
 
+    handler.neo4j()
+        .run(neo4rs::query(&format!(
+            "CREATE VECTOR INDEX vector_index FOR (a:Indexed) ON (a.embedding) OPTIONS {{indexConfig: {{`vector.dimensions`: {}, `vector.similarity_function`: 'COSINE'}}}}",
+            handler.embedding_dim()
+        )))
+        .await?;
+
     // Bootstrap indexer entities
     mapping::triple::insert_many(
-        neo4j,
+        handler.neo4j(),
         &BlockMetadata::default(),
         indexer_ids::INDEXER_SPACE_ID,
         "0",
@@ -186,9 +204,9 @@ pub async fn reset_db(neo4j: &neo4rs::Graph) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn migration_check(neo4j: &neo4rs::Graph) -> Result<(), Error> {
+async fn migration_check(handler: &EventHandler) -> Result<(), Error> {
     let version = triple::find_one(
-        neo4j,
+        handler.neo4j(),
         indexer_ids::VERSION_ATTRIBUTE,
         indexer_ids::CURSOR_ID,
         indexer_ids::INDEXER_SPACE_ID,
@@ -204,7 +222,7 @@ async fn migration_check(neo4j: &neo4rs::Graph) -> Result<(), Error> {
                 version.value.value,
                 env!("GIT_TAG")
             );
-            reset_db(neo4j).await?;
+            reset_db(handler).await?;
         } else {
             tracing::info!(
                 "Version match: {}. No migration needed.",
@@ -213,7 +231,7 @@ async fn migration_check(neo4j: &neo4rs::Graph) -> Result<(), Error> {
         }
     } else {
         tracing::info!("No version found in the database. Resetting the database.");
-        reset_db(neo4j).await?;
+        reset_db(handler).await?;
     }
 
     Ok(())
