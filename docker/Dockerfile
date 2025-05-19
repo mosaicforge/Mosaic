@@ -1,4 +1,4 @@
-FROM rust:1.81.0 AS builder
+FROM rust:1.87.0 AS builder
 
 WORKDIR /kg-node
 COPY . .
