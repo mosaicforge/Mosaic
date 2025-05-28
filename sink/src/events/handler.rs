@@ -241,7 +241,7 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
                     self.handle_personal_space_created(event, &data.block).await
                 })
                 .await?;
-    
+
             // Handle new governance plugin creation
             if !data.governance_plugins_created.is_empty() {
                 tracing::info!(
@@ -258,7 +258,7 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
                         .await
                 })
                 .await?;
-    
+
             if !data.initial_editors_added.is_empty() {
                 tracing::info!(
                     "Block #{} ({}): Processing {} initial editors added events",
@@ -274,7 +274,7 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
                         .await
                 })
                 .await?;
-    
+
             if !data.members_added.is_empty() {
                 tracing::info!(
                     "Block #{} ({}): Processing {} members added events",
@@ -287,7 +287,7 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
                 .map(Ok)
                 .try_for_each(|event| async { self.handle_member_added(event, &data.block).await })
                 .await?;
-    
+
             if !data.members_removed.is_empty() {
                 tracing::info!(
                     "Block #{} ({}): Processing {} members removed events",
@@ -298,9 +298,11 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
             }
             stream::iter(&data.members_removed)
                 .map(Ok)
-                .try_for_each(|event| async { self.handle_member_removed(event, &data.block).await })
+                .try_for_each(|event| async {
+                    self.handle_member_removed(event, &data.block).await
+                })
                 .await?;
-    
+
             if !data.editors_added.is_empty() {
                 tracing::info!(
                     "Block #{} ({}): Processing {} editors added events",
@@ -313,7 +315,7 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
                 .map(Ok)
                 .try_for_each(|event| async { self.handle_editor_added(event, &data.block).await })
                 .await?;
-    
+
             if !data.editors_removed.is_empty() {
                 tracing::info!(
                     "Block #{} ({}): Processing {} editors removed events",
@@ -324,7 +326,9 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
             }
             stream::iter(&data.editors_removed)
                 .map(Ok)
-                .try_for_each(|event| async { self.handle_editor_removed(event, &data.block).await })
+                .try_for_each(|event| async {
+                    self.handle_editor_removed(event, &data.block).await
+                })
                 .await?;
         }
 
@@ -355,7 +359,6 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
             .await?;
 
         if self.governance {
-
             if !data.proposed_added_members.is_empty() {
                 tracing::info!(
                     "Block #{} ({}): Processing {} add member proposal created events",
@@ -371,7 +374,7 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
                         .await
                 })
                 .await?;
-    
+
             if !data.proposed_removed_members.is_empty() {
                 tracing::info!(
                     "Block #{} ({}): Processing {} remove member proposal created events",
@@ -387,7 +390,7 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
                         .await
                 })
                 .await?;
-    
+
             if !data.proposed_added_editors.is_empty() {
                 tracing::info!(
                     "Block #{} ({}): Processing {} add editor proposal created events",
@@ -403,7 +406,7 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
                         .await
                 })
                 .await?;
-    
+
             if !data.proposed_removed_editors.is_empty() {
                 tracing::info!(
                     "Block #{} ({}): Processing {} remove editor proposal created events",
@@ -419,7 +422,7 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
                         .await
                 })
                 .await?;
-    
+
             // Handle proposed add subspace
             if !data.proposed_added_subspaces.is_empty() {
                 tracing::info!(
@@ -436,7 +439,7 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
                         .await
                 })
                 .await?;
-    
+
             // Handle remove subspace proposal created
             if !data.proposed_removed_subspaces.is_empty() {
                 tracing::info!(
@@ -454,7 +457,7 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
                 })
                 .await?;
 
-                // Handle publish edit proposal created
+            // Handle publish edit proposal created
             if !data.edits.is_empty() {
                 tracing::info!(
                     "Block #{} ({}): Processing {} publish edit proposal created events",
@@ -470,7 +473,7 @@ impl substreams_utils::Sink<preprocess::EventData> for EventHandler {
                         .await
                 })
                 .await?;
-    
+
             // Handle vote cast
             if !data.votes_cast.is_empty() {
                 tracing::info!(

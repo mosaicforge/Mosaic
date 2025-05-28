@@ -141,7 +141,7 @@ impl EventHandler {
 
         let version_index = if self.versioning {
             mapping::new_version_index(block.block_number, index)
-        } else  {
+        } else {
             "0".to_string()
         };
 
