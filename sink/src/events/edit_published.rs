@@ -139,12 +139,19 @@ impl EventHandler {
             return Ok(());
         }
 
-        let version_index = mapping::new_version_index(block.block_number, index);
-        let edit_medatata =
-            models::Edit::new(edit.name, edit.content_uri, Some(version_index.clone()));
-        let proposal_id = Proposal::gen_id(&edit.space_plugin_address, &edit.proposal_id);
-        self.create_edit_relations(block, edit_medatata, &edit.space_id, &proposal_id)
-            .await?;
+        let version_index = if self.versioning {
+            mapping::new_version_index(block.block_number, index)
+        } else {
+            "0".to_string()
+        };
+
+        if self.governance {
+            let edit_medatata =
+                models::Edit::new(edit.name, edit.content_uri, Some(version_index.clone()));
+            let proposal_id = Proposal::gen_id(&edit.space_plugin_address, &edit.proposal_id);
+            self.create_edit_relations(block, edit_medatata, &edit.space_id, &proposal_id)
+                .await?;
+        }
 
         // Group ops by type
         let num_ops = edit.ops.len();
