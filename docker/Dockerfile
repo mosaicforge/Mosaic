@@ -28,6 +28,8 @@ COPY --from=builder /kg-node/target/release/sink .
 COPY --from=builder /kg-node/geo-substream.spkg .
 
 CMD ./sink \
+    --no-versioning \
+    --no-governance \
     --neo4j-uri $neo4j_uri \
     --neo4j-user $neo4j_user \
     --neo4j-pass $neo4j_pass
