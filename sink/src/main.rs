@@ -63,7 +63,9 @@ async fn main() -> Result<(), Error> {
         None
     };
 
-    let sink = EventHandler::new(neo4j, cache)?;
+    let sink = EventHandler::new(neo4j, cache)?
+        .versioning(!args.no_versioning)
+        .governance(!args.no_governance);
 
     if args.reset_db {
         reset_db(&sink).await?;
@@ -99,10 +101,6 @@ struct AppArgs {
     #[clap(flatten)]
     cache_args: CacheArgs,
 
-    /// Whether or not to roll up the relations
-    #[arg(long, default_value_t = true)]
-    rollup: bool,
-
     /// Whether or not to reset the database
     #[arg(long)]
     reset_db: bool,
@@ -110,6 +108,14 @@ struct AppArgs {
     /// Log file path
     #[arg(long)]
     log_file: Option<String>,
+
+    /// Whether to enable versioning
+    #[arg(long, default_value = "false")]
+    no_versioning: bool,
+
+    /// Whether to index governance events
+    #[arg(long, default_value = "false")]
+    no_governance: bool,
 }
 
 #[derive(Debug, Args)]

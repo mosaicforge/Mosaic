@@ -23,8 +23,9 @@ docker run \
 ### 2. Compile and run the indexer
 In a separate terminal, run the following commands:
 ```bash
-CFLAGS='-std=gnu17' cargo run --bin sink -- \
-    --reset-db \
+CFLAGS='-std=gnu17' cargo run --release --bin sink -- \
+    --no-versioning \
+    --no-governance \
     --neo4j-uri neo4j://localhost:7687 \
     --neo4j-user neo4j \
     --neo4j-pass neo4j
@@ -35,6 +36,11 @@ CFLAGS='-std=gnu17' cargo run --bin api -- \
     --neo4j-uri neo4j://localhost:7687 \
     --neo4j-user neo4j \
     --neo4j-pass neo4j
+```
+Schema introspection
+
+```
+npx get-graphql-schema http://127.0.0.1:8080/graphql > api/schema.graphql
 ```
 
 ## GRC20 CLI

@@ -32,6 +32,15 @@ type Entity {
   """Entity ID"""
   id: String!
 
+  """
+  The space ID of the entity (note: the same entity can exist in multiple spaces)
+  """
+  spaceId: String!
+  createdAt: String!
+  createdAtBlock: String!
+  updatedAt: String!
+  updatedAtBlock: String!
+
   """Entity name (if available)"""
   name: String
 
@@ -46,15 +55,6 @@ type Entity {
 
   """Types of the entity (which are entities themselves)"""
   types: [Entity!]!
-
-  """
-  The space ID of the entity (note: the same entity can exist in multiple spaces)
-  """
-  spaceId: String!
-  createdAt: String!
-  createdAtBlock: String!
-  updatedAt: String!
-  updatedAtBlock: String!
 
   """Attributes of the entity"""
   attributes(filter: AttributeFilter): [Triple!]!
@@ -143,6 +143,50 @@ enum OrderDirection {
   DESC
 }
 
+type Property {
+  """Entity ID"""
+  id: String!
+
+  """
+  The space ID of the entity (note: the same entity can exist in multiple spaces)
+  """
+  spaceId: String!
+  createdAt: String!
+  createdAtBlock: String!
+  updatedAt: String!
+  updatedAtBlock: String!
+
+  """Entity name (if available)"""
+  name(strict: Boolean! = true): String
+
+  """Entity description (if available)"""
+  description: String
+
+  """Entity cover (if available)"""
+  cover: String
+
+  """Entity blocks (if available)"""
+  blocks: [Entity!]!
+
+  """Types of the entity (which are entities themselves)"""
+  types: [Entity!]!
+
+  """Attributes of the entity"""
+  attributes(filter: AttributeFilter): [Triple!]!
+
+  """Relations outgoing from the entity"""
+  relations(where: EntityRelationFilter): [Relation!]!
+
+  """Versions of the entity, ordered chronologically"""
+  versions: [EntityVersion!]!
+
+  """Value type of the property"""
+  valueType: Entity
+
+  """Value type of the property"""
+  relationValueType: Entity
+}
+
 """Relation object"""
 type Relation {
   """Relation ID"""
@@ -187,10 +231,10 @@ input RelationFilter {
 
 type RootQuery {
   """Returns a single space by ID"""
-  space(id: String!): Space
+  space(id: String!, version: String): Space
 
   """Returns multiple spaces according to the provided filter"""
-  spaces(where: SpaceFilter, first: Int, skip: Int): [Space!]!
+  spaces(where: SpaceFilter, version: String, first: Int! = 100, skip: Int! = 0): [Space!]!
 
   """Returns a single account by ID"""
   account(id: String!): Account
@@ -199,23 +243,72 @@ type RootQuery {
   accountByAddress(address: String!): Account
 
   """Returns multiple accounts according to the provided filter"""
-  accounts(where: AccountFilter, first: Int, skip: Int): [Account!]!
+  accounts(where: AccountFilter, first: Int! = 100, skip: Int! = 0): [Account!]!
 
   """Returns a single entity identified by its ID and space ID"""
-  entity(id: String!, spaceId: String!, versionId: String): Entity
+  entity(id: String!, spaceId: String!, versionId: String, strict: Boolean! = true): Entity
 
   """
   Returns multiple entities according to the provided space ID and filter
   """
-  entities(spaceId: String!, orderBy: String, orderDirection: OrderDirection, where: EntityFilter, first: Int, skip: Int): [Entity!]!
+  entities(spaceId: String!, orderBy: String, orderDirection: OrderDirection, where: EntityFilter, first: Int! = 100, skip: Int! = 0, strict: Boolean! = true): [Entity!]!
 
   """Returns a single relation identified by its ID and space ID"""
-  relation(id: String!, spaceId: String!, versionId: String): Relation
+  relation(id: String!, spaceId: String!, versionId: String, strict: Boolean! = true): Relation
 
   """
   Returns multiple relations according to the provided space ID and filter
   """
-  relations(spaceId: String!, orderBy: String, orderDirection: OrderDirection, where: RelationFilter, first: Int, skip: Int): [Relation!]!
+  relations(spaceId: String!, orderBy: String, orderDirection: OrderDirection, where: RelationFilter, first: Int! = 100, skip: Int! = 0, strict: Boolean! = true): [Relation!]!
+
+  """
+  Returns a single triple identified by its entity ID, attribute ID, space ID and
+  optional version ID
+  """
+  triple(entityId: String!, attributeId: String!, spaceId: String!, versionId: String, strict: Boolean! = true): Triple
+  search(query: String!, first: Int! = 100): [Triple!]!
+}
+
+"""SchemaType object"""
+type SchemaType {
+  """Entity ID"""
+  id: String!
+
+  """
+  The space ID of the entity (note: the same entity can exist in multiple spaces)
+  """
+  spaceId: String!
+  createdAt: String!
+  createdAtBlock: String!
+  updatedAt: String!
+  updatedAtBlock: String!
+
+  """Entity name (if available)"""
+  name(strict: Boolean! = true): String
+
+  """Entity description (if available)"""
+  description: String
+
+  """Entity cover (if available)"""
+  cover: String
+
+  """Entity blocks (if available)"""
+  blocks: [Entity!]!
+
+  """Types of the entity (which are entities themselves)"""
+  types: [Entity!]!
+
+  """Attributes of the entity"""
+  attributes(filter: AttributeFilter): [Triple!]!
+
+  """Relations outgoing from the entity"""
+  relations(where: EntityRelationFilter): [Relation!]!
+
+  """Versions of the entity, ordered chronologically"""
+  versions: [EntityVersion!]!
+
+  """Properties of the Type"""
+  properties(first: Int! = 100, skip: Int! = 0): [Property!]!
 }
 
 type Space {
@@ -244,16 +337,19 @@ type Space {
   personalSpaceAdminPlugin: String
 
   """Members of the space"""
-  members(first: Int, skip: Int): [Account!]!
+  members(first: Int! = 100, skip: Int! = 0): [Account!]!
 
   """Editors of the space"""
-  editors(first: Int, skip: Int): [Account!]!
+  editors(first: Int! = 100, skip: Int! = 0): [Account!]!
 
   """Parent spaces of this space"""
-  parentSpaces(first: Int, skip: Int): [Space!]!
+  parentSpaces(first: Int! = 100, skip: Int! = 0): [Space!]!
 
   """Subspaces of this space"""
-  subspaces(first: Int, skip: Int): [Space!]!
+  subspaces(first: Int! = 100, skip: Int! = 0): [Space!]!
+  types(first: Int! = 100, skip: Int! = 0, strict: Boolean! = true): [SchemaType!]!
+  type(id: String!, strict: Boolean! = true): SchemaType
+  entities(orderBy: String, orderDirection: OrderDirection, where: EntityFilter, first: Int! = 100, skip: Int! = 0, strict: Boolean! = true): [Entity!]!
 }
 
 input SpaceFilter {
@@ -265,10 +361,10 @@ input SpaceFilter {
   networkNot: String
   networkIn: [String!]
   networkNotIn: [String!]
-  governanceType: String
-  governanceTypeNot: String
-  governanceTypeIn: [String!]
-  governanceTypeNotIn: [String!]
+  governanceType: SpaceGovernanceType
+  governanceTypeNot: SpaceGovernanceType
+  governanceTypeIn: [SpaceGovernanceType!]
+  governanceTypeNotIn: [SpaceGovernanceType!]
   daoContractAddress: String
   daoContractAddressNot: String
   daoContractAddressIn: [String!]
@@ -314,6 +410,7 @@ type Triple {
 
   """Name of the attribute (if available)"""
   name: String
+  entity: Entity
 }
 
 enum ValueType {
