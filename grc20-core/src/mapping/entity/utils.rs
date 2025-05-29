@@ -16,6 +16,8 @@ pub struct EntityFilter {
     pub(crate) id: Option<PropFilter<String>>,
     pub(crate) attributes: Vec<AttributeFilter>,
     pub(crate) relations: Option<EntityRelationFilter>,
+    /// Used to check if the entity exists in the space (i.e.: the entity
+    /// has at least one attribute in the space).
     pub(crate) space_id: Option<PropFilter<String>>,
 }
 
@@ -284,6 +286,7 @@ impl<'a> MatchEntity<'a> {
         node_var: impl Into<String>,
         attributes_node_var: impl Into<String>,
         types_node_var: impl Into<String>,
+        extra_vars: Option<Vec<String>>,
         next: impl Subquery,
     ) -> QueryBuilder {
         let node_var = node_var.into();
@@ -294,21 +297,23 @@ impl<'a> MatchEntity<'a> {
         // let attributes_node_var = format!("{entity_node_var}_attributes");
         // let types_node_var = format!("{entity_node_var}_types");
 
+        let with_vars = vec![
+            node_var.clone(),
+            format!("COLLECT(DISTINCT {attributes_node_var}{{.*}}) AS {attributes_node_var}"),
+            format!("COLLECT(DISTINCT {types_node_var}{{.*}}) AS {types_node_var}"),
+        ];
+        let with_vars = if let Some(extra_vars) = extra_vars {
+            with_vars.into_iter().chain(extra_vars).collect()
+        } else {
+            with_vars
+        };
+
         QueryBuilder::default()
             .subquery(
                 self.match_attributes
                     .subquery(&node_var, &attributes_node_var),
             )
             .subquery(self.match_types.subquery(&node_var, &types_node_var))
-            .with(
-                vec![
-                    node_var,
-                    format!(
-                        "COLLECT(DISTINCT {attributes_node_var}{{.*}}) AS {attributes_node_var}"
-                    ),
-                    format!("COLLECT(DISTINCT {types_node_var}{{.*}}) AS {types_node_var}"),
-                ],
-                next,
-            )
+            .with(with_vars, next)
     }
 }

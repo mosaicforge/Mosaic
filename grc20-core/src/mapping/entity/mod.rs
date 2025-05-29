@@ -5,6 +5,7 @@ pub mod find_one;
 pub mod insert_many;
 pub mod insert_one;
 pub mod models;
+pub mod semantic_search;
 pub mod utils;
 
 pub use delete_one::DeleteOneQuery;
@@ -12,6 +13,7 @@ pub use find_many::FindManyQuery;
 pub use find_one::FindOneQuery;
 pub use insert_one::InsertOneQuery;
 pub use models::{Entity, EntityNode, EntityNodeRef, SystemProperties};
+pub use semantic_search::SemanticSearchQuery;
 pub use utils::{EntityFilter, EntityRelationFilter};
 
 use crate::block::BlockMetadata;
@@ -38,6 +40,10 @@ pub fn find_one<T>(neo4j: &neo4rs::Graph, id: impl Into<String>) -> FindOneQuery
 
 pub fn find_many<T>(neo4j: &neo4rs::Graph) -> FindManyQuery<T> {
     FindManyQuery::new(neo4j)
+}
+
+pub fn search<T>(neo4j: &neo4rs::Graph, vector: Vec<f64>) -> SemanticSearchQuery<T> {
+    SemanticSearchQuery::new(neo4j, vector)
 }
 
 pub fn insert_one<T>(

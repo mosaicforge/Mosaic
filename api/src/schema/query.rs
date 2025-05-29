@@ -318,12 +318,12 @@ impl RootQuery {
         .map(|triple| Triple::new(triple, space_id, version_index)))
     }
 
-    async fn search<'a, S: ScalarValue>(
+    async fn search_triples<'a, S: ScalarValue>(
         &'a self,
         executor: &'a Executor<'_, '_, KnowledgeGraph, S>,
         query: String,
         #[graphql(default = 100)] first: i32,
-        // #[graphql(default = 0)] skip: i32,
+        #[graphql(default = 0)] skip: i32,
     ) -> FieldResult<Vec<Triple>> {
         let embedding = executor
             .context()
@@ -336,8 +336,9 @@ impl RootQuery {
             .map(|v| v as f64)
             .collect::<Vec<_>>();
 
-        let query = mapping::triple::semantic_search(&executor.context().neo4j, embedding)
-            .limit(first as usize);
+        let query = mapping::triple::search(&executor.context().neo4j, embedding)
+            .limit(first as usize)
+            .skip(skip as usize);
 
         Ok(query
             .send()

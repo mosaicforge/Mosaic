@@ -28,7 +28,7 @@ impl VersionFilter {
             let param_key = format!("{}_version", var);
 
             WhereClause::new(format!("{var}.min_version <= ${param_key} AND ({var}.max_version IS NULL OR {var}.max_version > ${param_key})"))
-                .params(param_key, version.clone())
+                .set_param(param_key, version.clone())
         } else {
             WhereClause::new(format!("{var}.max_version IS NULL"))
         }

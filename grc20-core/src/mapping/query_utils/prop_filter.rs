@@ -158,13 +158,41 @@ impl<T> PropFilter<T> {
 }
 
 impl<T: Clone + Into<BoltType>> PropFilter<T> {
-    /// Converts the filter into a query part.
-    /// The `node_var` is the variable name of the node in the query.
-    /// The `key` is the property key of the node.
-    /// The `expr` is an optional expression to use instead of the property key.
-    /// If `expr` is `None`, the node_var and key will be used as the expression to
-    /// filter, e.g. `{node_var}.{key} = $value`
-    pub(crate) fn subquery(&self, node_var: &str, key: &str, expr: Option<&str>) -> WhereClause {
+    /// Compiles the attribute filter into a [WhereClause] Neo4j subquery that will apply
+    /// a filter on the `key` field of the `node_var` node(s) (i.e.: `{node_var}.{key}`).
+    ///
+    /// If `expr` is set, then it will used as the filter target instead of the above.
+    ///
+    /// For example, given the following [PropFilter] (which creates a property filter)
+    /// ```rust,no-run
+    /// # fn main() {
+    /// # use std::collections::HashMap;
+    /// # use grc20_core::mapping::{PropFilter, Subquery};
+    /// let prop_filter = PropFilter::default()
+    ///     .value_not("Bob")
+    ///     .value_lt("Gary");
+    ///
+    /// let query = prop_filter.subquery("e", "name", None);
+    /// assert_eq!(
+    ///     query.compile(),
+    ///     "WHERE e.name <> $e_name_value_not\nAND e.name < $e_name_value_lt"
+    /// )
+    /// assert_eq!(
+    ///     query.params(),
+    ///     HashMap::from([
+    ///         ("e_name_value_not", "Bob"),
+    ///         ("e_name_value_lt", "Gary")
+    ///     ])
+    /// )
+    ///
+    /// let query = prop_filter.subquery("e", "name", Some("my_expr"));
+    /// assert_eq!(
+    ///     query.compile(),
+    ///     "WHERE my_expr <> $e_name_value_not\nAND my_expr < $e_name_value_lt"
+    /// )
+    /// # }
+    /// ```
+    pub fn subquery(&self, node_var: &str, key: &str, expr: Option<&str>) -> WhereClause {
         let mut where_clause = WhereClause::default();
 
         let expr = expr
@@ -175,56 +203,56 @@ impl<T: Clone + Into<BoltType>> PropFilter<T> {
             let param_key = format!("{node_var}_{key}_value");
             where_clause = where_clause
                 .clause(format!("{expr} = ${param_key}"))
-                .params(param_key, value.clone());
+                .set_param(param_key, value.clone());
         }
 
         if let Some(value_gt) = &self.value_gt {
             let param_key = format!("{node_var}_{key}_value_gt");
             where_clause = where_clause
                 .clause(format!("{expr} > ${param_key}"))
-                .params(param_key, value_gt.clone());
+                .set_param(param_key, value_gt.clone());
         }
 
         if let Some(value_gte) = &self.value_gte {
             let param_key = format!("{node_var}_{key}_value_gte");
             where_clause = where_clause
                 .clause(format!("{expr} >= ${param_key}"))
-                .params(param_key, value_gte.clone());
+                .set_param(param_key, value_gte.clone());
         }
 
         if let Some(value_lt) = &self.value_lt {
             let param_key = format!("{node_var}_{key}_value_lt");
             where_clause = where_clause
                 .clause(format!("{expr} < ${param_key}"))
-                .params(param_key, value_lt.clone());
+                .set_param(param_key, value_lt.clone());
         }
 
         if let Some(value_lte) = &self.value_lte {
             let param_key = format!("{node_var}_{key}_value_lte");
             where_clause = where_clause
                 .clause(format!("{expr} <= ${param_key}"))
-                .params(param_key, value_lte.clone());
+                .set_param(param_key, value_lte.clone());
         }
 
         if let Some(value_not) = &self.value_not {
             let param_key = format!("{node_var}_{key}_value_not");
             where_clause = where_clause
                 .clause(format!("{expr} <> ${param_key}"))
-                .params(param_key, value_not.clone());
+                .set_param(param_key, value_not.clone());
         }
 
         if let Some(value_in) = &self.value_in {
             let param_key = format!("{node_var}_{key}_value_in");
             where_clause = where_clause
                 .clause(format!("{expr} IN ${param_key}"))
-                .params(param_key, value_in.clone());
+                .set_param(param_key, value_in.clone());
         }
 
         if let Some(value_not_in) = &self.value_not_in {
             let param_key = format!("{node_var}_{key}_value_not_in");
             where_clause = where_clause
                 .clause(format!("{expr} NOT IN ${param_key}"))
-                .params(param_key, value_not_in.clone());
+                .set_param(param_key, value_not_in.clone());
         }
 
         where_clause

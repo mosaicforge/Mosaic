@@ -157,6 +157,7 @@ impl<T: FromAttributes> QueryStream<Entity<T>> for FindManyQuery<Entity<T>> {
                 "e",
                 "attrs",
                 "types",
+                None,
                 "RETURN e{.*, attrs: attrs, types: types}",
             ),
         );
