@@ -190,7 +190,7 @@ impl KnowledgeGraph {
                 entity::EntityFilter::default().relations(
                     EntityRelationFilter::default()
                         .relation_type(system_ids::VALUE_TYPE_ATTRIBUTE)
-                        .to_id(system_ids::RELATION),
+                        .to_id(system_ids::RELATION_SCHEMA_TYPE),
                 ),
             )
             .limit(8)
