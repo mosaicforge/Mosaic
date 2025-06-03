@@ -43,5 +43,13 @@ Schema introspection
 npx get-graphql-schema http://127.0.0.1:8080/graphql > api/schema.graphql
 ```
 
+## MCP Server
+```bash
+CFLAGS='-std=gnu17' cargo run --bin mcp-server -- \
+    --neo4j-uri neo4j://localhost:7687 \
+    --neo4j-user neo4j \
+    --neo4j-pass neo4j
+```
+
 ## GRC20 CLI
 Coming soon™️
