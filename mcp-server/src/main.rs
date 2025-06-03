@@ -2,8 +2,8 @@ use clap::{Args, Parser};
 use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 use futures::TryStreamExt;
 use grc20_core::{
-    entity::{self, Entity, EntityRelationFilter},
-    mapping::{Query, QueryStream, query_utils::TypesFilter},
+    entity::{self, Entity, EntityRelationFilter, TypesFilter},
+    mapping::{Query, QueryStream},
     neo4rs, system_ids,
 };
 use grc20_sdk::models::BaseEntity;

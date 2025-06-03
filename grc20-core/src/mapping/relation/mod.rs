@@ -73,14 +73,14 @@ pub fn find_one<T>(
 }
 
 /// Creates a query to find multiple relations. Supports filtering by relation_type and its to/from entities.
-/// The results are ordered by relation index. 
-/// 
+/// The results are ordered by relation index.
+///
 /// See [`RelationFilter`](RelationFilter) for more details on filtering options.
-/// 
+///
 /// ```rust
 /// use grc20_core::mapping::relation;
 /// use grc20_core::mapping::query_utils::order_by;
-/// 
+///
 /// // Find relations of a specific type (e.g.: "Parent").
 /// let relations = relation::find_many::<Relation>(&neo4j)
 ///     .filter(relation::RelationFilter::default()
@@ -89,7 +89,7 @@ pub fn find_one<T>(
 ///     .limit(10)
 ///     .send()
 ///     .await?;
-/// 
+///
 /// // Find relations with a specific from entity, in this case relations that have a
 /// // any type of relation between "Alice" and "Bob".
 /// let relations = relation::find_many::<Relation>(&neo4j)
@@ -104,7 +104,7 @@ pub fn find_many<T>(neo4j: &neo4rs::Graph) -> FindManyQuery<T> {
     FindManyQuery::new(neo4j)
 }
 
-/// Same as `find_one`, but it returns the `to` entity of the relation instead of the 
+/// Same as `find_one`, but it returns the `to` entity of the relation instead of the
 /// relation itself.
 pub fn find_one_to<T>(
     neo4j: &neo4rs::Graph,
