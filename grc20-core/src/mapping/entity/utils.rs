@@ -11,6 +11,7 @@ use crate::{
     system_ids,
 };
 
+/// Filter used to find entities in the knowledge graph.
 #[derive(Clone, Debug, Default)]
 pub struct EntityFilter {
     pub(crate) id: Option<PropFilter<String>>,
@@ -196,7 +197,6 @@ impl From<TypesFilter> for EntityRelationFilter {
         filter
     }
 }
-
 
 #[derive(Clone, Debug)]
 pub struct MatchEntityAttributes<'a> {

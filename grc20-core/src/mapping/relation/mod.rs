@@ -47,6 +47,22 @@ pub fn delete_one(
     )
 }
 
+/// Creates a query to find a single relation by its ID and space ID if it exists. Supports optional
+/// filtering by version.
+///
+/// ```rust
+/// use grc20_core::mapping::relation;
+///
+/// // Get current relation
+/// let maybe_relation = relation::find_one::<Relation>(&neo4j, "relation_id", "space_id", None)
+///     .send()
+///     .await?;
+///
+/// // Get relation in a specific space and version
+/// let maybe_relation = relation::find_one::<Relation>(&neo4j, "relation_id", "space_id", Some("space_version".to_string()))
+///     .send()
+///     .await?;
+/// ```
 pub fn find_one<T>(
     neo4j: &neo4rs::Graph,
     relation_id: impl Into<String>,
@@ -56,10 +72,40 @@ pub fn find_one<T>(
     FindOneQuery::new(neo4j, relation_id.into(), space_id.into(), space_version)
 }
 
+/// Creates a query to find multiple relations. Supports filtering by relation_type and its to/from entities.
+/// The results are ordered by relation index. 
+/// 
+/// See [`RelationFilter`](RelationFilter) for more details on filtering options.
+/// 
+/// ```rust
+/// use grc20_core::mapping::relation;
+/// use grc20_core::mapping::query_utils::order_by;
+/// 
+/// // Find relations of a specific type (e.g.: "Parent").
+/// let relations = relation::find_many::<Relation>(&neo4j)
+///     .filter(relation::RelationFilter::default()
+///         // Filter by relation type "Parent" (we provide an entity filter with the ID "Parent")
+///         .relation_type(entity::EntityFilter::default().id("Parent")))
+///     .limit(10)
+///     .send()
+///     .await?;
+/// 
+/// // Find relations with a specific from entity, in this case relations that have a
+/// // any type of relation between "Alice" and "Bob".
+/// let relations = relation::find_many::<Relation>(&neo4j)
+///     .filter(relation::RelationFilter::default()
+///         // Filter by from entity with ID "Alice"
+///         .from_(entity::EntityFilter::default().id("Alice"))
+///         .to_(entity::EntityFilter::default().id("Bob")))
+///     .send()
+///     .await?;
+/// ```
 pub fn find_many<T>(neo4j: &neo4rs::Graph) -> FindManyQuery<T> {
     FindManyQuery::new(neo4j)
 }
 
+/// Same as `find_one`, but it returns the `to` entity of the relation instead of the 
+/// relation itself.
 pub fn find_one_to<T>(
     neo4j: &neo4rs::Graph,
     relation_id: impl Into<String>,
@@ -69,6 +115,9 @@ pub fn find_one_to<T>(
     FindOneToQuery::new(neo4j, relation_id.into(), space_id.into(), space_version)
 }
 
+/// Same as `find_many`, but it returns the `to` entities of the relations instead of the
+/// relations themselves. This is useful when you want to retrieve the target entities of
+/// a set of relations without fetching the relations themselves.
 pub fn find_many_to<T>(neo4j: &neo4rs::Graph) -> FindManyToQuery<T> {
     FindManyToQuery::new(neo4j)
 }
