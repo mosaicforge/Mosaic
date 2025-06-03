@@ -1,11 +1,11 @@
 use futures::{Stream, TryStreamExt};
 
 use grc20_core::{
-    entity,
+    entity::{self, TypesFilter},
     error::DatabaseError,
     mapping::{
         prop_filter,
-        query_utils::{QueryStream, TypesFilter},
+        query_utils::QueryStream,
         EntityFilter, EntityNode, PropFilter, Query,
     },
     neo4rs, system_ids,

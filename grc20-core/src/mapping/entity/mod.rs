@@ -14,7 +14,7 @@ pub use find_one::FindOneQuery;
 pub use insert_one::InsertOneQuery;
 pub use models::{Entity, EntityNode, EntityNodeRef, SystemProperties};
 pub use semantic_search::SemanticSearchQuery;
-pub use utils::{EntityFilter, EntityRelationFilter};
+pub use utils::{EntityFilter, EntityRelationFilter, TypesFilter};
 
 use crate::block::BlockMetadata;
 
@@ -34,14 +34,95 @@ pub fn delete_one(
     )
 }
 
+/// Creates a query to find a single entity by its ID if it exists. Supports optional
+/// filtering by space ID and version.
+/// ```rust
+/// use grc20_core::mapping::entity;
+/// 
+/// // Get current entity
+/// let maybe_entity = entity::find_one::<EntityNode>(&neo4j, "entity_id")
+///    .send()
+///    .await?;
+/// 
+/// // Get entity in a specific space and version
+/// let maybe_entity = entity::find_one::<EntityNode>(&neo4j, "entity_id")
+///     .space_id("space_id")
+///     .space_version("space_version")
+///     .send()
+///     .await?;
+/// ```
 pub fn find_one<T>(neo4j: &neo4rs::Graph, id: impl Into<String>) -> FindOneQuery<T> {
     FindOneQuery::new(neo4j, id.into())
 }
 
+/// Creates a query to find multiple entities. Supports filtering by relations and 
+/// properties as well as ordering and pagination. See [`EntityFilter`](EntityFilter) 
+/// for more details on filtering options.
+/// ```rust
+/// use grc20_core::mapping::entity;
+/// use grc20_core::mapping::query_utils::order_by;
+/// 
+/// // Find entities with a specific attribute, order them by a property and 
+/// // return the first 10.
+/// let entities = entity::find_many::<EntityNode>(&neo4j)
+///     .filter(entity::EntityFilter::default()
+///         // Filter by "SOME_ATTRIBUTE" attribute with value "some_value"
+///         .attribute(AttributeFilter::new("SOME_ATTRIBUTE").value("some_value")))
+///     .order_by(order_by::asc("some_property"))
+///     .limit(10)
+///     .send()
+///     .await?;
+/// 
+/// // Find entities with a specific relation, in this case entities that have a
+/// // `Parent` relation to an entity with ID "Alice".
+/// let entities = entity::find_many::<EntityNode>(&neo4j)
+///     .filter(entity::EntityFilter::default()
+///         // Filter by relations
+///         .relations(entity::EntityRelationFilter::default()
+///             // Filter by `Parent` relation to entity with ID "Alice"
+///             .relation_type("Parent".to_string())
+///             .to_id("Alice".to_string())))
+///     .send()
+///     .await?;
+///
+/// // Find entities with a specific type (note: `TypesFilter` is a shorthand 
+/// // for `EntityRelationFilter`. It is converted to a relation filter internally).
+/// let entities = entity::find_many::<EntityNode>(&neo4j)
+///     .filter(entity::EntityFilter::default()
+///         // Filter by `Types` relations pointing to `EntityType`
+///         .relations(TypesFilter::default().r#type("EntityType".to_string())))
+///     .send()
+///     .await?;
+/// ```
 pub fn find_many<T>(neo4j: &neo4rs::Graph) -> FindManyQuery<T> {
     FindManyQuery::new(neo4j)
 }
 
+/// Create a query to search for entities using semantic search based on a vector. The query
+/// supports the same filtering options as `find_many`, allowing you to filter results by
+/// attributes, relations, and other properties. 
+/// 
+/// Important: The search uses *approximate* nearest neighbor search, which means that 
+/// the results with filtering applied after the search, which may lead to some results 
+/// that contain fewer than the desired quantity `limit`.
+/// ```rust
+/// use grc20_core::mapping::entity;
+/// 
+/// let search_vector = embedding::embed("my search query");
+/// 
+/// // Search for entities similar to the provided vector.
+/// let results = entity::search::<EntityNode>(&neo4j, search_vector)
+///     .send()
+/// 
+/// // Search for types (i.e.: entities that have `Types`` relation to `SchemaType``) of 
+/// // entities similar to the provided vector.
+/// let results = entity::search::<EntityNode>(&neo4j, search_vector)
+///     .filter(entity::EntityFilter::default()
+///         // Filter by `Types` relations pointing to `SchemaType`
+///         .relations(entity::TypesFilter::default().r#type(system_ids::SCHEMA_TYPE)))
+///     .send()
+///     .await?;
+/// ```
 pub fn search<T>(neo4j: &neo4rs::Graph, vector: Vec<f64>) -> SemanticSearchQuery<T> {
     SemanticSearchQuery::new(neo4j, vector)
 }

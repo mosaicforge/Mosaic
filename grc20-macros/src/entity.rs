@@ -408,7 +408,7 @@ pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
     let schema_type = opts.schema_type.as_ref().map(|s| quote!(#s));
     let type_filter = if let Some(schema_type) = schema_type {
         quote! {
-            .relations(grc20_core::mapping::query_utils::TypesFilter::default().r#type(#schema_type.to_string()))
+            .relations(grc20_core::mapping::entity::TypesFilter::default().r#type(#schema_type.to_string()))
         }
     } else {
         quote! {}
