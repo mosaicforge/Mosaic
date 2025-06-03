@@ -51,5 +51,13 @@ CFLAGS='-std=gnu17' cargo run --bin mcp-server -- \
     --neo4j-pass neo4j
 ```
 
+### Local testing with sample data
+Start the neo4j database and run the following command:
+```bash
+CFLAGS='-std=gnu17' cargo run --example seed_data
+```
+
+The IDs of the sample data can be found in `sink/examples/seed_data.rs`.
+
 ## GRC20 CLI
 Coming soon™️

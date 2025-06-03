@@ -2,8 +2,8 @@ use clap::{Args, Parser};
 use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 use futures::TryStreamExt;
 use grc20_core::{
-    entity::{self, Entity, EntityRelationFilter},
-    mapping::{Query, QueryStream, query_utils::TypesFilter},
+    entity::{self, Entity, EntityRelationFilter, TypesFilter},
+    mapping::{Query, QueryStream},
     neo4rs, system_ids,
 };
 use grc20_sdk::models::BaseEntity;
@@ -190,7 +190,7 @@ impl KnowledgeGraph {
                 entity::EntityFilter::default().relations(
                     EntityRelationFilter::default()
                         .relation_type(system_ids::VALUE_TYPE_ATTRIBUTE)
-                        .to_id(system_ids::RELATION),
+                        .to_id(system_ids::RELATION_SCHEMA_TYPE),
                 ),
             )
             .limit(8)

@@ -39,7 +39,7 @@ pub const IMAGE: &str = "X8KB1uF84RYppghBSVvhqr";
 
 /// Relation type. This is the entity representing the Join between the
 /// the Collection and the Entity
-pub const RELATION: &str = "AKDxovGvZaPSWnmKnSoZJY";
+pub const RELATION_SCHEMA_TYPE: &str = "AKDxovGvZaPSWnmKnSoZJY";
 
 pub const SPACE_TYPE: &str = "7gzF671tq5JTZ13naG4tnr";
 
