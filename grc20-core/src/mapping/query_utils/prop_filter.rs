@@ -164,7 +164,7 @@ impl<T: Clone + Into<BoltType>> PropFilter<T> {
     /// If `expr` is set, then it will used as the filter target instead of the above.
     ///
     /// For example, given the following [PropFilter] (which creates a property filter)
-    /// ```rust,no-run
+    /// ```rust
     /// # fn main() {
     /// # use std::collections::HashMap;
     /// # use grc20_core::mapping::{PropFilter, Subquery};
