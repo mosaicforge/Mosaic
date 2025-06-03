@@ -54,8 +54,6 @@ pub fn triples() -> Vec<Triple> {
             system_ids::NAME_ATTRIBUTE,
             "Space Kind",
         ),
-        // Triple::new(indexer_ids::SPACE_VERSION_COUNTER, system_ids::NAME_ATTRIBUTE, "Space Version Counter"),
-
         // Member and Editor relations
         Triple::new(
             indexer_ids::MEMBER_RELATION,

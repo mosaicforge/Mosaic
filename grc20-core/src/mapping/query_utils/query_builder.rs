@@ -236,7 +236,7 @@ impl WhereClause {
         self
     }
 
-    pub fn params(mut self, key: impl Into<String>, value: impl Into<neo4rs::BoltType>) -> Self {
+    pub fn set_param(mut self, key: impl Into<String>, value: impl Into<neo4rs::BoltType>) -> Self {
         self.params.insert(key.into(), value.into());
         self
     }

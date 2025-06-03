@@ -88,6 +88,7 @@ impl<T: FromAttributes> Query<Option<Entity<T>>> for FindOneQuery<Entity<T>> {
                     "e",
                     "attrs",
                     "types",
+                    None,
                     "RETURN e{.*, attrs: attrs, types: types}",
                 ),
             )

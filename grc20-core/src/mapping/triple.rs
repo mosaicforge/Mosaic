@@ -136,7 +136,7 @@ pub fn find_many(neo4j: &neo4rs::Graph) -> FindManyQuery {
     FindManyQuery::new(neo4j)
 }
 
-pub fn semantic_search(neo4j: &neo4rs::Graph, vector: Vec<f64>) -> SemanticSearchQuery {
+pub fn search(neo4j: &neo4rs::Graph, vector: Vec<f64>) -> SemanticSearchQuery {
     SemanticSearchQuery::new(neo4j, vector)
 }
 
@@ -621,7 +621,7 @@ pub struct SemanticSearchQuery {
     // space_id: Option<PropFilter<String>>,
     // space_version: VersionFilter,
     limit: usize,
-    // skip: Option<usize>,
+    skip: Option<usize>,
 }
 
 impl SemanticSearchQuery {
@@ -632,7 +632,7 @@ impl SemanticSearchQuery {
             // space_id: None,
             // space_version: VersionFilter::default(),
             limit: 100,
-            // skip: None,
+            skip: None,
         }
     }
 
@@ -658,15 +658,15 @@ impl SemanticSearchQuery {
         self
     }
 
-    // pub fn skip(mut self, skip: usize) -> Self {
-    //     self.skip = Some(skip);
-    //     self
-    // }
+    pub fn skip(mut self, skip: usize) -> Self {
+        self.skip = Some(skip);
+        self
+    }
 
-    // pub fn skip_opt(mut self, skip: Option<usize>) -> Self {
-    //     self.skip = skip;
-    //     self
-    // }
+    pub fn skip_opt(mut self, skip: Option<usize>) -> Self {
+        self.skip = skip;
+        self
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
@@ -678,34 +678,40 @@ pub struct SemanticSearchResult {
     pub space_version: String,
 }
 
+const EFFECTIVE_SEARCH_RATIO: f64 = 10000.0; // Adjust this ratio based on your needs
+
 impl QueryStream<SemanticSearchResult> for SemanticSearchQuery {
     async fn send(
         self,
     ) -> Result<impl Stream<Item = Result<SemanticSearchResult, DatabaseError>>, DatabaseError>
     {
-        // const QUERY: &str = const_format::formatcp!(
-        //     r#"
-        //     CALL db.index.vector.queryNodes('vector_index', $limit, $vector)
-        //     YIELD node AS n, score AS score
-        //     MATCH (e:Entity) -[r:ATTRIBUTE]-> (n)
-        //     RETURN n{{.*, entity: e.id, space_version: r.min_version, space_id: r.space_id, score: score}}
-        //     "#
-        // );
         const QUERY: &str = const_format::formatcp!(
             r#"
-            MATCH (e:Entity) -[r:ATTRIBUTE]-> (a:Attribute:Indexed)
-            WHERE r.max_version IS null
-            WITH e, a, r, vector.similarity.cosine(a.embedding, $vector) AS score
+            CALL db.index.vector.queryNodes('vector_index', $limit * $effective_search_ratio, $vector)
+            YIELD node AS n, score AS score
             ORDER BY score DESC
-            WHERE score IS NOT null
             LIMIT $limit
-            RETURN a{{.*, entity: e.id, space_version: r.min_version, space_id: r.space_id, score: score}}
-            "#,
+            MATCH (e:Entity) -[r:ATTRIBUTE]-> (n)
+            RETURN n{{.*, entity: e.id, space_version: r.min_version, space_id: r.space_id, score: score}}
+            "#
         );
+        // const QUERY: &str = const_format::formatcp!(
+        //     r#"
+        //     MATCH (e:Entity) -[r:ATTRIBUTE]-> (a:Attribute:Indexed)
+        //     WHERE r.max_version IS null
+        //     AND a.embedding IS NOT NULL
+        //     WITH e, a, r, vector.similarity.cosine(a.embedding, $vector) AS score
+        //     ORDER BY score DESC
+        //     WHERE score IS NOT null
+        //     LIMIT $limit
+        //     RETURN a{{.*, entity: e.id, space_version: r.min_version, space_id: r.space_id, score: score}}
+        //     "#,
+        // );
 
         let query = neo4rs::query(QUERY)
             .param("vector", self.vector)
-            .param("limit", self.limit as i64);
+            .param("limit", self.limit as i64)
+            .param("effective_search_ratio", EFFECTIVE_SEARCH_RATIO);
 
         Ok(self
             .neo4j

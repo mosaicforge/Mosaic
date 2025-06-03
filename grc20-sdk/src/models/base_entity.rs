@@ -11,10 +11,10 @@ use grc20_core::{
 #[grc20_core::entity]
 pub struct BaseEntity {
     #[grc20(attribute = system_ids::NAME_ATTRIBUTE)]
-    name: Option<String>,
+    pub name: Option<String>,
 
     #[grc20(attribute = system_ids::DESCRIPTION_ATTRIBUTE)]
-    description: Option<String>,
+    pub description: Option<String>,
 }
 
 pub async fn blocks(
