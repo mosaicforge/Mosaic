@@ -56,8 +56,9 @@ pub fn find_one<T>(neo4j: &neo4rs::Graph, id: impl Into<String>) -> FindOneQuery
 }
 
 /// Creates a query to find multiple entities. Supports filtering by relations and
-/// properties as well as ordering and pagination. See [`EntityFilter`](EntityFilter)
-/// for more details on filtering options.
+/// properties as well as ordering and pagination. See [`EntityFilter`] for more details 
+/// on filtering options.
+/// 
 /// ```rust
 /// use grc20_core::mapping::entity;
 /// use grc20_core::mapping::query_utils::order_by;

@@ -75,7 +75,7 @@ pub fn find_one<T>(
 /// Creates a query to find multiple relations. Supports filtering by relation_type and its to/from entities.
 /// The results are ordered by relation index.
 ///
-/// See [`RelationFilter`](RelationFilter) for more details on filtering options.
+/// See [`RelationFilter`] for more details on filtering options.
 ///
 /// ```rust
 /// use grc20_core::mapping::relation;
