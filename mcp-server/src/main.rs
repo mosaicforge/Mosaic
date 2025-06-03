@@ -3,7 +3,7 @@ use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 use futures::TryStreamExt;
 use grc20_core::{
     entity::{self, Entity, EntityRelationFilter},
-    mapping::{query_utils::TypesFilter, Query, QueryStream},
+    mapping::{Query, QueryStream, query_utils::TypesFilter},
     neo4rs, system_ids,
 };
 use grc20_sdk::models::BaseEntity;
@@ -272,7 +272,7 @@ impl KnowledgeGraph {
         tracing::info!("Found {} results for query '{}'", results.len(), query);
 
         Ok(CallToolResult::success(
-            results 
+            results
                 .into_iter()
                 .map(|result| {
                     Content::json(json!({
@@ -299,17 +299,16 @@ impl KnowledgeGraph {
     async fn get_entity(
         &self,
         #[tool(param)]
-        #[schemars(description = "Return an entity by its ID along with its attributes (name, description, etc.) and types")]
+        #[schemars(
+            description = "Return an entity by its ID along with its attributes (name, description, etc.) and types"
+        )]
         id: String,
     ) -> Result<CallToolResult, McpError> {
         let entity = entity::find_one::<Entity<BaseEntity>>(&self.neo4j, &id)
             .send()
             .await
             .map_err(|e| {
-                McpError::internal_error(
-                    "get_entity",
-                    Some(json!({ "error": e.to_string() })),
-                )
+                McpError::internal_error("get_entity", Some(json!({ "error": e.to_string() })))
             })?
             .ok_or_else(|| {
                 McpError::internal_error("entity_not_found", Some(json!({ "id": id })))
@@ -317,15 +316,15 @@ impl KnowledgeGraph {
 
         tracing::info!("Found entity with ID '{}'", id);
 
-        Ok(CallToolResult::success(vec![Content::json(
-            json!({
+        Ok(CallToolResult::success(vec![
+            Content::json(json!({
                 "id": entity.id(),
                 "name": entity.attributes.name,
                 "description": entity.attributes.description,
                 "types": entity.types,
-            }),
-        )
-        .expect("Failed to create JSON content")]))
+            }))
+            .expect("Failed to create JSON content"),
+        ]))
     }
 }
 
