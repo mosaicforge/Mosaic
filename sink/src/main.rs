@@ -145,12 +145,6 @@ struct CacheArgs {
 }
 
 pub async fn reset_db(handler: &EventHandler) -> anyhow::Result<()> {
-    // Delete all nodes and relations
-    handler
-        .neo4j()
-        .run(neo4rs::query("MATCH (n) DETACH DELETE n"))
-        .await?;
-
     // Delete indexes
     handler
         .neo4j()
@@ -167,6 +161,12 @@ pub async fn reset_db(handler: &EventHandler) -> anyhow::Result<()> {
     handler
         .neo4j()
         .run(neo4rs::query("DROP INDEX vector_index IF EXISTS"))
+        .await?;
+
+    // Delete all nodes and relations
+    handler
+        .neo4j()
+        .run(neo4rs::query("MATCH (n) DETACH DELETE n"))
         .await?;
 
     // Create indexes
