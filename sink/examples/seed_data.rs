@@ -1,3 +1,4 @@
+use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 use grc20_core::{
     block::BlockMetadata,
     entity::EntityNodeRef,
@@ -5,6 +6,8 @@ use grc20_core::{
     mapping::{triple, Query, RelationEdge, Triple},
     neo4rs, relation, system_ids,
 };
+
+const EMBEDDING_MODEL: EmbeddingModel = EmbeddingModel::AllMiniLML6V2;
 
 const NEO4J_URL: &str = "bolt://localhost:7687";
 const NEO4J_USER: &str = "neo4j";
@@ -69,7 +72,8 @@ async fn main() -> anyhow::Result<()> {
         .await
         .expect("Failed to connect to Neo4j");
 
-    // Bootstrap the database
+    // Reset and bootstrap the database
+    reset_db(&neo4j).await?;
     bootstrap(&neo4j).await?;
 
     // Create some common types
@@ -159,13 +163,7 @@ async fn main() -> anyhow::Result<()> {
         "Bob",
         None,
         [system_ids::PERSON_TYPE],
-        [
-            (system_ids::NAME_ATTRIBUTE, "Bob"),
-            (
-                system_ids::DESCRIPTION_ATTRIBUTE,
-                "Speaker at Rust Conference 2023",
-            ),
-        ],
+        [],
         [],
         Some(BOB_ID),
     )
@@ -176,13 +174,7 @@ async fn main() -> anyhow::Result<()> {
         "Carol",
         None,
         [system_ids::PERSON_TYPE],
-        [
-            (system_ids::NAME_ATTRIBUTE, "Carol"),
-            (
-                system_ids::DESCRIPTION_ATTRIBUTE,
-                "Speaker at JavaScript Summit 2024",
-            ),
-        ],
+        [],
         [],
         Some(CAROL_ID),
     )
@@ -193,13 +185,7 @@ async fn main() -> anyhow::Result<()> {
         "Dave",
         None,
         [system_ids::PERSON_TYPE],
-        [
-            (system_ids::NAME_ATTRIBUTE, "Dave"),
-            (
-                system_ids::DESCRIPTION_ATTRIBUTE,
-                "Speaker at JavaScript Summit 2024",
-            ),
-        ],
+        [],
         [],
         Some(DAVE_ID),
     )
@@ -210,13 +196,7 @@ async fn main() -> anyhow::Result<()> {
         "Joe",
         None,
         [system_ids::PERSON_TYPE],
-        [
-            (system_ids::NAME_ATTRIBUTE, "Joe"),
-            (
-                system_ids::DESCRIPTION_ATTRIBUTE,
-                "Speaker at Rust Async Workshop",
-            ),
-        ],
+        [],
         [],
         Some(JOE_ID),
     )
@@ -227,13 +207,7 @@ async fn main() -> anyhow::Result<()> {
         "Chris",
         None,
         [system_ids::PERSON_TYPE],
-        [
-            (system_ids::NAME_ATTRIBUTE, "Chris"),
-            (
-                system_ids::DESCRIPTION_ATTRIBUTE,
-                "Speaker at RustConf Hackathon",
-            ),
-        ],
+        [],
         [],
         Some(CHRIS_ID),
     )
@@ -245,10 +219,7 @@ async fn main() -> anyhow::Result<()> {
         "San Francisco",
         Some("City in California"),
         [CITY_TYPE],
-        [
-            (system_ids::NAME_ATTRIBUTE, "San Francisco"),
-            (system_ids::DESCRIPTION_ATTRIBUTE, "City in California"),
-        ],
+        [],
         [],
         Some(SAN_FRANCISCO_ID),
     )
@@ -259,10 +230,7 @@ async fn main() -> anyhow::Result<()> {
         "New York",
         Some("City in New York State"),
         [CITY_TYPE],
-        [
-            (system_ids::NAME_ATTRIBUTE, "New York"),
-            (system_ids::DESCRIPTION_ATTRIBUTE, "City in New York State"),
-        ],
+        [],
         [],
         Some(NEW_YORK_ID),
     )
@@ -334,48 +302,98 @@ async fn main() -> anyhow::Result<()> {
 }
 
 pub async fn bootstrap(neo4j: &neo4rs::Graph) -> anyhow::Result<()> {
+    let embedding_model = TextEmbedding::try_new(
+        InitOptions::new(EMBEDDING_MODEL).with_show_download_progress(true),
+    )?;
+
+    let triples = vec![
+        // Value types
+        Triple::new(system_ids::CHECKBOX, system_ids::NAME_ATTRIBUTE, "Checkbox"),
+        Triple::new(system_ids::TIME, system_ids::NAME_ATTRIBUTE, "Time"),
+        Triple::new(system_ids::TEXT, system_ids::NAME_ATTRIBUTE, "Text"),
+        Triple::new(system_ids::URL, system_ids::NAME_ATTRIBUTE, "Url"),
+        Triple::new(system_ids::NUMBER, system_ids::NAME_ATTRIBUTE, "Number"),
+        Triple::new(system_ids::POINT, system_ids::NAME_ATTRIBUTE, "Point"),
+        Triple::new(system_ids::IMAGE, system_ids::NAME_ATTRIBUTE, "Image"),
+        // System types
+        Triple::new(
+            system_ids::ATTRIBUTE,
+            system_ids::NAME_ATTRIBUTE,
+            "Attribute",
+        ),
+        Triple::new(system_ids::SCHEMA_TYPE, system_ids::NAME_ATTRIBUTE, "Type"),
+        Triple::new(
+            system_ids::RELATION_SCHEMA_TYPE,
+            system_ids::NAME_ATTRIBUTE,
+            "Relation schema type",
+        ),
+        Triple::new(
+            system_ids::RELATION_TYPE,
+            system_ids::NAME_ATTRIBUTE,
+            "Relation instance type",
+        ),
+        // Properties
+        Triple::new(
+            system_ids::PROPERTIES,
+            system_ids::NAME_ATTRIBUTE,
+            "Properties",
+        ),
+        Triple::new(
+            system_ids::TYPES_ATTRIBUTE,
+            system_ids::NAME_ATTRIBUTE,
+            "Types",
+        ),
+        Triple::new(
+            system_ids::VALUE_TYPE_ATTRIBUTE,
+            system_ids::NAME_ATTRIBUTE,
+            "Value Type",
+        ),
+        Triple::new(
+            system_ids::RELATION_TYPE_ATTRIBUTE,
+            system_ids::NAME_ATTRIBUTE,
+            "Relation type attribute",
+        ),
+        Triple::new(
+            system_ids::RELATION_INDEX,
+            system_ids::NAME_ATTRIBUTE,
+            "Relation index",
+        ),
+        Triple::new(
+            system_ids::RELATION_VALUE_RELATIONSHIP_TYPE,
+            system_ids::NAME_ATTRIBUTE,
+            "Relation value type",
+        ),
+        Triple::new(
+            system_ids::NAME_ATTRIBUTE,
+            system_ids::NAME_ATTRIBUTE,
+            "Name",
+        ),
+        Triple::new(
+            system_ids::DESCRIPTION_ATTRIBUTE,
+            system_ids::NAME_ATTRIBUTE,
+            "Description",
+        ),
+    ];
+
+    // Compute embeddings
+    let embeddings =
+        embedding_model.embed(triples.iter().map(|t| &t.value.value).collect(), None)?;
+
+    let triples_with_embeddings = triples
+        .into_iter()
+        .zip(embeddings)
+        .map(|(triple, embedding)| {
+            let embedding = embedding.into_iter().map(|e| e as f64).collect();
+            Triple::with_embedding(triple.entity, triple.attribute, triple.value, embedding)
+        });
+
     triple::insert_many(
         &neo4j,
         &BlockMetadata::default(),
         system_ids::ROOT_SPACE_ID,
         DEFAULT_VERSION,
     )
-    .triples(vec![
-        // Value types
-        Triple::new(system_ids::CHECKBOX, "name", "Checkbox"),
-        Triple::new(system_ids::TIME, "name", "Time"),
-        Triple::new(system_ids::TEXT, "name", "Text"),
-        Triple::new(system_ids::URL, "name", "Url"),
-        Triple::new(system_ids::NUMBER, "name", "Number"),
-        Triple::new(system_ids::POINT, "name", "Point"),
-        Triple::new(system_ids::IMAGE, "name", "Image"),
-        // System types
-        Triple::new(system_ids::ATTRIBUTE, "name", "Attribute"),
-        Triple::new(system_ids::SCHEMA_TYPE, "name", "Type"),
-        Triple::new(
-            system_ids::RELATION_SCHEMA_TYPE,
-            "name",
-            "Relation schema type",
-        ),
-        Triple::new(system_ids::RELATION_TYPE, "name", "Relation instance type"),
-        // Properties
-        Triple::new(system_ids::PROPERTIES, "name", "Properties"),
-        Triple::new(system_ids::TYPES_ATTRIBUTE, "name", "Types"),
-        Triple::new(system_ids::VALUE_TYPE_ATTRIBUTE, "name", "Value Type"),
-        Triple::new(
-            system_ids::RELATION_TYPE_ATTRIBUTE,
-            "name",
-            "Relation type attribute",
-        ),
-        Triple::new(system_ids::RELATION_INDEX, "name", "Relation index"),
-        Triple::new(
-            system_ids::RELATION_VALUE_RELATIONSHIP_TYPE,
-            "name",
-            "Relation value type",
-        ),
-        Triple::new(system_ids::NAME_ATTRIBUTE, "name", "Name"),
-        Triple::new(system_ids::DESCRIPTION_ATTRIBUTE, "name", "Description"),
-    ])
+    .triples(triples_with_embeddings)
     .send()
     .await
     .expect("Failed to insert triples");
@@ -718,6 +736,55 @@ pub async fn set_types(
     }))
     .send()
     .await?;
+
+    Ok(())
+}
+
+pub async fn reset_db(neo4j: &neo4rs::Graph) -> anyhow::Result<()> {
+    let embedding_dim = TextEmbedding::get_model_info(&EMBEDDING_MODEL)?.dim;
+
+    // Delete indexes
+    neo4j
+        .run(neo4rs::query("DROP INDEX entity_id_index IF EXISTS"))
+        .await?;
+    neo4j
+        .run(neo4rs::query("DROP INDEX relation_id_index IF EXISTS"))
+        .await?;
+    neo4j
+        .run(neo4rs::query("DROP INDEX relation_type_index IF EXISTS"))
+        .await?;
+    neo4j
+        .run(neo4rs::query("DROP INDEX vector_index IF EXISTS"))
+        .await?;
+
+    // Delete all nodes and relations
+    neo4j
+        .run(neo4rs::query("MATCH (n) DETACH DELETE n"))
+        .await?;
+
+    // Create indexes
+    neo4j
+        .run(neo4rs::query(
+            "CREATE INDEX entity_id_index FOR (e:Entity) ON (e.id)",
+        ))
+        .await?;
+    neo4j
+        .run(neo4rs::query(
+            "CREATE INDEX relation_id_index FOR () -[r:RELATION]-> () ON (r.id)",
+        ))
+        .await?;
+    neo4j
+        .run(neo4rs::query(
+            "CREATE INDEX relation_type_index FOR () -[r:RELATION]-> () ON (r.relation_type)",
+        ))
+        .await?;
+
+    neo4j
+        .run(neo4rs::query(&format!(
+            "CREATE VECTOR INDEX vector_index FOR (a:Indexed) ON (a.embedding) OPTIONS {{indexConfig: {{`vector.dimensions`: {}, `vector.similarity_function`: 'COSINE'}}}}",
+            embedding_dim as i64,
+        )))
+        .await?;
 
     Ok(())
 }
