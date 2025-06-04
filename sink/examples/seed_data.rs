@@ -316,44 +316,77 @@ pub async fn bootstrap(neo4j: &neo4rs::Graph) -> anyhow::Result<()> {
         Triple::new(system_ids::POINT, system_ids::NAME_ATTRIBUTE, "Point"),
         Triple::new(system_ids::IMAGE, system_ids::NAME_ATTRIBUTE, "Image"),
         // System types
-        Triple::new(system_ids::ATTRIBUTE, system_ids::NAME_ATTRIBUTE, "Attribute"),
+        Triple::new(
+            system_ids::ATTRIBUTE,
+            system_ids::NAME_ATTRIBUTE,
+            "Attribute",
+        ),
         Triple::new(system_ids::SCHEMA_TYPE, system_ids::NAME_ATTRIBUTE, "Type"),
         Triple::new(
             system_ids::RELATION_SCHEMA_TYPE,
             system_ids::NAME_ATTRIBUTE,
             "Relation schema type",
         ),
-        Triple::new(system_ids::RELATION_TYPE, system_ids::NAME_ATTRIBUTE, "Relation instance type"),
+        Triple::new(
+            system_ids::RELATION_TYPE,
+            system_ids::NAME_ATTRIBUTE,
+            "Relation instance type",
+        ),
         // Properties
-        Triple::new(system_ids::PROPERTIES, system_ids::NAME_ATTRIBUTE, "Properties"),
-        Triple::new(system_ids::TYPES_ATTRIBUTE, system_ids::NAME_ATTRIBUTE, "Types"),
-        Triple::new(system_ids::VALUE_TYPE_ATTRIBUTE, system_ids::NAME_ATTRIBUTE, "Value Type"),
+        Triple::new(
+            system_ids::PROPERTIES,
+            system_ids::NAME_ATTRIBUTE,
+            "Properties",
+        ),
+        Triple::new(
+            system_ids::TYPES_ATTRIBUTE,
+            system_ids::NAME_ATTRIBUTE,
+            "Types",
+        ),
+        Triple::new(
+            system_ids::VALUE_TYPE_ATTRIBUTE,
+            system_ids::NAME_ATTRIBUTE,
+            "Value Type",
+        ),
         Triple::new(
             system_ids::RELATION_TYPE_ATTRIBUTE,
             system_ids::NAME_ATTRIBUTE,
             "Relation type attribute",
         ),
-        Triple::new(system_ids::RELATION_INDEX, system_ids::NAME_ATTRIBUTE, "Relation index"),
+        Triple::new(
+            system_ids::RELATION_INDEX,
+            system_ids::NAME_ATTRIBUTE,
+            "Relation index",
+        ),
         Triple::new(
             system_ids::RELATION_VALUE_RELATIONSHIP_TYPE,
             system_ids::NAME_ATTRIBUTE,
             "Relation value type",
         ),
-        Triple::new(system_ids::NAME_ATTRIBUTE, system_ids::NAME_ATTRIBUTE, "Name"),
-        Triple::new(system_ids::DESCRIPTION_ATTRIBUTE, system_ids::NAME_ATTRIBUTE, "Description"),
+        Triple::new(
+            system_ids::NAME_ATTRIBUTE,
+            system_ids::NAME_ATTRIBUTE,
+            "Name",
+        ),
+        Triple::new(
+            system_ids::DESCRIPTION_ATTRIBUTE,
+            system_ids::NAME_ATTRIBUTE,
+            "Description",
+        ),
     ];
 
     // Compute embeddings
-    let embeddings = embedding_model
-        .embed(triples.iter().map(|t| &t.value.value).collect(), None)?;
+    let embeddings =
+        embedding_model.embed(triples.iter().map(|t| &t.value.value).collect(), None)?;
 
-    let triples_with_embeddings = triples.into_iter()
+    let triples_with_embeddings = triples
+        .into_iter()
         .zip(embeddings)
         .map(|(triple, embedding)| {
             let embedding = embedding.into_iter().map(|e| e as f64).collect();
-            Triple::with_embedding(triple.entity, triple.attribute, triple.value, embedding)        
+            Triple::with_embedding(triple.entity, triple.attribute, triple.value, embedding)
         });
-    
+
     triple::insert_many(
         &neo4j,
         &BlockMetadata::default(),
