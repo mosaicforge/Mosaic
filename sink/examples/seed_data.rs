@@ -73,7 +73,7 @@ async fn main() -> anyhow::Result<()> {
         .expect("Failed to connect to Neo4j");
 
     let embedding_model = TextEmbedding::try_new(
-    InitOptions::new(EMBEDDING_MODEL).with_show_download_progress(true),
+        InitOptions::new(EMBEDDING_MODEL).with_show_download_progress(true),
     )?;
 
     // Reset and bootstrap the database
@@ -323,7 +323,10 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn bootstrap(neo4j: &neo4rs::Graph, embedding_model: &TextEmbedding) -> anyhow::Result<()> {
+pub async fn bootstrap(
+    neo4j: &neo4rs::Graph,
+    embedding_model: &TextEmbedding,
+) -> anyhow::Result<()> {
     let triples = vec![
         // Value types
         Triple::new(system_ids::CHECKBOX, system_ids::NAME_ATTRIBUTE, "Checkbox"),
@@ -573,7 +576,14 @@ pub async fn create_entity(
             &entity_id,
             system_ids::NAME_ATTRIBUTE,
             name.clone(),
-            embedding_model.embed(vec!(name), Some(1)).unwrap_or(vec!(Vec::<f32>::new())).get(0).unwrap_or(&Vec::<f32>::new()).iter().map(|&x| x as f64).collect(),
+            embedding_model
+                .embed(vec![name], Some(1))
+                .unwrap_or(vec![Vec::<f32>::new()])
+                .get(0)
+                .unwrap_or(&Vec::<f32>::new())
+                .iter()
+                .map(|&x| x as f64)
+                .collect(),
         )])
         .send()
         .await?;
@@ -649,7 +659,14 @@ pub async fn create_type(
             &type_id,
             system_ids::NAME_ATTRIBUTE,
             name.clone(),
-            embedding_model.embed(vec!(name), Some(1)).unwrap_or(vec!(Vec::<f32>::new())).get(0).unwrap_or(&Vec::<f32>::new()).iter().map(|&x| x as f64).collect(),
+            embedding_model
+                .embed(vec![name], Some(1))
+                .unwrap_or(vec![Vec::<f32>::new()])
+                .get(0)
+                .unwrap_or(&Vec::<f32>::new())
+                .iter()
+                .map(|&x| x as f64)
+                .collect(),
         )])
         .send()
         .await?;
@@ -701,7 +718,14 @@ pub async fn create_property(
             &property_id,
             system_ids::NAME_ATTRIBUTE,
             string_name.clone(),
-            embedding_model.embed(vec!(string_name), Some(1)).unwrap_or(vec!(Vec::<f32>::new())).get(0).unwrap_or(&Vec::<f32>::new()).iter().map(|&x| x as f64).collect(),
+            embedding_model
+                .embed(vec![string_name], Some(1))
+                .unwrap_or(vec![Vec::<f32>::new()])
+                .get(0)
+                .unwrap_or(&Vec::<f32>::new())
+                .iter()
+                .map(|&x| x as f64)
+                .collect(),
         )])
         .send()
         .await?;
