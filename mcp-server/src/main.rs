@@ -357,11 +357,11 @@ impl KnowledgeGraph {
                 .map(|result| async move {
                     Content::json(json!({
                         "relation_id": result.id,
-                        "relation_type": self.get_name_of_id(result.relation_type).await.expect("No relation type"),
+                        "relation_type": self.get_name_of_id(result.relation_type).await.unwrap_or("No relation type".to_string()),
                         "from_id": result.from.id,
-                        "from_name": self.get_name_of_id(result.from.id.clone()).await.expect(&result.from.id),
+                        "from_name": self.get_name_of_id(result.from.id).await.unwrap_or("No name".to_string()),
                         "to_id": result.to.id,
-                        "to_name": self.get_name_of_id(result.to.id.clone()).await.expect(&result.to.id),
+                        "to_name": self.get_name_of_id(result.to.id).await.unwrap_or("No name".to_string()),
                     }))
                     .expect("Failed to create JSON content")
                 })).await.to_vec();
@@ -369,8 +369,8 @@ impl KnowledgeGraph {
         let attributes_vec: Vec<_> = join_all(entity.attributes.0.clone().into_iter().map(
             |(key, attr)| async {
                 Content::json(json!({
-                    "attribute_name": self.get_name_of_id(key).await.expect("No attribute name"),
-                    "attribute_value": String::try_from(attr).expect("No attributes"),
+                    "attribute_name": self.get_name_of_id(key).await.unwrap_or("No attribute name".to_string()),
+                    "attribute_value": String::try_from(attr).unwrap_or("No attributes".to_string()),
                 }))
                 .expect("Failed to create JSON content")
             },
@@ -400,37 +400,34 @@ impl KnowledgeGraph {
         #[schemars(description = "The id of the second Entity to find relations")]
         entity2_id: String,
     ) -> Result<CallToolResult, McpError> {
-        let relations = entity::find_relation::<BaseEntity>(
-            &self.neo4j,
-            entity1_id.clone(),
-            entity2_id.clone(),
-        )
-        .limit(10)
-        .send()
-        .await
-        .map_err(|e| {
-            McpError::internal_error(
-                "get_relation_by_ids",
-                Some(json!({ "error": e.to_string() })),
-            )
-        })?
-        .into_iter()
-        .collect::<Vec<Vec<_>>>();
+        let relations =
+            entity::find_path::<BaseEntity>(&self.neo4j, entity1_id.clone(), entity2_id.clone())
+                .limit(10)
+                .send()
+                .await
+                .map_err(|e| {
+                    McpError::internal_error(
+                        "get_relation_by_ids",
+                        Some(json!({ "error": e.to_string() })),
+                    )
+                })?
+                .into_iter()
+                .collect::<Vec<_>>();
 
         tracing::info!("Found {} relations", relations.len());
 
         Ok(CallToolResult::success(
-            relations
+            join_all(relations
                 .into_iter()
-                .map(|result| {
+                .map(|result| async {
                     Content::json(json!({
-                    "relations": result.into_iter().map(|rel|
-                        rel.properties
-                    ).collect::<Vec<_>>(),
+                    "nodes": join_all(result.nodes_ids.into_iter().map(|node_id| async {self.get_name_of_id(node_id).await.unwrap_or("No attribute name".to_string())})).await.to_vec(),
+                    "relations": join_all(result.relations_ids.into_iter().map(|node_id| async {self.get_name_of_id(node_id).await.unwrap_or("No attribute name".to_string())})).await.to_vec(),
                     }))
                     .expect("Failed to create JSON content")
-                })
-                .collect(),
+                }))
+                .await
+                .to_vec(),
         ))
     }
 

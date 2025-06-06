@@ -2,7 +2,7 @@ pub mod delete_many;
 pub mod delete_one;
 pub mod find_many;
 pub mod find_one;
-pub mod find_relation;
+pub mod find_path;
 pub mod insert_many;
 pub mod insert_one;
 pub mod models;
@@ -12,7 +12,7 @@ pub mod utils;
 pub use delete_one::DeleteOneQuery;
 pub use find_many::FindManyQuery;
 pub use find_one::FindOneQuery;
-pub use find_relation::FindRelationQuery;
+pub use find_path::FindPathQuery;
 pub use insert_one::InsertOneQuery;
 pub use models::{Entity, EntityNode, EntityNodeRef, SystemProperties};
 pub use semantic_search::SemanticSearchQuery;
@@ -130,8 +130,9 @@ pub fn search<T>(neo4j: &neo4rs::Graph, vector: Vec<f64>) -> SemanticSearchQuery
     SemanticSearchQuery::new(neo4j, vector)
 }
 
-pub fn find_relation<T>(neo4j: &neo4rs::Graph, id1: String, id2: String) -> FindRelationQuery<T> {
-    FindRelationQuery::new(neo4j, id1, id2)
+// TODO: add docs for use via GraphQL
+pub fn find_path<T>(neo4j: &neo4rs::Graph, id1: String, id2: String) -> FindPathQuery<T> {
+    FindPathQuery::new(neo4j, id1, id2)
 }
 
 pub fn insert_one<T>(
