@@ -186,13 +186,9 @@ impl KnowledgeGraph {
             .collect::<Vec<_>>();
 
         let results = entity::search::<Entity<BaseEntity>>(&self.neo4j, embedding)
-            .filter(
-                entity::EntityFilter::default().relations(
-                    EntityRelationFilter::default()
-                        .relation_type(system_ids::VALUE_TYPE_ATTRIBUTE)
-                        .to_id(system_ids::RELATION_SCHEMA_TYPE),
-                ),
-            )
+            .filter(entity::EntityFilter::default().relations(
+                EntityRelationFilter::default().relation_type(system_ids::RELATION_SCHEMA_TYPE),
+            ))
             .limit(10)
             .send()
             .await
@@ -385,8 +381,8 @@ impl KnowledgeGraph {
         Ok(CallToolResult::success(vec![
             Content::json(json!({
                 "id": entity.id(),
-                "name": entity.attributes.get::<String>(system_ids::NAME_ATTRIBUTE).expect("Impossible to get Name"),
-                "description": entity.attributes.get::<String>(system_ids::DESCRIPTION_ATTRIBUTE).expect("Impossible to get Description"),
+                "name": entity.attributes.get::<String>(system_ids::NAME_ATTRIBUTE).unwrap_or("No name".to_string()),
+                "description": entity.attributes.get::<String>(system_ids::DESCRIPTION_ATTRIBUTE).unwrap_or("No description".to_string()),
                 "types": entity.types,
                 "all_attributes": attributes_vec,
                 "all_relations": relations_vec,
@@ -394,7 +390,7 @@ impl KnowledgeGraph {
         ]))
     }
 
-    #[tool(description = "Search Relations between 2 entities")]
+    #[tool(description = "Search for distant or close Relations between 2 entities")]
     async fn get_relations_between_entities(
         &self,
         #[tool(param)]
@@ -404,73 +400,33 @@ impl KnowledgeGraph {
         #[schemars(description = "The id of the second Entity to find relations")]
         entity2_id: String,
     ) -> Result<CallToolResult, McpError> {
-        let mut relations_first_direction =
-            relation::find_many::<RelationEdge<EntityNode>>(&self.neo4j)
-                .filter(
-                    relation::RelationFilter::default()
-                        .from_(EntityFilter::default().id(prop_filter::value(entity1_id.clone())))
-                        .to_(EntityFilter::default().id(prop_filter::value(entity2_id.clone()))),
-                )
-                .limit(10)
-                .send()
-                .await
-                .map_err(|e| {
-                    McpError::internal_error(
-                        "get_relation_by_id",
-                        Some(json!({ "error": e.to_string() })),
-                    )
-                })?
-                .try_collect::<Vec<_>>()
-                .await
-                .map_err(|e| {
-                    McpError::internal_error(
-                        "get_relation_by_id_not_found",
-                        Some(json!({ "error": e.to_string() })),
-                    )
-                })?;
+        let relations = entity::find_relation::<BaseEntity>(
+            &self.neo4j,
+            entity1_id.clone(),
+            entity2_id.clone(),
+        )
+        .limit(10)
+        .send()
+        .await
+        .map_err(|e| {
+            McpError::internal_error(
+                "get_relation_by_ids",
+                Some(json!({ "error": e.to_string() })),
+            )
+        })?
+        .into_iter()
+        .collect::<Vec<Vec<_>>>();
 
-        let mut relations_second_direction =
-            relation::find_many::<RelationEdge<EntityNode>>(&self.neo4j)
-                .filter(
-                    relation::RelationFilter::default()
-                        .from_(EntityFilter::default().id(prop_filter::value(entity2_id.clone())))
-                        .to_(EntityFilter::default().id(prop_filter::value(entity1_id.clone()))),
-                )
-                .limit(10)
-                .send()
-                .await
-                .map_err(|e| {
-                    McpError::internal_error(
-                        "get_relation_by_id",
-                        Some(json!({ "error": e.to_string() })),
-                    )
-                })?
-                .try_collect::<Vec<_>>()
-                .await
-                .map_err(|e| {
-                    McpError::internal_error(
-                        "get_relation_by_id_not_found",
-                        Some(json!({ "error": e.to_string() })),
-                    )
-                })?;
-
-        tracing::info!(
-            "Found {} relations from the first to the second and {} from the second to the first",
-            relations_first_direction.len(),
-            relations_second_direction.len()
-        );
-
-        relations_first_direction.append(&mut relations_second_direction);
+        tracing::info!("Found {} relations", relations.len());
 
         Ok(CallToolResult::success(
-            relations_first_direction
+            relations
                 .into_iter()
                 .map(|result| {
                     Content::json(json!({
-                        "id": result.id,
-                        "relation_type": result.relation_type,
-                        "from": result.from.id,
-                        "to": result.to.id,
+                    "relations": result.into_iter().map(|rel|
+                        rel.properties
+                    ).collect::<Vec<_>>(),
                     }))
                     .expect("Failed to create JSON content")
                 })
