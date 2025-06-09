@@ -302,7 +302,7 @@ impl KnowledgeGraph {
                 McpError::internal_error("entity_not_found", Some(json!({ "id": id })))
             })?;
 
-        let mut out_relations = relation::find_many::<RelationEdge<EntityNode>>(&self.neo4j)
+        let out_relations = relation::find_many::<RelationEdge<EntityNode>>(&self.neo4j)
             .filter(
                 relation::RelationFilter::default()
                     .from_(EntityFilter::default().id(prop_filter::value(id.clone()))),
@@ -325,7 +325,7 @@ impl KnowledgeGraph {
                 )
             })?;
 
-        let mut in_relations = relation::find_many::<RelationEdge<EntityNode>>(&self.neo4j)
+        let in_relations = relation::find_many::<RelationEdge<EntityNode>>(&self.neo4j)
             .filter(
                 relation::RelationFilter::default()
                     .to_(EntityFilter::default().id(prop_filter::value(id.clone()))),
@@ -350,9 +350,8 @@ impl KnowledgeGraph {
 
         tracing::info!("Found entity with ID '{}'", id);
 
-        out_relations.append(&mut in_relations);
-
-        let relations_vec: Vec<_> = join_all(out_relations
+        let clean_up_relations = |relations: Vec<RelationEdge<EntityNode>>| async {
+            join_all(relations
                 .into_iter()
                 .map(|result| async move {
                     Content::json(json!({
@@ -364,7 +363,10 @@ impl KnowledgeGraph {
                         "to_name": self.get_name_of_id(result.to.id).await.unwrap_or("No name".to_string()),
                     }))
                     .expect("Failed to create JSON content")
-                })).await.to_vec();
+                })).await.to_vec()
+        };
+        let inbound_relations = clean_up_relations(in_relations).await;
+        let outbound_relations = clean_up_relations(out_relations).await;
 
         let attributes_vec: Vec<_> = join_all(entity.attributes.0.clone().into_iter().map(
             |(key, attr)| async {
@@ -385,7 +387,8 @@ impl KnowledgeGraph {
                 "description": entity.attributes.get::<String>(system_ids::DESCRIPTION_ATTRIBUTE).unwrap_or("No description".to_string()),
                 "types": entity.types,
                 "all_attributes": attributes_vec,
-                "all_relations": relations_vec,
+                "inbound_relations": inbound_relations,
+                "outbound_relations": outbound_relations,
             })).expect("Failed to create JSON content"),
         ]))
     }
@@ -400,19 +403,18 @@ impl KnowledgeGraph {
         #[schemars(description = "The id of the second Entity to find relations")]
         entity2_id: String,
     ) -> Result<CallToolResult, McpError> {
-        let relations =
-            entity::find_path::<BaseEntity>(&self.neo4j, entity1_id.clone(), entity2_id.clone())
-                .limit(10)
-                .send()
-                .await
-                .map_err(|e| {
-                    McpError::internal_error(
-                        "get_relation_by_ids",
-                        Some(json!({ "error": e.to_string() })),
-                    )
-                })?
-                .into_iter()
-                .collect::<Vec<_>>();
+        let relations = entity::find_path(&self.neo4j, entity1_id.clone(), entity2_id.clone())
+            .limit(10)
+            .send()
+            .await
+            .map_err(|e| {
+                McpError::internal_error(
+                    "get_relation_by_ids",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?
+            .into_iter()
+            .collect::<Vec<_>>();
 
         tracing::info!("Found {} relations", relations.len());
 

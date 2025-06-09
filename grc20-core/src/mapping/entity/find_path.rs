@@ -1,7 +1,7 @@
 use neo4rs::Path;
 
 use crate::{
-    entity::EntityFilter,
+    entity::{EntityFilter, EntityNode},
     error::DatabaseError,
     mapping::{
         order_by::FieldOrderBy,
@@ -9,8 +9,9 @@ use crate::{
             query_builder::{MatchQuery, QueryBuilder, Subquery},
             VersionFilter,
         },
-        AttributeFilter, FromAttributes, PropFilter, Query,
+        AttributeFilter, PropFilter, Query,
     },
+    system_ids::SCHEMA_TYPE,
 };
 
 pub struct Relation {
@@ -18,7 +19,7 @@ pub struct Relation {
     pub relations_ids: Vec<String>,
 }
 
-pub struct FindPathQuery<T> {
+pub struct FindPathQuery {
     neo4j: neo4rs::Graph,
     id1: String,
     id2: String,
@@ -28,10 +29,10 @@ pub struct FindPathQuery<T> {
     skip: Option<usize>,
     space_id: Option<PropFilter<String>>,
     version: VersionFilter,
-    _phantom: std::marker::PhantomData<T>,
+    _phantom: std::marker::PhantomData<EntityNode>,
 }
 
-impl<T> FindPathQuery<T> {
+impl FindPathQuery {
     pub(super) fn new(neo4j: &neo4rs::Graph, id1: String, id2: String) -> Self {
         Self {
             neo4j: neo4j.clone(),
@@ -113,15 +114,15 @@ impl<T> FindPathQuery<T> {
     fn subquery(&self) -> QueryBuilder {
         QueryBuilder::default()
             .subquery(MatchQuery::new(
-                "p = allShortestPaths((e1:Entity {id: $id1}) -[:RELATION*1..5]-(e2:Entity {id: $id2}))",
-            ))
+                "p = allShortestPaths((e1:Entity {id: $id1}) -[:RELATION*1..10]-(e2:Entity {id: $id2}))",
+            ).r#where(format!("NONE(n IN nodes(p) WHERE EXISTS((n)-[:RELATION]-(:Entity {{id: \"{SCHEMA_TYPE}\"}})))")))//makes sure to not use primitive types
             .limit(self.limit)
             .params("id1", self.id1.clone())
             .params("id2", self.id2.clone())
     }
 }
 
-impl<T: FromAttributes> Query<Vec<Relation>> for FindPathQuery<T> {
+impl Query<Vec<Relation>> for FindPathQuery {
     async fn send(self) -> Result<Vec<Relation>, DatabaseError> {
         let query = self.subquery().r#return("p");
 

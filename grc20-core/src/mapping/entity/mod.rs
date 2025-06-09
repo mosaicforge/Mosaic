@@ -131,7 +131,7 @@ pub fn search<T>(neo4j: &neo4rs::Graph, vector: Vec<f64>) -> SemanticSearchQuery
 }
 
 // TODO: add docs for use via GraphQL
-pub fn find_path<T>(neo4j: &neo4rs::Graph, id1: String, id2: String) -> FindPathQuery<T> {
+pub fn find_path(neo4j: &neo4rs::Graph, id1: String, id2: String) -> FindPathQuery {
     FindPathQuery::new(neo4j, id1, id2)
 }
 
