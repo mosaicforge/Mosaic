@@ -1,7 +1,7 @@
 use neo4rs::Path;
 
 use crate::{
-    entity::{EntityFilter},
+    entity::EntityFilter,
     error::DatabaseError,
     mapping::{
         order_by::FieldOrderBy,
