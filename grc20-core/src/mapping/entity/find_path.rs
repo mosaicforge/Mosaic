@@ -1,7 +1,7 @@
 use neo4rs::Path;
 
 use crate::{
-    entity::{EntityFilter, EntityNode},
+    entity::{EntityFilter},
     error::DatabaseError,
     mapping::{
         order_by::FieldOrderBy,
@@ -29,7 +29,6 @@ pub struct FindPathQuery {
     skip: Option<usize>,
     space_id: Option<PropFilter<String>>,
     version: VersionFilter,
-    _phantom: std::marker::PhantomData<EntityNode>,
 }
 
 impl FindPathQuery {
@@ -44,7 +43,6 @@ impl FindPathQuery {
             skip: None,
             space_id: None,
             version: VersionFilter::default(),
-            _phantom: std::marker::PhantomData,
         }
     }
 
