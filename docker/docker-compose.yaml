@@ -1,10 +1,10 @@
 services:
   memcached:
-    image: memcached:latest
+    image: memcached:alpine
     ports:
       - "11211:11211"
     healthcheck:
-      test: echo "version" | (exec 3<>/dev/tcp/localhost/11211; cat >&3; timeout 0.1 cat <&3; exec 3<&-)
+      test: echo "version" | nc -vn -w 1 127.0.0.1 11211
       interval: 1s
       timeout: 10s
       retries: 20
