@@ -113,7 +113,7 @@ pub struct SemanticSearchResult<T> {
     pub score: f64,
 }
 
-const EFFECTIVE_SEARCH_RATIO: f64 = 10000.0; // Adjust this ratio based on your needs
+const EFFECTIVE_SEARCH_RATIO: f64 = 100000.0; // Adjust this ratio based on your needs
 
 impl QueryStream<SemanticSearchResult<EntityNode>> for SemanticSearchQuery<EntityNode> {
     async fn send(
