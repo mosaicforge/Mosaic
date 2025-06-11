@@ -1,4 +1,4 @@
-This request allows you to search by name for a basic type of the Knowledge Graph(KG) like Person or Event. This will give back the 
+This request allows you to search by name for a basic type of the Knowledge Graph(KG) like Person or Event. This will give back the type with it's name, id and description. 
 
 
 ToolCall> search_types("Event")
