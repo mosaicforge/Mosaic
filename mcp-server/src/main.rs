@@ -160,7 +160,6 @@ impl KnowledgeGraph {
                         "id": result.entity.id(),
                         "name": result.entity.attributes.name,
                         "description": result.entity.attributes.description,
-                        "types": result.entity.types,
                     }))
                     .expect("Failed to create JSON content")
                 })
@@ -187,7 +186,9 @@ impl KnowledgeGraph {
 
         let results = entity::search::<Entity<BaseEntity>>(&self.neo4j, embedding)
             .filter(entity::EntityFilter::default().relations(
-                EntityRelationFilter::default().relation_type(system_ids::RELATION_SCHEMA_TYPE),
+                EntityRelationFilter::default()
+                .relation_type(system_ids::VALUE_TYPE_ATTRIBUTE)
+                .to_id(system_ids::RELATION_SCHEMA_TYPE),
             ))
             .limit(10)
             .send()
@@ -217,7 +218,6 @@ impl KnowledgeGraph {
                         "id": result.entity.id(),
                         "name": result.entity.attributes.name,
                         "description": result.entity.attributes.description,
-                        "types": result.entity.types,
                     }))
                     .expect("Failed to create JSON content")
                 })
@@ -275,7 +275,6 @@ impl KnowledgeGraph {
                         "id": result.entity.id(),
                         "name": result.entity.attributes.name,
                         "description": result.entity.attributes.description,
-                        "types": result.entity.types,
                     }))
                     .expect("Failed to create JSON content")
                 })
@@ -307,7 +306,7 @@ impl KnowledgeGraph {
                 relation::RelationFilter::default()
                     .from_(EntityFilter::default().id(prop_filter::value(id.clone()))),
             )
-            .limit(10)
+            .limit(8)
             .send()
             .await
             .map_err(|e| {
@@ -330,7 +329,7 @@ impl KnowledgeGraph {
                 relation::RelationFilter::default()
                     .to_(EntityFilter::default().id(prop_filter::value(id.clone()))),
             )
-            .limit(10)
+            .limit(8)
             .send()
             .await
             .map_err(|e| {
@@ -350,25 +349,27 @@ impl KnowledgeGraph {
 
         tracing::info!("Found entity with ID '{}'", id);
 
-        let clean_up_relations = |relations: Vec<RelationEdge<EntityNode>>| async {
+        let clean_up_relations = |relations: Vec<RelationEdge<EntityNode>>, is_inbound: bool| async move {
             join_all(relations
                 .into_iter()
                 .map(|result| async move {
                     Content::json(json!({
                         "relation_id": result.id,
                         "relation_type": self.get_name_of_id(result.relation_type).await.unwrap_or("No relation type".to_string()),
-                        "from_id": result.from.id,
-                        "from_name": self.get_name_of_id(result.from.id).await.unwrap_or("No name".to_string()),
-                        "to_id": result.to.id,
-                        "to_name": self.get_name_of_id(result.to.id).await.unwrap_or("No name".to_string()),
+                        "id": if is_inbound {result.from.id.clone()} else {result.to.id.clone()},
+                        "name": self.get_name_of_id(if is_inbound {result.from.id.clone()} else {result.to.id.clone()}).await.unwrap_or("No name".to_string()),
                     }))
                     .expect("Failed to create JSON content")
                 })).await.to_vec()
         };
-        let inbound_relations = clean_up_relations(in_relations).await;
-        let outbound_relations = clean_up_relations(out_relations).await;
+        let inbound_relations = clean_up_relations(in_relations, true).await;
+        let outbound_relations = clean_up_relations(out_relations, false).await;
 
-        let attributes_vec: Vec<_> = join_all(entity.attributes.0.clone().into_iter().map(
+        let id = entity.id().to_string();
+        let name = entity.attributes.get::<String>(system_ids::NAME_ATTRIBUTE).unwrap_or("No name".to_string());
+        let description = entity.attributes.get::<String>(system_ids::DESCRIPTION_ATTRIBUTE).unwrap_or("No description".to_string());
+
+        let attributes_vec: Vec<_> = join_all(entity.attributes.0.into_iter().map(
             |(key, attr)| async {
                 Content::json(json!({
                     "attribute_name": self.get_name_of_id(key).await.unwrap_or("No attribute name".to_string()),
@@ -382,9 +383,9 @@ impl KnowledgeGraph {
 
         Ok(CallToolResult::success(vec![
             Content::json(json!({
-                "id": entity.id(),
-                "name": entity.attributes.get::<String>(system_ids::NAME_ATTRIBUTE).unwrap_or("No name".to_string()),
-                "description": entity.attributes.get::<String>(system_ids::DESCRIPTION_ATTRIBUTE).unwrap_or("No description".to_string()),
+                "id": id,
+                "name": name,
+                "description": description,
                 "types": entity.types,
                 "all_attributes": attributes_vec,
                 "inbound_relations": inbound_relations,
@@ -433,11 +434,11 @@ impl KnowledgeGraph {
         ))
     }
 
-    #[tool(description = "Get Entity by Attribute")]
-    async fn get_entity_by_attribute(
+    #[tool(description = "Search entity by name or attribute value")]
+    async fn search_entity(
         &self,
         #[tool(param)]
-        #[schemars(description = "The value of the attribute of an Entity")]
+        #[schemars(description = "The value of the attribute or name of an Entity")]
         attribute_value: String,
     ) -> Result<CallToolResult, McpError> {
         let embedding = self
@@ -494,7 +495,7 @@ impl KnowledgeGraph {
             .ok_or_else(|| {
                 McpError::internal_error("entity_name_not_found", Some(json!({ "id": id })))
             })?;
-        Ok(entity.attributes.name.unwrap())
+        Ok(entity.attributes.name.unwrap_or("No name".to_string()))
     }
 }
 
