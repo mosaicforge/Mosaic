@@ -4,7 +4,7 @@ use futures::{TryStreamExt, future::join_all};
 use grc20_core::{
     entity::{
         self, Entity, EntityFilter, EntityNode, EntityRelationFilter, TypesFilter,
-        utils::FromEntityRelationFilter,
+        utils::{TraverseFromRelationFilter, TraverseToRelationFilter},
     },
     mapping::{Attributes, Query, QueryStream, RelationEdge, prop_filter},
     neo4rs, relation, system_ids,
@@ -95,9 +95,16 @@ pub struct InputFilter {
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
 pub struct RelationFilter {
+    pub direction: RelationDirection,
     pub relation_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relation_filter: Option<Box<RelationFilter>>,
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+pub enum RelationDirection {
+    From,
+    To,
 }
 
 /// Struct returned by call to `OneOrMany::into_iter()`.
@@ -352,41 +359,50 @@ impl KnowledgeGraph {
             .map(|v| v as f64)
             .collect::<Vec<_>>();
 
-        let results_search =
-            entity::search_from_restictions::<Entity<BaseEntity>>(&self.neo4j, embedding.clone())
-                .filter(
-                    input_filter
-                        .relation_filter
-                        .map(|relation_filter| {
-                            relation_filter.into_iter().fold(
-                                EntityFilter::default(),
-                                |entity_filter, relation_filter| {
-                                    entity_filter.from_relation(
-                                        FromEntityRelationFilter::default()
-                                            .relation_type(relation_filter.relation_id.clone()),
-                                    )
-                                },
-                            )
+        let results_search = input_filter
+            .relation_filter
+            .map(|relation_filter| {
+                relation_filter.into_iter().fold(
+                    entity::search_from_restictions::<Entity<BaseEntity>>(
+                        &self.neo4j,
+                        embedding.clone(),
+                    ),
+                    |query, filter| {
+                        query.filter(match filter.direction {
+                            RelationDirection::From => EntityFilter::default()
+                                .traverse_from_relation(
+                                    TraverseFromRelationFilter::default()
+                                        .relation_type(filter.relation_id.clone()),
+                                ),
+                            RelationDirection::To => EntityFilter::default().traverse_to_relation(
+                                TraverseToRelationFilter::default()
+                                    .relation_type(filter.relation_id.clone()),
+                            ),
                         })
-                        .unwrap_or_default(),
+                    },
                 )
-                .limit(10)
-                .send()
-                .await
-                .map_err(|e| {
-                    McpError::internal_error(
-                        "search_properties",
-                        Some(json!({ "error": e.to_string() })),
-                    )
-                })?
-                .try_collect::<Vec<_>>()
-                .await
-                .map_err(|e| {
-                    McpError::internal_error(
-                        "search_properties",
-                        Some(json!({ "error": e.to_string() })),
-                    )
-                })?;
+            })
+            .unwrap_or(entity::search_from_restictions::<Entity<BaseEntity>>(
+                &self.neo4j,
+                embedding,
+            ))
+            .limit(10)
+            .send()
+            .await
+            .map_err(|e| {
+                McpError::internal_error(
+                    "search_properties",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?
+            .try_collect::<Vec<_>>()
+            .await
+            .map_err(|e| {
+                McpError::internal_error(
+                    "search_properties",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?;
 
         let entities_vec: Vec<_> = results_search
             .into_iter()

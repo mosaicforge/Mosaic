@@ -14,7 +14,7 @@ use super::{Entity, EntityFilter, EntityNode};
 pub struct SearchFromRestrictions<T> {
     neo4j: neo4rs::Graph,
     vector: Vec<f64>,
-    filter: EntityFilter,
+    filters: Vec<EntityFilter>,
     space_id: Option<PropFilter<String>>,
     version: VersionFilter,
     limit: usize,
@@ -29,7 +29,7 @@ impl<T> SearchFromRestrictions<T> {
         Self {
             neo4j: neo4j.clone(),
             vector,
-            filter: EntityFilter::default(),
+            filters: Vec::new(),
             space_id: None,
             version: VersionFilter::default(),
             limit: 100,
@@ -41,7 +41,7 @@ impl<T> SearchFromRestrictions<T> {
     }
 
     pub fn filter(mut self, filter: EntityFilter) -> Self {
-        self.filter = filter;
+        self.filters.push(filter);
         self
     }
 
@@ -91,9 +91,17 @@ impl<T> SearchFromRestrictions<T> {
             WHERE score > $threshold
             MATCH (e:Entity) -[r:ATTRIBUTE]-> (n)
         "#;
-        QueryBuilder::default()
-            .subquery(QUERY)
-            .subquery(self.filter.subquery("e"))
+
+        self.filters
+            .iter()
+            .fold(QueryBuilder::default().subquery(QUERY), |query, filter| {
+                tracing::info!(
+                    "filter from_relations: {:?}, to_relations {:?}",
+                    filter.traverse_from,
+                    filter.relations
+                );
+                query.subquery(filter.subquery("e"))
+            })
             .limit(self.limit)
             .skip_opt(self.skip)
             .params("vector", self.vector.clone())
