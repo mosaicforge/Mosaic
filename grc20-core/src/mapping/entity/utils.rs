@@ -4,7 +4,7 @@ use crate::{
     mapping::{
         query_utils::{
             query_builder::{MatchQuery, NamePair, QueryBuilder, Rename, Subquery},
-            VersionFilter,
+            RelationDirection, VersionFilter,
         },
         AttributeFilter, PropFilter,
     },
@@ -17,8 +17,7 @@ pub struct EntityFilter {
     pub(crate) id: Option<PropFilter<String>>,
     pub(crate) attributes: Vec<AttributeFilter>,
     pub(crate) relations: Option<EntityRelationFilter>,
-    pub(crate) traverse_from: Option<TraverseFromRelationFilter>,
-    pub(crate) traverse_to: Option<TraverseToRelationFilter>,
+    pub(crate) traverse_relation: Option<TraverseRelationFilter>,
     /// Used to check if the entity exists in the space (i.e.: the entity
     /// has at least one attribute in the space).
     pub(crate) space_id: Option<PropFilter<String>>,
@@ -53,19 +52,11 @@ impl EntityFilter {
         self
     }
 
-    pub fn traverse_from_relation(
+    pub fn traverse_relation(
         mut self,
-        traverse_from: impl Into<TraverseFromRelationFilter>,
+        traverse_relation: impl Into<TraverseRelationFilter>,
     ) -> Self {
-        self.traverse_from = Some(traverse_from.into());
-        self
-    }
-
-    pub fn traverse_to_relation(
-        mut self,
-        traverse_to: impl Into<TraverseToRelationFilter>,
-    ) -> Self {
-        self.traverse_to = Some(traverse_to.into());
+        self.traverse_relation = Some(traverse_relation.into());
         self
     }
 
@@ -97,14 +88,9 @@ impl EntityFilter {
                     .as_ref()
                     .map(|relations| relations.subquery(&node_var)),
             )
-            // Apply from relation filters
+            // Apply relation traversal
             .subquery_opt(
-                self.traverse_from
-                    .as_ref()
-                    .map(|traverse| traverse.subquery(&node_var)),
-            )
-            .subquery_opt(
-                self.traverse_to
+                self.traverse_relation
                     .as_ref()
                     .map(|traverse| traverse.subquery(&node_var)),
             )
@@ -193,24 +179,29 @@ impl EntityRelationFilter {
 }
 
 /// Filter used to:
-/// - Filter the relations outgoing from the entity
-/// - Filter an entity by its outgoing relations
+/// - Traverse to inbound or outbound relation
 #[derive(Clone, Debug, Default)]
-pub struct TraverseFromRelationFilter {
-    relation_type: Option<PropFilter<String>>,
-    from_id: Option<PropFilter<String>>,
+pub struct TraverseRelationFilter {
+    relation_type_id: Option<PropFilter<String>>,
+    destination_id: Option<PropFilter<String>>,
+    direction: RelationDirection,
     space_id: Option<PropFilter<String>>,
     version: VersionFilter,
 }
 
-impl TraverseFromRelationFilter {
-    pub fn relation_type(mut self, relation_type: impl Into<PropFilter<String>>) -> Self {
-        self.relation_type = Some(relation_type.into());
+impl TraverseRelationFilter {
+    pub fn relation_type_id(mut self, relation_type_id: impl Into<PropFilter<String>>) -> Self {
+        self.relation_type_id = Some(relation_type_id.into());
         self
     }
 
-    pub fn from_id(mut self, from_id: impl Into<PropFilter<String>>) -> Self {
-        self.from_id = Some(from_id.into());
+    pub fn destination_id(mut self, destination_id: impl Into<PropFilter<String>>) -> Self {
+        self.destination_id = Some(destination_id.into());
+        self
+    }
+
+    pub fn direction(mut self, direction: RelationDirection) -> Self {
+        self.direction = direction;
         self
     }
 
@@ -225,111 +216,42 @@ impl TraverseFromRelationFilter {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.relation_type.is_none() && self.from_id.is_none()
+        self.relation_type_id.is_none() && self.destination_id.is_none()
     }
 
     pub(crate) fn subquery(&self, node_var: impl Into<String>) -> MatchQuery {
-        let node_var = node_var.into();
+        let node_var_curr = node_var.into();
         let random_suffix: String =
             rand::distributions::Alphanumeric.sample_string(&mut rand::thread_rng(), 4);
-        let rel_edge_var = format!("r_{node_var}_{}", random_suffix);
-        let node_var_to = format!("r_{node_var}_{}_to", random_suffix);
+        let rel_edge_var = format!("r_{node_var_curr}_{}", random_suffix);
+        let node_var_dest = format!("r_{node_var_curr}_{}_to", random_suffix);
 
-        MatchQuery::new(format!(
-            "({node_var}) -[{rel_edge_var}:RELATION]-> ({node_var_to})"
-        ))
+        MatchQuery::new(match self.direction {
+            RelationDirection::From => {
+                format!("({node_var_curr}) -[{rel_edge_var}:RELATION]-> ({node_var_dest})")
+            }
+            RelationDirection::To => {
+                format!("({node_var_dest}) -[{rel_edge_var}:RELATION]-> ({node_var_curr})")
+            }
+        })
         // rename to change direction of relation
         .r#rename(Rename::new(NamePair::new(
-            node_var.clone(),
-            node_var_to.clone(),
+            node_var_curr.clone(),
+            node_var_dest.clone(),
         )))
         // Apply the version filter to the relation
         .r#where(self.version.subquery(&rel_edge_var))
         // Apply the relation_type filter to the relation (if any)
         .where_opt(
-            self.relation_type
+            self.relation_type_id
                 .as_ref()
                 .map(|relation_type| relation_type.subquery(&rel_edge_var, "relation_type", None)),
         )
         // Apply the from_id filter to the relation (if any)
         .where_opt(
-            self.from_id
+            self.destination_id
                 .as_ref()
-                .map(|from_id| from_id.subquery(&node_var_to, "id", None)),
-        )
-        // Apply the space_id filter to the relation (if any)
-        .where_opt(
-            self.space_id
-                .as_ref()
-                .map(|space_id| space_id.subquery(&rel_edge_var, "space_id", None)),
-        )
-    }
-}
-
-/// Filter used to:
-/// - Filter the relations outgoing from the entity
-/// - Filter an entity by its outgoing relations
-#[derive(Clone, Debug, Default)]
-pub struct TraverseToRelationFilter {
-    relation_type: Option<PropFilter<String>>,
-    to_id: Option<PropFilter<String>>,
-    space_id: Option<PropFilter<String>>,
-    version: VersionFilter,
-}
-
-impl TraverseToRelationFilter {
-    pub fn relation_type(mut self, relation_type: impl Into<PropFilter<String>>) -> Self {
-        self.relation_type = Some(relation_type.into());
-        self
-    }
-
-    pub fn to_id(mut self, to_id: impl Into<PropFilter<String>>) -> Self {
-        self.to_id = Some(to_id.into());
-        self
-    }
-
-    pub fn space_id(mut self, space_id: impl Into<PropFilter<String>>) -> Self {
-        self.space_id = Some(space_id.into());
-        self
-    }
-
-    pub fn version(mut self, version: impl Into<String>) -> Self {
-        self.version.version_mut(version.into());
-        self
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.relation_type.is_none() && self.to_id.is_none()
-    }
-
-    pub(crate) fn subquery(&self, node_var: impl Into<String>) -> MatchQuery {
-        let node_var = node_var.into();
-        let random_suffix: String =
-            rand::distributions::Alphanumeric.sample_string(&mut rand::thread_rng(), 4);
-        let rel_edge_var = format!("r_{node_var}_{}", random_suffix);
-        let node_var_to = format!("r_{node_var}_{}_to", random_suffix);
-
-        MatchQuery::new(format!(
-            "({node_var}) <-[{rel_edge_var}:RELATION]- ({node_var_to})"
-        ))
-        // rename to change direction of relation
-        .r#rename(Rename::new(NamePair::new(
-            node_var.clone(),
-            node_var_to.clone(),
-        )))
-        // Apply the version filter to the relation
-        .r#where(self.version.subquery(&rel_edge_var))
-        // Apply the relation_type filter to the relation (if any)
-        .where_opt(
-            self.relation_type
-                .as_ref()
-                .map(|relation_type| relation_type.subquery(&rel_edge_var, "relation_type", None)),
-        )
-        // Apply the from_id filter to the relation (if any)
-        .where_opt(
-            self.to_id
-                .as_ref()
-                .map(|to_id| to_id.subquery(&node_var_to, "id", None)),
+                .map(|dest_id| dest_id.subquery(&node_var_curr, "id", None)),
         )
         // Apply the space_id filter to the relation (if any)
         .where_opt(

@@ -4,12 +4,15 @@ use futures::{TryStreamExt, future::join_all};
 use grc20_core::{
     entity::{
         self, Entity, EntityFilter, EntityNode, EntityRelationFilter, TypesFilter,
-        utils::{TraverseFromRelationFilter, TraverseToRelationFilter},
+        utils::TraverseRelationFilter,
     },
-    mapping::{Attributes, Query, QueryStream, RelationEdge, prop_filter},
+    mapping::{
+        Attributes, Query, QueryStream, RelationEdge, prop_filter, query_utils::RelationDirection,
+    },
     neo4rs, relation, system_ids,
 };
 use grc20_sdk::models::BaseEntity;
+use mcp_server::input_types::{self, SearchTraversalInputFilter};
 use rmcp::{
     Error as McpError, RoleServer, ServerHandler,
     model::*,
@@ -78,63 +81,6 @@ async fn main() -> anyhow::Result<()> {
     tokio::signal::ctrl_c().await?;
     ct.cancel();
     Ok(())
-}
-
-#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
-pub struct StructRequest {
-    pub a: i32,
-    pub b: i32,
-}
-
-#[derive(Debug, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
-pub struct InputFilter {
-    pub query: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub relation_filter: Option<RelationFilter>,
-}
-
-#[derive(Debug, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
-pub struct RelationFilter {
-    pub direction: RelationDirection,
-    pub relation_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub relation_filter: Option<Box<RelationFilter>>,
-}
-
-#[derive(Debug, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
-pub enum RelationDirection {
-    From,
-    To,
-}
-
-/// Struct returned by call to `OneOrMany::into_iter()`.
-pub struct IntoIter {
-    // Owned.
-    next_filter: Option<RelationFilter>,
-}
-
-/// Implement `IntoIterator` for `RelationFilter`.
-impl IntoIterator for RelationFilter {
-    type Item = RelationFilter;
-    type IntoIter = IntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        IntoIter {
-            next_filter: Some(self),
-        }
-    }
-}
-
-/// Implement `Iterator` for `IntoIter`.
-impl Iterator for IntoIter {
-    type Item = RelationFilter;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.next_filter.take().map(|mut current| {
-            self.next_filter = current.relation_filter.take().map(|boxed| *boxed);
-            current
-        })
-    }
 }
 
 const EMBEDDING_MODEL: EmbeddingModel = EmbeddingModel::AllMiniLML6V2;
@@ -338,20 +284,20 @@ impl KnowledgeGraph {
         ))
     }
 
-    #[tool(description = "Get entity by it's relations, properties or attributes")]
-    async fn get_entity_from_relation(
+    #[tool(
+        description = "Get entity from a query over the name and traversals based on relation types"
+    )]
+    async fn search_entity(
         &self,
         #[tool(param)]
-        #[schemars(
-            description = "A tuple of the value that is looked for and an optional attribute id, relation id or property id for the value that was provided"
-        )]
-        input_filter: InputFilter,
+        #[schemars(description = "A filter of the relation(s) to traverse from the query")]
+        search_traversal_filter: SearchTraversalInputFilter,
     ) -> Result<CallToolResult, McpError> {
-        tracing::info!("Input filter query: {}", input_filter.query);
+        tracing::info!("SearchTraversalFilter query: {}", search_traversal_filter.query);
 
         let embedding = self
             .embedding_model
-            .embed(vec![&input_filter.query], None)
+            .embed(vec![&search_traversal_filter.query], None)
             .expect("Failed to get embedding")
             .pop()
             .expect("Embedding is empty")
@@ -359,8 +305,8 @@ impl KnowledgeGraph {
             .map(|v| v as f64)
             .collect::<Vec<_>>();
 
-        let results_search = input_filter
-            .relation_filter
+        let results_search = search_traversal_filter
+            .traversal_filter
             .map(|relation_filter| {
                 relation_filter.into_iter().fold(
                     entity::search_from_restictions::<Entity<BaseEntity>>(
@@ -368,17 +314,18 @@ impl KnowledgeGraph {
                         embedding.clone(),
                     ),
                     |query, filter| {
-                        query.filter(match filter.direction {
-                            RelationDirection::From => EntityFilter::default()
-                                .traverse_from_relation(
-                                    TraverseFromRelationFilter::default()
-                                        .relation_type(filter.relation_id.clone()),
-                                ),
-                            RelationDirection::To => EntityFilter::default().traverse_to_relation(
-                                TraverseToRelationFilter::default()
-                                    .relation_type(filter.relation_id.clone()),
+                        query.filter(
+                            EntityFilter::default().traverse_relation(
+                                TraverseRelationFilter::default()
+                                    .relation_type_id(filter.relation_type_id)
+                                    .direction(match filter.direction {
+                                        input_types::RelationDirection::From => {
+                                            RelationDirection::From
+                                        }
+                                        input_types::RelationDirection::To => RelationDirection::To,
+                                    }),
                             ),
-                        })
+                        )
                     },
                 )
             })
@@ -579,57 +526,6 @@ impl KnowledgeGraph {
                 }))
                 .await
                 .to_vec(),
-        ))
-    }
-
-    #[tool(description = "Search entity by name or attribute value")]
-    async fn search_entity(
-        &self,
-        #[tool(param)]
-        #[schemars(description = "The value of the attribute or name of an Entity")]
-        attribute_value: String,
-    ) -> Result<CallToolResult, McpError> {
-        let embedding = self
-            .embedding_model
-            .embed(vec![&attribute_value], None)
-            .expect("Failed to get embedding")
-            .pop()
-            .expect("Embedding is empty")
-            .into_iter()
-            .map(|v| v as f64)
-            .collect::<Vec<_>>();
-
-        let entities = entity::search::<Entity<BaseEntity>>(&self.neo4j, embedding)
-            .filter(entity::EntityFilter::default())
-            .limit(10)
-            .send()
-            .await
-            .map_err(|e| {
-                McpError::internal_error("get_entity", Some(json!({ "error": e.to_string() })))
-            })?
-            .try_collect::<Vec<_>>()
-            .await
-            .map_err(|e| {
-                McpError::internal_error(
-                    "get_relation_by_id_not_found",
-                    Some(json!({ "error": e.to_string() })),
-                )
-            })?;
-
-        tracing::info!("Found {} entities with given attributes", entities.len());
-
-        Ok(CallToolResult::success(
-            entities
-                .into_iter()
-                .map(|result| {
-                    Content::json(json!({
-                        "id": result.entity.id(),
-                        "name": result.entity.attributes.name,
-                        "description": result.entity.attributes.description,
-                    }))
-                    .expect("Failed to create JSON content")
-                })
-                .collect(),
         ))
     }
 

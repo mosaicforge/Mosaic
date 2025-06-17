@@ -34,7 +34,7 @@ impl<T> SearchFromRestrictions<T> {
             version: VersionFilter::default(),
             limit: 100,
             skip: None,
-            threshold: 0.5,
+            threshold: 0.75,
 
             _marker: std::marker::PhantomData,
         }
@@ -95,11 +95,6 @@ impl<T> SearchFromRestrictions<T> {
         self.filters
             .iter()
             .fold(QueryBuilder::default().subquery(QUERY), |query, filter| {
-                tracing::info!(
-                    "filter from_relations: {:?}, to_relations {:?}",
-                    filter.traverse_from,
-                    filter.relations
-                );
                 query.subquery(filter.subquery("e"))
             })
             .limit(self.limit)
