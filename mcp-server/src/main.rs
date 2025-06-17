@@ -293,7 +293,10 @@ impl KnowledgeGraph {
         #[schemars(description = "A filter of the relation(s) to traverse from the query")]
         search_traversal_filter: SearchTraversalInputFilter,
     ) -> Result<CallToolResult, McpError> {
-        tracing::info!("SearchTraversalFilter query: {}", search_traversal_filter.query);
+        tracing::info!(
+            "SearchTraversalFilter query: {}",
+            search_traversal_filter.query
+        );
 
         let embedding = self
             .embedding_model
