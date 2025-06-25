@@ -1,7 +1,11 @@
 use chrono::Local;
 use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 use grc20_core::{
-    block::BlockMetadata, entity::EntityNodeRef, ids, indexer_ids, mapping::{triple, Query, RelationEdge, Triple, Value}, neo4rs, relation, system_ids
+    block::BlockMetadata,
+    entity::EntityNodeRef,
+    ids, indexer_ids,
+    mapping::{triple, Query, RelationEdge, Triple, Value},
+    neo4rs, relation, system_ids,
 };
 use grc20_sdk::models::space;
 
@@ -82,7 +86,12 @@ async fn main() -> anyhow::Result<()> {
 
     let dt = Local::now();
 
-    let block = BlockMetadata { cursor: "random_cursor".to_string(), block_number: 0, timestamp:dt.to_utc(), request_id: "request_id".to_string() };
+    let block = BlockMetadata {
+        cursor: "random_cursor".to_string(),
+        block_number: 0,
+        timestamp: dt.to_utc(),
+        request_id: "request_id".to_string(),
+    };
 
     create_type(
         &neo4j,
@@ -110,18 +119,66 @@ async fn main() -> anyhow::Result<()> {
         .send()
         .await?;
 
-    space::builder(system_ids::ROOT_SPACE_ID, "0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c")
-        .build()
-        .insert(&neo4j, &block, indexer_ids::INDEXER_SPACE_ID, "0")
-        .send()
-        .await?;
+    space::builder(
+        system_ids::ROOT_SPACE_ID,
+        "0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c",
+    )
+    .build()
+    .insert(&neo4j, &block, indexer_ids::INDEXER_SPACE_ID, "0")
+    .send()
+    .await?;
 
-    insert_relation(&neo4j, FR_QC_SPACE_ID, system_ids::TYPES_ATTRIBUTE, system_ids::SPACE_TYPE, indexer_ids::INDEXER_SPACE_ID).await?;
-    insert_relation(&neo4j, FR_SPACE_ID, system_ids::TYPES_ATTRIBUTE, system_ids::SPACE_TYPE, indexer_ids::INDEXER_SPACE_ID).await?;
-    insert_relation(&neo4j, system_ids::ROOT_SPACE_ID, system_ids::TYPES_ATTRIBUTE, system_ids::SPACE_TYPE, indexer_ids::INDEXER_SPACE_ID).await?;
-    insert_attribute_with_embedding(&neo4j, &embedding_model, FR_QC_SPACE_ID, system_ids::NAME_ATTRIBUTE, "Quebec", FR_QC_SPACE_ID).await?;
-    insert_attribute_with_embedding(&neo4j, &embedding_model, FR_QC_SPACE_ID, system_ids::DESCRIPTION_ATTRIBUTE, "The space for Quebec related content", FR_QC_SPACE_ID).await?;
-    insert_attribute_with_embedding(&neo4j, &embedding_model, FR_SPACE_ID, system_ids::NAME_ATTRIBUTE, "Francophonie", FR_SPACE_ID).await?;
+    insert_relation(
+        &neo4j,
+        FR_QC_SPACE_ID,
+        system_ids::TYPES_ATTRIBUTE,
+        system_ids::SPACE_TYPE,
+        indexer_ids::INDEXER_SPACE_ID,
+    )
+    .await?;
+    insert_relation(
+        &neo4j,
+        FR_SPACE_ID,
+        system_ids::TYPES_ATTRIBUTE,
+        system_ids::SPACE_TYPE,
+        indexer_ids::INDEXER_SPACE_ID,
+    )
+    .await?;
+    insert_relation(
+        &neo4j,
+        system_ids::ROOT_SPACE_ID,
+        system_ids::TYPES_ATTRIBUTE,
+        system_ids::SPACE_TYPE,
+        indexer_ids::INDEXER_SPACE_ID,
+    )
+    .await?;
+    insert_attribute_with_embedding(
+        &neo4j,
+        &embedding_model,
+        FR_QC_SPACE_ID,
+        system_ids::NAME_ATTRIBUTE,
+        "Quebec",
+        FR_QC_SPACE_ID,
+    )
+    .await?;
+    insert_attribute_with_embedding(
+        &neo4j,
+        &embedding_model,
+        FR_QC_SPACE_ID,
+        system_ids::DESCRIPTION_ATTRIBUTE,
+        "The space for Quebec related content",
+        FR_QC_SPACE_ID,
+    )
+    .await?;
+    insert_attribute_with_embedding(
+        &neo4j,
+        &embedding_model,
+        FR_SPACE_ID,
+        system_ids::NAME_ATTRIBUTE,
+        "Francophonie",
+        FR_SPACE_ID,
+    )
+    .await?;
 
     // Create some common types
     create_type(
@@ -248,7 +305,6 @@ async fn main() -> anyhow::Result<()> {
         None,
     )
     .await?;
-
 
     // Create person entities
     create_entity(
@@ -382,7 +438,8 @@ async fn main() -> anyhow::Result<()> {
         system_ids::NAME_ATTRIBUTE,
         "Génie logiciel",
         FR_SPACE_ID,
-    ).await?;
+    )
+    .await?;
 
     create_entity(
         &neo4j,
@@ -404,7 +461,8 @@ async fn main() -> anyhow::Result<()> {
         system_ids::NAME_ATTRIBUTE,
         "Génie informatique",
         FR_SPACE_ID,
-    ).await?;
+    )
+    .await?;
 
     create_entity(
         &neo4j,
@@ -450,7 +508,6 @@ async fn main() -> anyhow::Result<()> {
         None,
     )
     .await?;
-
 
     // Create city entities
     create_entity(
@@ -812,7 +869,6 @@ pub async fn create_entity(
     let entity_id = id.map(Into::into).unwrap_or_else(|| ids::create_geo_id());
     let name = name.into();
 
-
     let space_id = space_id.as_deref().unwrap_or(system_ids::ROOT_SPACE_ID);
 
     // Set: Entity.name
@@ -859,23 +915,18 @@ pub async fn create_entity(
         .await?;
 
     // Set: Entity > RELATIONS > Relation[]
-    relation::insert_many::<RelationEdge<EntityNodeRef>>(
-        neo4j,
-        &block,
-        space_id,
-        DEFAULT_VERSION,
-    )
-    .relations(relations.into_iter().map(|(relation_type, target_id)| {
-        RelationEdge::new(
-            ids::create_geo_id(),
-            &entity_id,
-            target_id,
-            relation_type,
-            "0",
-        )
-    }))
-    .send()
-    .await?;
+    relation::insert_many::<RelationEdge<EntityNodeRef>>(neo4j, &block, space_id, DEFAULT_VERSION)
+        .relations(relations.into_iter().map(|(relation_type, target_id)| {
+            RelationEdge::new(
+                ids::create_geo_id(),
+                &entity_id,
+                target_id,
+                relation_type,
+                "0",
+            )
+        }))
+        .send()
+        .await?;
 
     Ok(entity_id)
 }
@@ -887,16 +938,21 @@ pub async fn insert_attribute(
     attribute_value: impl Into<String>,
     space_id: impl Into<String>,
 ) -> anyhow::Result<String> {
-
     let block = BlockMetadata::default();
     let attribute_id = attribute_id.into();
     let attribute_value = attribute_value.into();
     let space_id = space_id.into();
     let entity_id = entity_id.into();
-    
-    triple::insert_one(neo4j, &block, space_id, DEFAULT_VERSION, Triple::new(entity_id.clone(), attribute_id, attribute_value))
-        .send()
-        .await?;
+
+    triple::insert_one(
+        neo4j,
+        &block,
+        space_id,
+        DEFAULT_VERSION,
+        Triple::new(entity_id.clone(), attribute_id, attribute_value),
+    )
+    .send()
+    .await?;
     Ok(entity_id)
 }
 
@@ -907,16 +963,27 @@ pub async fn insert_relation(
     entity_to_id: impl Into<String>,
     space_id: impl Into<String>,
 ) -> anyhow::Result<String> {
-
     let block = BlockMetadata::default();
     let entity_from_id = entity_from_id.into();
     let relation_id = relation_id.into();
     let space_id = space_id.into();
     let entity_to_id = entity_to_id.into();
-    
-    relation::insert_one(neo4j, &block, space_id, DEFAULT_VERSION, RelationEdge::new("id".to_string(), entity_from_id, entity_to_id, relation_id.clone(), Value::text(relation_id.clone())))
-        .send()
-        .await?;
+
+    relation::insert_one(
+        neo4j,
+        &block,
+        space_id,
+        DEFAULT_VERSION,
+        RelationEdge::new(
+            "id".to_string(),
+            entity_from_id,
+            entity_to_id,
+            relation_id.clone(),
+            Value::text(relation_id.clone()),
+        ),
+    )
+    .send()
+    .await?;
     Ok(relation_id)
 }
 
@@ -928,14 +995,17 @@ pub async fn insert_attribute_with_embedding(
     attribute_value: impl Into<String>,
     space_id: impl Into<String>,
 ) -> anyhow::Result<String> {
-
     let block = BlockMetadata::default();
     let attribute_id = attribute_id.into();
     let attribute_value = attribute_value.into();
     let space_id = space_id.into();
     let entity_id = entity_id.into();
-    
-    triple::insert_one(neo4j, &block, space_id, DEFAULT_VERSION, 
+
+    triple::insert_one(
+        neo4j,
+        &block,
+        space_id,
+        DEFAULT_VERSION,
         Triple::with_embedding(
             &entity_id,
             attribute_id,
@@ -947,13 +1017,13 @@ pub async fn insert_attribute_with_embedding(
                 .unwrap_or(&Vec::<f32>::new())
                 .iter()
                 .map(|&x| x as f64)
-                .collect()
-    ))
-        .send()
-        .await?;
+                .collect(),
+        ),
+    )
+    .send()
+    .await?;
     Ok(entity_id)
 }
-
 
 /// Creates a type with the given name, types, and properties.
 pub async fn create_type(
@@ -975,7 +1045,6 @@ pub async fn create_type(
     }
 
     let space_id = space_id.as_deref().unwrap_or(system_ids::ROOT_SPACE_ID);
-
 
     // Set: Type.name
     triple::insert_many(neo4j, &block, space_id, DEFAULT_VERSION)
@@ -999,23 +1068,18 @@ pub async fn create_type(
     set_types(neo4j, &type_id, types_vec).await?;
 
     // Set: Type > PROPERTIES > Property[]
-    relation::insert_many::<RelationEdge<EntityNodeRef>>(
-        neo4j,
-        &block,
-        space_id,
-        DEFAULT_VERSION,
-    )
-    .relations(properties.into_iter().map(|property_id| {
-        RelationEdge::new(
-            ids::create_geo_id(),
-            &type_id,
-            system_ids::PROPERTIES,
-            property_id,
-            "0",
-        )
-    }))
-    .send()
-    .await?;
+    relation::insert_many::<RelationEdge<EntityNodeRef>>(neo4j, &block, space_id, DEFAULT_VERSION)
+        .relations(properties.into_iter().map(|property_id| {
+            RelationEdge::new(
+                ids::create_geo_id(),
+                &type_id,
+                system_ids::PROPERTIES,
+                property_id,
+                "0",
+            )
+        }))
+        .send()
+        .await?;
 
     Ok(type_id)
 }

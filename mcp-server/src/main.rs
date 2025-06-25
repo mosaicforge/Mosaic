@@ -3,10 +3,11 @@ use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 use futures::{TryStreamExt, future::join_all};
 use grc20_core::{
     entity::{
-        self, utils::TraverseRelationFilter, Entity, EntityFilter, EntityNode, EntityRelationFilter, TypesFilter
+        self, Entity, EntityFilter, EntityNode, EntityRelationFilter, TypesFilter,
+        utils::TraverseRelationFilter,
     },
     mapping::{
-        prop_filter, query_utils::RelationDirection, triple, Attributes, Query, QueryStream, RelationEdge
+        Query, QueryStream, RelationEdge, prop_filter, query_utils::RelationDirection, triple,
     },
     neo4rs,
     relation::{self},
@@ -257,18 +258,12 @@ impl KnowledgeGraph {
             .send()
             .await
             .map_err(|e| {
-                McpError::internal_error(
-                    "search_space",
-                    Some(json!({ "error": e.to_string() })),
-                )
+                McpError::internal_error("search_space", Some(json!({ "error": e.to_string() })))
             })?
             .try_collect::<Vec<_>>()
             .await
             .map_err(|e| {
-                McpError::internal_error(
-                    "search_space",
-                    Some(json!({ "error": e.to_string() })),
-                )
+                McpError::internal_error("search_space", Some(json!({ "error": e.to_string() })))
             })?;
 
         tracing::info!("Found {} results for query '{}'", results.len(), query);
@@ -566,7 +561,8 @@ impl KnowledgeGraph {
         )]
         id: String,
     ) -> Result<CallToolResult, McpError> {
-        let entity_attributes = triple::find_many(&self.neo4j).entity_id(prop_filter::value(&id))
+        let entity_attributes = triple::find_many(&self.neo4j)
+            .entity_id(prop_filter::value(&id))
             .send()
             .await
             .map_err(|e| {
@@ -575,10 +571,7 @@ impl KnowledgeGraph {
             .try_collect::<Vec<_>>()
             .await
             .map_err(|e| {
-                McpError::internal_error(
-                    "get_entity_info",
-                    Some(json!({ "error": e.to_string() })),
-                )
+                McpError::internal_error("get_entity_info", Some(json!({ "error": e.to_string() })))
             })?;
 
         let out_relations = relation::find_many::<RelationEdge<EntityNode>>(&self.neo4j)
