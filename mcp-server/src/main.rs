@@ -3,13 +3,14 @@ use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 use futures::{TryStreamExt, future::join_all};
 use grc20_core::{
     entity::{
-        self, Entity, EntityFilter, EntityNode, EntityRelationFilter, TypesFilter,
-        utils::TraverseRelationFilter,
+        self, utils::TraverseRelationFilter, Entity, EntityFilter, EntityNode, EntityRelationFilter, TypesFilter
     },
     mapping::{
-        Attributes, Query, QueryStream, RelationEdge, prop_filter, query_utils::RelationDirection,
+        prop_filter, query_utils::RelationDirection, triple, Attributes, Query, QueryStream, RelationEdge
     },
-    neo4rs, relation, system_ids,
+    neo4rs,
+    relation::{self},
+    system_ids,
 };
 use grc20_sdk::models::BaseEntity;
 use mcp_server::input_types::{self, SearchTraversalInputFilter};
@@ -227,6 +228,66 @@ impl KnowledgeGraph {
         ))
     }
 
+    #[tool(description = "Search Space")]
+    async fn search_space(
+        &self,
+        #[tool(param)]
+        #[schemars(description = "The query string to search for space")]
+        query: String,
+    ) -> Result<CallToolResult, McpError> {
+        let embedding = self
+            .embedding_model
+            .embed(vec![&query], None)
+            .expect("Failed to get embedding")
+            .pop()
+            .expect("Embedding is empty")
+            .into_iter()
+            .map(|v| v as f64)
+            .collect::<Vec<_>>();
+
+        let results = entity::search::<Entity<BaseEntity>>(&self.neo4j, embedding)
+            .filter(
+                entity::EntityFilter::default().relations(
+                    EntityRelationFilter::default()
+                        .relation_type(system_ids::TYPES_ATTRIBUTE)
+                        .to_id(system_ids::SPACE_TYPE),
+                ),
+            )
+            .limit(10)
+            .send()
+            .await
+            .map_err(|e| {
+                McpError::internal_error(
+                    "search_space",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?
+            .try_collect::<Vec<_>>()
+            .await
+            .map_err(|e| {
+                McpError::internal_error(
+                    "search_space",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?;
+
+        tracing::info!("Found {} results for query '{}'", results.len(), query);
+
+        Ok(CallToolResult::success(
+            results
+                .into_iter()
+                .map(|result| {
+                    Content::json(json!({
+                        "id": result.entity.id(),
+                        "name": result.entity.attributes.name,
+                        "description": result.entity.attributes.description,
+                    }))
+                    .expect("Failed to create JSON content")
+                })
+                .collect(),
+        ))
+    }
+
     #[tool(description = "Search Properties")]
     async fn search_properties(
         &self,
@@ -308,34 +369,157 @@ impl KnowledgeGraph {
             .map(|v| v as f64)
             .collect::<Vec<_>>();
 
-        let results_search = search_traversal_filter
+        let traversal_filters: Vec<_> = search_traversal_filter
             .traversal_filter
-            .map(|relation_filter| {
-                relation_filter.into_iter().fold(
-                    entity::search_from_restictions::<Entity<BaseEntity>>(
-                        &self.neo4j,
-                        embedding.clone(),
-                    ),
-                    |query, filter| {
-                        query.filter(
-                            EntityFilter::default().traverse_relation(
-                                TraverseRelationFilter::default()
-                                    .relation_type_id(filter.relation_type_id)
-                                    .direction(match filter.direction {
-                                        input_types::RelationDirection::From => {
-                                            RelationDirection::From
-                                        }
-                                        input_types::RelationDirection::To => RelationDirection::To,
-                                    }),
-                            ),
-                        )
-                    },
+            .map(|relation_filter| relation_filter.into_iter().collect())
+            .unwrap_or_default();
+
+        let results_search = traversal_filters
+            .into_iter()
+            .fold(
+                entity::search_from_restictions::<Entity<BaseEntity>>(
+                    &self.neo4j,
+                    embedding.clone(),
+                ),
+                |query, filter| {
+                    query.filter(
+                        EntityFilter::default().traverse_relation(
+                            TraverseRelationFilter::default()
+                                .relation_type_id(filter.relation_type_id)
+                                .direction(match filter.direction {
+                                    input_types::RelationDirection::From => RelationDirection::From,
+                                    input_types::RelationDirection::To => RelationDirection::To,
+                                }),
+                        ),
+                    )
+                },
+            )
+            .limit(10)
+            .send()
+            .await
+            .map_err(|e| {
+                McpError::internal_error(
+                    "search_properties",
+                    Some(json!({ "error": e.to_string() })),
                 )
+            })?
+            .try_collect::<Vec<_>>()
+            .await
+            .map_err(|e| {
+                McpError::internal_error(
+                    "search_properties",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?;
+
+        let entities_vec: Vec<_> = results_search
+            .into_iter()
+            .map(|result| {
+                json!({
+                    "id": result.entity.id(),
+                    "name": result.entity.attributes.name,
+                    "description": result.entity.attributes.description,
+                })
             })
-            .unwrap_or(entity::search_from_restictions::<Entity<BaseEntity>>(
-                &self.neo4j,
-                embedding,
-            ))
+            .collect::<Vec<_>>();
+
+        Ok(CallToolResult::success(vec![
+            Content::json(json!({
+                "entities": entities_vec,
+            }))
+            .expect("Failed to create JSON content"),
+        ]))
+    }
+
+    #[tool(
+        description = "Get entity from a query over the name and traversals based on relation types names"
+    )]
+    async fn name_search_entity(
+        &self,
+        #[tool(param)]
+        #[schemars(description = "A filter of the relation(s) to traverse from the query")]
+        search_traversal_filter: SearchTraversalInputFilter,
+    ) -> Result<CallToolResult, McpError> {
+        tracing::info!("SearchTraversalFilter query: {:?}", search_traversal_filter);
+
+        let embedding = self
+            .embedding_model
+            .embed(vec![&search_traversal_filter.query], None)
+            .expect("Failed to get embedding")
+            .pop()
+            .expect("Embedding is empty")
+            .into_iter()
+            .map(|v| v as f64)
+            .collect::<Vec<_>>();
+
+        let traversal_filters: Vec<Result<TraverseRelationFilter, McpError>> =
+            match search_traversal_filter.traversal_filter {
+                Some(traversal_filter) => {
+                    join_all(traversal_filter.into_iter().map(|filter| async move {
+                        let rel_embedding = self
+                            .embedding_model
+                            .embed(vec![&filter.relation_type_id], None)
+                            .expect("Failed to get embedding")
+                            .pop()
+                            .expect("Embedding is empty")
+                            .into_iter()
+                            .map(|v| v as f64)
+                            .collect::<Vec<_>>();
+
+                        let rel_results = entity::search::<EntityNode>(&self.neo4j, rel_embedding)
+                            .filter(
+                                entity::EntityFilter::default().relations(
+                                    EntityRelationFilter::default()
+                                        .relation_type(system_ids::VALUE_TYPE_ATTRIBUTE)
+                                        .to_id(system_ids::RELATION_SCHEMA_TYPE),
+                                ),
+                            )
+                            .limit(10)
+                            .send()
+                            .await
+                            .map_err(|e| {
+                                McpError::internal_error(
+                                    "search_relation_types",
+                                    Some(json!({ "error": e.to_string() })),
+                                )
+                            })?
+                            .try_collect::<Vec<_>>()
+                            .await
+                            .map_err(|e| {
+                                McpError::internal_error(
+                                    "search_relation_types",
+                                    Some(json!({ "error": e.to_string() })),
+                                )
+                            })?;
+                        let relation_ids: Vec<String> = rel_results
+                            .into_iter()
+                            .map(|sem_search| sem_search.entity.id)
+                            .collect();
+                        Ok(TraverseRelationFilter::default()
+                            .direction(match filter.direction {
+                                input_types::RelationDirection::From => RelationDirection::From,
+                                input_types::RelationDirection::To => RelationDirection::To,
+                            })
+                            .relation_type_id(prop_filter::value_in(relation_ids)))
+                    }))
+                    .await
+                    .to_vec()
+                }
+                None => Vec::new(),
+            };
+
+        let results_search = traversal_filters
+            .into_iter()
+            .fold(
+                entity::search_from_restictions::<Entity<BaseEntity>>(
+                    &self.neo4j,
+                    embedding.clone(),
+                ),
+                |query, result_ids: Result<_, McpError>| match result_ids {
+                    Ok(ids) => query.filter(EntityFilter::default().traverse_relation(ids)),
+                    Err(_) => query,
+                },
+            )
             .limit(10)
             .send()
             .await
@@ -382,14 +566,19 @@ impl KnowledgeGraph {
         )]
         id: String,
     ) -> Result<CallToolResult, McpError> {
-        let entity = entity::find_one::<Entity<Attributes>>(&self.neo4j, &id)
+        let entity_attributes = triple::find_many(&self.neo4j).entity_id(prop_filter::value(&id))
             .send()
             .await
             .map_err(|e| {
-                McpError::internal_error("get_entity", Some(json!({ "error": e.to_string() })))
+                McpError::internal_error("get_entity_info", Some(json!({ "error": e.to_string() })))
             })?
-            .ok_or_else(|| {
-                McpError::internal_error("entity_not_found", Some(json!({ "id": id })))
+            .try_collect::<Vec<_>>()
+            .await
+            .map_err(|e| {
+                McpError::internal_error(
+                    "get_entity_info",
+                    Some(json!({ "error": e.to_string() })),
+                )
             })?;
 
         let out_relations = relation::find_many::<RelationEdge<EntityNode>>(&self.neo4j)
@@ -444,35 +633,23 @@ impl KnowledgeGraph {
             join_all(relations
                 .into_iter()
                 .map(|result| async move {
-                    Content::json(json!({
+                    json!({
                         "relation_id": result.id,
                         "relation_type": self.get_name_of_id(result.relation_type).await.unwrap_or("No relation type".to_string()),
                         "id": if is_inbound {result.from.id.clone()} else {result.to.id.clone()},
                         "name": self.get_name_of_id(if is_inbound {result.from.id.clone()} else {result.to.id.clone()}).await.unwrap_or("No name".to_string()),
-                    }))
-                    .expect("Failed to create JSON content")
+                    })
                 })).await.to_vec()
         };
         let inbound_relations = clean_up_relations(in_relations, true).await;
         let outbound_relations = clean_up_relations(out_relations, false).await;
 
-        let id = entity.id().to_string();
-        let name = entity
-            .attributes
-            .get::<String>(system_ids::NAME_ATTRIBUTE)
-            .unwrap_or("No name".to_string());
-        let description = entity
-            .attributes
-            .get::<String>(system_ids::DESCRIPTION_ATTRIBUTE)
-            .unwrap_or("No description".to_string());
-
-        let attributes_vec: Vec<_> = join_all(entity.attributes.0.into_iter().map(
-            |(key, attr)| async {
-                Content::json(json!({
-                    "attribute_name": self.get_name_of_id(key).await.unwrap_or("No attribute name".to_string()),
-                    "attribute_value": String::try_from(attr).unwrap_or("No attributes".to_string()),
-                }))
-                .expect("Failed to create JSON content")
+        let attributes_vec: Vec<_> = join_all(entity_attributes.into_iter().map(
+            |attr| async {
+                json!({
+                    "attribute_name": self.get_name_of_id(attr.attribute).await.unwrap_or("No attribute name".to_string()),
+                    "attribute_value": String::try_from(attr.value).unwrap_or("No attributes".to_string()),
+                })
             },
         ))
         .await
@@ -481,9 +658,6 @@ impl KnowledgeGraph {
         Ok(CallToolResult::success(vec![
             Content::json(json!({
                 "id": id,
-                "name": name,
-                "description": description,
-                "types": entity.types,
                 "all_attributes": attributes_vec,
                 "inbound_relations": inbound_relations,
                 "outbound_relations": outbound_relations,
@@ -572,6 +746,53 @@ impl ServerHandler for KnowledgeGraph {
             tracing::info!(?initialize_headers, %initialize_uri, "initialize from http server");
         }
         Ok(self.get_info())
+    }
+
+    //TODO: make prompt examples to use on data
+    async fn list_prompts(
+        &self,
+        _request: Option<PaginatedRequestParam>,
+        _: RequestContext<RoleServer>,
+    ) -> Result<ListPromptsResult, McpError> {
+        Ok(ListPromptsResult {
+            next_cursor: None,
+            prompts: vec![Prompt::new(
+                "example_prompt",
+                Some("This is an example prompt that takes one required argument, message"),
+                Some(vec![PromptArgument {
+                    name: "message".to_string(),
+                    description: Some("A message to put in the prompt".to_string()),
+                    required: Some(true),
+                }]),
+            )],
+        })
+    }
+
+    async fn get_prompt(
+        &self,
+        GetPromptRequestParam { name, arguments }: GetPromptRequestParam,
+        _: RequestContext<RoleServer>,
+    ) -> Result<GetPromptResult, McpError> {
+        match name.as_str() {
+            "example_prompt" => {
+                let message = arguments
+                    .and_then(|json| json.get("message")?.as_str().map(|s| s.to_string()))
+                    .ok_or_else(|| {
+                        McpError::invalid_params("No message provided to example_prompt", None)
+                    })?;
+
+                let prompt =
+                    format!("This is an example prompt with your message here: '{message}'");
+                Ok(GetPromptResult {
+                    description: None,
+                    messages: vec![PromptMessage {
+                        role: PromptMessageRole::User,
+                        content: PromptMessageContent::text(prompt),
+                    }],
+                })
+            }
+            _ => Err(McpError::invalid_params("prompt not found", None)),
+        }
     }
 }
 
