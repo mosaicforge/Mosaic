@@ -32,6 +32,36 @@ Tool Result>
       "description": null,
       "id": "Sh1qtjr4i92ZD6YGPeu5a2",
       "name": "Abundant housing in San Francisco"
+    },
+    {
+      "description": null,
+      "id": "UqLf9fTVKHkDs3LzP9zHpH",
+      "name": "Public safety in San Francisco"
+    },
+    {
+      "description": null,
+      "id": "BeyiZ6oLqLMaSXiG41Yxtf",
+      "name": "City"
+    },
+    {
+      "description": null,
+      "id": "D6Wy4bdtdoUrG3PDZceHr",
+      "name": "City"
+    },
+    {
+      "description": null,
+      "id": "JWVrgUXmjS75PqNX2hry5q",
+      "name": "Clean streets in San Francisco"
+    },
+    {
+      "description": null,
+      "id": "DcA2c7ooFTgEdtaRcaj7Z1",
+      "name": "Revitalizing downtown San Francisco"
+    },
+    {
+      "description": null,
+      "id": "KWBLj9czHBBmYUT98rnxVM",
+      "name": "Location"
     }
   ]
 }

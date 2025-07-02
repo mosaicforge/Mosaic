@@ -7,28 +7,28 @@ ToolCall> search_types("9xRruQhSfAuJjHwKnvTjma", "ESShPFkqfFnDzYkSwGGVuR")
 ToolResult>
 ```
 [
-    {
-  "nodes": [
-    "Crypto Briefing",
-    "Crypto",
-    "Bullish"
-  ],
-  "relations": [
-    "Related spaces",
-    "Related spaces"
-  ]
-},
-{
-  "nodes": [
-    "Crypto Briefing",
-    "Featured",
-    "Bullish"
-  ],
-  "relations": [
-    "Tags",
-    "Tags"
-  ]
-}
+  {
+    "nodes": [
+      "Crypto Briefing",
+      "Crypto",
+      "Bullish"
+    ],
+    "relations": [
+      "Related spaces",
+      "Related spaces"
+    ]
+  },
+  {
+    "nodes": [
+      "Crypto Briefing",
+      "Featured",
+      "Bullish"
+    ],
+    "relations": [
+      "Tags",
+      "Tags"
+    ]
+  }
 ]
 ```
 

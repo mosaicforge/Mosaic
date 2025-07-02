@@ -269,11 +269,11 @@ impl KnowledgeGraph {
                 .from_(EntityFilter::default().id(prop_filter::value(search_result.triple.entity)))
                 .relation_type(
                     EntityFilter::default()
-                        .id(prop_filter::value(system_ids::RELATION_SCHEMA_TYPE)),
+                        .id(prop_filter::value(system_ids::VALUE_TYPE_ATTRIBUTE)),
                 )
                 .to_(
                     EntityFilter::default()
-                        .id(prop_filter::value(system_ids::VALUE_TYPE_ATTRIBUTE)),
+                        .id(prop_filter::value(system_ids::RELATION_SCHEMA_TYPE)),
                 )
         };
 
