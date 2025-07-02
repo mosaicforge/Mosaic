@@ -149,7 +149,7 @@ impl EntityRelationFilter {
         let node_var = node_var.into();
         let random_suffix: String =
             rand::distributions::Alphanumeric.sample_string(&mut rand::thread_rng(), 4);
-        let rel_edge_var = format!("r_{node_var}_{}", random_suffix);
+        let rel_edge_var = format!("r_{node_var}_{random_suffix}");
         let to_node_var = format!("r_{node_var}_to");
 
         MatchQuery::new(format!(
@@ -223,8 +223,8 @@ impl TraverseRelationFilter {
         let node_var_curr = node_var.into();
         let random_suffix: String =
             rand::distributions::Alphanumeric.sample_string(&mut rand::thread_rng(), 4);
-        let rel_edge_var = format!("r_{node_var_curr}_{}", random_suffix);
-        let node_var_dest = format!("r_{node_var_curr}_{}_to", random_suffix);
+        let rel_edge_var = format!("r_{node_var_curr}_{random_suffix}");
+        let node_var_dest = format!("r_{node_var_curr}_{random_suffix}_to");
 
         MatchQuery::new(match self.direction {
             RelationDirection::From => {

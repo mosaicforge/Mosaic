@@ -119,7 +119,7 @@ fn stream_blocks(
                                     return Err(anyhow::Error::new(status.clone()))?;
                                 }
 
-                                println!("Received tonic error {:#}", status);
+                                println!("Received tonic error {status:#}");
                                 encountered_error = true;
                                 break;
                             },
@@ -136,7 +136,7 @@ fn stream_blocks(
                     // case where we actually _want_ to back off in case we keep
                     // having connection errors.
 
-                    println!("Unable to connect to endpoint: {:#}", e);
+                    println!("Unable to connect to endpoint: {e:#}");
                 }
             }
 

@@ -96,15 +96,13 @@ impl EventHandler {
                 InitOptions::new(EMBEDDING_MODEL).with_show_download_progress(true),
             )
             .map_err(|e| {
-                tracing::error!("Error initializing embedding model: {:?}", e);
-                HandlerError::Other(format!("Error initializing embedding model: {:?}", e).into())
+                tracing::error!("Error initializing embedding model: {e:?}");
+                HandlerError::Other(format!("Error initializing embedding model: {e:?}").into())
             })?,
             embedding_model_dim: TextEmbedding::get_model_info(&EMBEDDING_MODEL)
                 .map_err(|e| {
-                    tracing::error!("Error getting embedding model info: {:?}", e);
-                    HandlerError::Other(
-                        format!("Error getting embedding model info: {:?}", e).into(),
-                    )
+                    tracing::error!("Error getting embedding model info: {e:?}");
+                    HandlerError::Other(format!("Error getting embedding model info: {e:?}").into())
                 })?
                 .dim,
             versioning: false,

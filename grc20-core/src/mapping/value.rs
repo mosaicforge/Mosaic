@@ -253,10 +253,7 @@ impl TryFrom<Value> for DateTime<Utc> {
     fn try_from(value: Value) -> Result<Self, Self::Error> {
         Ok(DateTime::parse_from_rfc3339(&value.value)
             .map_err(|e| {
-                TriplesConversionError::InvalidValue(format!(
-                    "Failed to parse DateTime value: {}",
-                    e
-                ))
+                TriplesConversionError::InvalidValue(format!("Failed to parse DateTime value: {e}"))
             })?
             .with_timezone(&Utc))
     }

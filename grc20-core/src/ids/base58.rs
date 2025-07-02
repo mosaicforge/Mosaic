@@ -34,7 +34,7 @@ pub fn decode_base58_to_uuid(encoded: &str) -> Result<String, &'static str> {
         }
     }
 
-    let hex_str = format!("{:032x}", decoded);
+    let hex_str = format!("{decoded:032x}");
     Ok(format!(
         "{}-{}-{}-{}-{}",
         &hex_str[0..8],

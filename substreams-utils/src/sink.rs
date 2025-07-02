@@ -128,7 +128,7 @@ pub trait Sink<T: Send>: Send + Sync {
                     Some(Err(err)) => {
                         println!();
                         println!("Stream terminated with error");
-                        println!("{:?}", err);
+                        println!("{err:?}");
                         exit(1);
                     }
                 }

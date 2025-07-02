@@ -206,9 +206,9 @@ impl Subquery for MatchQuery {
         match &self.where_clauses.as_slice() {
             [] => (),
             [clause, rest @ ..] => {
-                statements.push(format!("WHERE {}", clause));
+                statements.push(format!("WHERE {clause}"));
                 for rest_clause in rest {
-                    statements.push(format!("AND {}", rest_clause));
+                    statements.push(format!("AND {rest_clause}"));
                 }
             }
         }
@@ -333,9 +333,9 @@ impl Subquery for WhereClause {
         match &self.clauses.as_slice() {
             [] => vec![],
             [clause, rest @ ..] => {
-                let mut statements = vec![format!("WHERE {}", clause)];
+                let mut statements = vec![format!("WHERE {clause}")];
                 for rest_clause in rest {
-                    statements.push(format!("AND {}", rest_clause));
+                    statements.push(format!("AND {rest_clause}"));
                 }
                 statements
             }
