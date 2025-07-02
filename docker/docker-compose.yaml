@@ -1,10 +1,10 @@
 services:
   memcached:
-    image: memcached:latest
+    image: memcached:alpine
     ports:
       - "11211:11211"
     healthcheck:
-      test: echo "version" | (exec 3<>/dev/tcp/localhost/11211; cat >&3; timeout 0.1 cat <&3; exec 3<&-)
+      test: echo "version" | nc -vn -w 1 127.0.0.1 11211
       interval: 1s
       timeout: 10s
       retries: 20
@@ -53,11 +53,30 @@ services:
       SUBSTREAMS_START_BLOCK: ${SUBSTREAMS_START_BLOCK}
       memcached_uri: memcached:11211
       memcached_default_expiry: "3600"
-  api:
+  # api:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/Dockerfile
+  #     target: api
+  #   ports:
+  #     - "80:8080"
+  #   depends_on:
+  #     neo4j:
+  #       condition: service_healthy
+  #     memcached:
+  #       condition: service_healthy
+  #   environment:
+  #     neo4j_uri: neo4j://neo4j:7687
+  #     neo4j_user: neo4j
+  #     neo4j_pass: neo4j
+  #     memcached_uri: memcached:11211
+  #     memcached_default_expiry: "3600"
+
+  mcp:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-      target: api
+      target: mcp
     ports:
       - "80:8080"
     depends_on:

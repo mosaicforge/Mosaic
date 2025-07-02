@@ -4,7 +4,7 @@ WORKDIR /kg-node
 COPY . .
 RUN apt-get update && apt-get upgrade -y
 RUN apt-get install libssl-dev protobuf-compiler -y
-RUN CFLAGS='-std=gnu17' cargo build --release --bin sink --bin api
+RUN CFLAGS='-std=gnu17' cargo build --release --bin sink --bin mcp-server
 
 # Run image
 FROM debian:bookworm-slim AS run
@@ -34,11 +34,20 @@ CMD ./sink \
     --neo4j-user $neo4j_user \
     --neo4j-pass $neo4j_pass
 
-# GraphQL API image
-FROM run AS api
-COPY --from=builder /kg-node/target/release/api .
+# # GraphQL API image
+# FROM run AS api
+# COPY --from=builder /kg-node/target/release/api .
 
-CMD ./api \
+# CMD ./api \
+#     --neo4j-uri $neo4j_uri \
+#     --neo4j-user $neo4j_user \
+#     --neo4j-pass $neo4j_pass
+
+# MCP server image
+FROM run AS mcp
+COPY --from=builder /kg-node/target/release/mcp-server .
+
+CMD ./mcp-server \
     --neo4j-uri $neo4j_uri \
     --neo4j-user $neo4j_user \
     --neo4j-pass $neo4j_pass

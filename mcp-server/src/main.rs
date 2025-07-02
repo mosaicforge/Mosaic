@@ -31,7 +31,7 @@ use tracing_subscriber::{
     {self},
 };
 
-const BIND_ADDRESS: &str = "127.0.0.1:8000";
+const BIND_ADDRESS: &str = "0.0.0.0:8080";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -681,7 +681,7 @@ impl KnowledgeGraph {
                 relation::RelationFilter::default()
                     .from_(EntityFilter::default().id(prop_filter::value(id.clone()))),
             )
-            .limit(8)
+            .limit(10)
             .send()
             .await
             .map_err(|e| {
@@ -704,7 +704,7 @@ impl KnowledgeGraph {
                 relation::RelationFilter::default()
                     .to_(EntityFilter::default().id(prop_filter::value(id.clone()))),
             )
-            .limit(8)
+            .limit(10)
             .send()
             .await
             .map_err(|e| {
