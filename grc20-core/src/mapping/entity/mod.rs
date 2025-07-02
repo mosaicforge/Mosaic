@@ -6,7 +6,7 @@ pub mod find_path;
 pub mod insert_many;
 pub mod insert_one;
 pub mod models;
-pub mod search_from_restrictions;
+pub mod search_with_traversals;
 pub mod semantic_search;
 pub mod utils;
 
@@ -16,7 +16,7 @@ pub use find_one::FindOneQuery;
 pub use find_path::FindPathQuery;
 pub use insert_one::InsertOneQuery;
 pub use models::{Entity, EntityNode, EntityNodeRef, SystemProperties};
-pub use search_from_restrictions::SearchFromRestrictions;
+pub use search_with_traversals::SearchWithTraversals;
 pub use semantic_search::SemanticSearchQuery;
 pub use utils::{EntityFilter, EntityRelationFilter, TypesFilter};
 
@@ -135,8 +135,8 @@ pub fn search<T>(neo4j: &neo4rs::Graph, vector: Vec<f64>) -> SemanticSearchQuery
 pub fn search_from_restictions<T>(
     neo4j: &neo4rs::Graph,
     vector: Vec<f64>,
-) -> SearchFromRestrictions<T> {
-    SearchFromRestrictions::new(neo4j, vector)
+) -> SearchWithTraversals<T> {
+    SearchWithTraversals::new(neo4j, vector)
 }
 
 // TODO: add docs for use via GraphQL

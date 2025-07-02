@@ -17,7 +17,8 @@ pub struct EntityFilter {
     pub(crate) id: Option<PropFilter<String>>,
     pub(crate) attributes: Vec<AttributeFilter>,
     pub(crate) relations: Option<EntityRelationFilter>,
-    pub(crate) traverse_relation: Option<TraverseRelationFilter>,
+    /// traverse relation now in entity directly but eventually for modularity will be standalone to be chained
+    pub(crate) traverse_relation: Option<TraverseRelation>,
     /// Used to check if the entity exists in the space (i.e.: the entity
     /// has at least one attribute in the space).
     pub(crate) space_id: Option<PropFilter<String>>,
@@ -52,10 +53,7 @@ impl EntityFilter {
         self
     }
 
-    pub fn traverse_relation(
-        mut self,
-        traverse_relation: impl Into<TraverseRelationFilter>,
-    ) -> Self {
+    pub fn traverse_relation(mut self, traverse_relation: impl Into<TraverseRelation>) -> Self {
         self.traverse_relation = Some(traverse_relation.into());
         self
     }
@@ -181,7 +179,7 @@ impl EntityRelationFilter {
 /// Filter used to:
 /// - Traverse to inbound or outbound relation
 #[derive(Clone, Debug, Default)]
-pub struct TraverseRelationFilter {
+pub struct TraverseRelation {
     relation_type_id: Option<PropFilter<String>>,
     destination_id: Option<PropFilter<String>>,
     direction: RelationDirection,
@@ -189,7 +187,7 @@ pub struct TraverseRelationFilter {
     version: VersionFilter,
 }
 
-impl TraverseRelationFilter {
+impl TraverseRelation {
     pub fn relation_type_id(mut self, relation_type_id: impl Into<PropFilter<String>>) -> Self {
         self.relation_type_id = Some(relation_type_id.into());
         self

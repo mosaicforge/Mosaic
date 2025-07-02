@@ -1,4 +1,4 @@
-This request allows you to search by name for a basic Relation of the Knowledge Graph(KG) like Owners or Authors. This will give back the 
+This request allows you to search by name for the ATTRIBUTES (properties) that can be used to describe an Entity.
 
 
 ToolCall> search_properties("Authors")

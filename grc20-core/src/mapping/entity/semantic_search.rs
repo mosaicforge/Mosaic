@@ -5,7 +5,7 @@ use crate::{
     error::DatabaseError,
     mapping::{
         query_utils::VersionFilter, AttributeNode, FromAttributes, PropFilter, QueryBuilder,
-        QueryStream, Subquery,
+        QueryStream, Subquery, EFFECTIVE_SEARCH_RATIO,
     },
 };
 
@@ -112,9 +112,6 @@ pub struct SemanticSearchResult<T> {
     pub entity: T,
     pub score: f64,
 }
-
-const EFFECTIVE_SEARCH_RATIO: f64 = 100000.0; // Adjust this ratio based on your needs
-
 impl QueryStream<SemanticSearchResult<EntityNode>> for SemanticSearchQuery<EntityNode> {
     async fn send(
         self,

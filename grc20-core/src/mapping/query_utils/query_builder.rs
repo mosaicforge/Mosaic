@@ -163,7 +163,6 @@ impl MatchQuery {
     pub fn r#rename(mut self, rename: impl Into<Rename>) -> Self {
         let rename_clause: Rename = rename.into();
         self.rename = Some(rename_clause.name_pair);
-        self.params.extend(rename_clause.params);
         self
     }
 
@@ -239,20 +238,13 @@ impl NamePair {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Rename {
     name_pair: NamePair,
-    params: HashMap<String, neo4rs::BoltType>,
 }
 
 impl Rename {
     pub fn new(name_pair: impl Into<NamePair>) -> Self {
         Self {
             name_pair: name_pair.into(),
-            params: HashMap::new(),
         }
-    }
-
-    pub fn set_param(mut self, key: impl Into<String>, value: impl Into<neo4rs::BoltType>) -> Self {
-        self.params.insert(key.into(), value.into());
-        self
     }
 }
 
@@ -265,9 +257,10 @@ impl Subquery for Rename {
     }
 
     fn params(&self) -> HashMap<String, neo4rs::BoltType> {
-        self.params.clone()
+        HashMap::new()
     }
 }
+
 impl Rename {
     pub fn name_pair(mut self, name_pair: impl Into<NamePair>) -> Self {
         self.name_pair = name_pair.into();
@@ -284,10 +277,7 @@ impl Rename {
 
 impl From<NamePair> for Rename {
     fn from(rename: NamePair) -> Self {
-        Self {
-            name_pair: rename,
-            params: HashMap::new(),
-        }
+        Self { name_pair: rename }
     }
 }
 

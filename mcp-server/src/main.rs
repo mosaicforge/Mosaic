@@ -3,7 +3,7 @@ use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 use futures::{TryStreamExt, future::join_all, pin_mut};
 use grc20_core::{
     entity::{
-        self, Entity, EntityFilter, EntityNode, EntityRelationFilter, utils::TraverseRelationFilter,
+        self, Entity, EntityFilter, EntityNode, EntityRelationFilter, utils::TraverseRelation,
     },
     mapping::{
         Query, QueryStream, RelationEdge, Triple, prop_filter,
@@ -194,7 +194,7 @@ impl KnowledgeGraph {
         }
     }
 
-    #[tool(description = "Search Types")]
+    #[tool(description = include_str!("../resources/search_type_description.md"))]
     async fn search_types(
         &self,
         #[tool(param)]
@@ -255,7 +255,7 @@ impl KnowledgeGraph {
         ))
     }
 
-    #[tool(description = "Search Relation Types")]
+    #[tool(description = include_str!("../resources/search_relation_type_description.md"))]
     async fn search_relation_types(
         &self,
         #[tool(param)]
@@ -320,7 +320,7 @@ impl KnowledgeGraph {
         ))
     }
 
-    #[tool(description = "Search Space")]
+    #[tool(description = include_str!("../resources/search_space_description.md"))]
     async fn search_space(
         &self,
         #[tool(param)]
@@ -381,7 +381,7 @@ impl KnowledgeGraph {
         ))
     }
 
-    #[tool(description = "Search Properties")]
+    #[tool(description = include_str!("../resources/search_properties_description.md"))]
     async fn search_properties(
         &self,
         #[tool(param)]
@@ -442,9 +442,7 @@ impl KnowledgeGraph {
         ))
     }
 
-    #[tool(
-        description = "Get entity from a query over the name and traversals based on relation types"
-    )]
+    #[tool(description = include_str!("../resources/search_entity_description.md"))]
     async fn search_entity(
         &self,
         #[tool(param)]
@@ -481,7 +479,7 @@ impl KnowledgeGraph {
                 |query, filter| {
                     query.filter(
                         EntityFilter::default().traverse_relation(
-                            TraverseRelationFilter::default()
+                            TraverseRelation::default()
                                 .relation_type_id(filter.relation_type_id)
                                 .direction(match filter.direction {
                                     input_types::RelationDirection::From => RelationDirection::From,
@@ -528,9 +526,7 @@ impl KnowledgeGraph {
         ]))
     }
 
-    #[tool(
-        description = "Get entity from a query over the name and traversals based on relation types names"
-    )]
+    #[tool(description = include_str!("../resources/name_search_entity_description.md"))]
     async fn name_search_entity(
         &self,
         #[tool(param)]
@@ -549,7 +545,7 @@ impl KnowledgeGraph {
             .map(|v| v as f64)
             .collect::<Vec<_>>();
 
-        let traversal_filters: Vec<Result<TraverseRelationFilter, McpError>> =
+        let traversal_filters: Vec<Result<TraverseRelation, McpError>> =
             match search_traversal_filter.traversal_filter {
                 Some(traversal_filter) => {
                     join_all(traversal_filter.into_iter().map(|filter| async move {
@@ -592,7 +588,7 @@ impl KnowledgeGraph {
                             .into_iter()
                             .map(|sem_search| sem_search.entity.id)
                             .collect();
-                        Ok(TraverseRelationFilter::default()
+                        Ok(TraverseRelation::default()
                             .direction(match filter.direction {
                                 input_types::RelationDirection::From => RelationDirection::From,
                                 input_types::RelationDirection::To => RelationDirection::To,
@@ -654,7 +650,7 @@ impl KnowledgeGraph {
         ]))
     }
 
-    #[tool(description = "Get entity by ID with it's attributes and relations")]
+    #[tool(description = include_str!("../resources/get_entity_info_description.md"))]
     async fn get_entity_info(
         &self,
         #[tool(param)]
@@ -761,7 +757,7 @@ impl KnowledgeGraph {
         ]))
     }
 
-    #[tool(description = "Search for distant or close Relations between 2 entities")]
+    #[tool(description = include_str!("../resources/get_relations_between_entities_description.md"))]
     async fn get_relations_between_entities(
         &self,
         #[tool(param)]

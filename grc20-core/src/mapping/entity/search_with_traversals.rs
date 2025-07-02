@@ -5,13 +5,13 @@ use crate::{
     error::DatabaseError,
     mapping::{
         query_utils::VersionFilter, AttributeNode, FromAttributes, PropFilter, QueryBuilder,
-        QueryStream, Subquery,
+        QueryStream, Subquery, EFFECTIVE_SEARCH_RATIO,
     },
 };
 
 use super::{Entity, EntityFilter, EntityNode};
 
-pub struct SearchFromRestrictions<T> {
+pub struct SearchWithTraversals<T> {
     neo4j: neo4rs::Graph,
     vector: Vec<f64>,
     filters: Vec<EntityFilter>,
@@ -24,7 +24,7 @@ pub struct SearchFromRestrictions<T> {
     _marker: std::marker::PhantomData<T>,
 }
 
-impl<T> SearchFromRestrictions<T> {
+impl<T> SearchWithTraversals<T> {
     pub fn new(neo4j: &neo4rs::Graph, vector: Vec<f64>) -> Self {
         Self {
             neo4j: neo4j.clone(),
@@ -107,24 +107,22 @@ impl<T> SearchFromRestrictions<T> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SearchFromRestrictionsResult<T> {
+pub struct SearchWithTraversalsResult<T> {
     pub entity: T,
 }
 
-const EFFECTIVE_SEARCH_RATIO: f64 = 100000.0; // Adjust this ratio based on your needs
-
-impl QueryStream<SearchFromRestrictionsResult<EntityNode>> for SearchFromRestrictions<EntityNode> {
+impl QueryStream<SearchWithTraversalsResult<EntityNode>> for SearchWithTraversals<EntityNode> {
     async fn send(
         self,
     ) -> Result<
-        impl Stream<Item = Result<SearchFromRestrictionsResult<EntityNode>, DatabaseError>>,
+        impl Stream<Item = Result<SearchWithTraversalsResult<EntityNode>, DatabaseError>>,
         DatabaseError,
     > {
         let query = self.subquery().r#return("DISTINCT e");
 
         if cfg!(debug_assertions) || cfg!(test) {
             tracing::info!(
-                "entity_node::SearchFromRestrictions::<EntityNode>:\n{}\nparams:{:?}",
+                "entity_node::SearchWithTraversals::<EntityNode>:\n{}\nparams:{:?}",
                 query.compile(),
                 query.params()
             );
@@ -141,17 +139,17 @@ impl QueryStream<SearchFromRestrictionsResult<EntityNode>> for SearchFromRestric
             .await?
             .into_stream_as::<RowResult>()
             .map_err(DatabaseError::from)
-            .and_then(|row| async move { Ok(SearchFromRestrictionsResult { entity: row.e }) }))
+            .and_then(|row| async move { Ok(SearchWithTraversalsResult { entity: row.e }) }))
     }
 }
 
-impl<T: FromAttributes> QueryStream<SearchFromRestrictionsResult<Entity<T>>>
-    for SearchFromRestrictions<Entity<T>>
+impl<T: FromAttributes> QueryStream<SearchWithTraversalsResult<Entity<T>>>
+    for SearchWithTraversals<Entity<T>>
 {
     async fn send(
         self,
     ) -> Result<
-        impl Stream<Item = Result<SearchFromRestrictionsResult<Entity<T>>, DatabaseError>>,
+        impl Stream<Item = Result<SearchWithTraversalsResult<Entity<T>>, DatabaseError>>,
         DatabaseError,
     > {
         let match_entity = MatchEntity::new(&self.space_id, &self.version);
@@ -169,7 +167,7 @@ impl<T: FromAttributes> QueryStream<SearchFromRestrictionsResult<Entity<T>>>
 
         if cfg!(debug_assertions) || cfg!(test) {
             tracing::info!(
-                "entity_node::SearchFromRestrictions::<Entity<T>>:\n{}\nparams:{:?}",
+                "entity_node::SearchWithTraversals::<Entity<T>>:\n{}\nparams:{:?}",
                 query.compile(),
                 query.params
             );
@@ -192,7 +190,7 @@ impl<T: FromAttributes> QueryStream<SearchFromRestrictionsResult<Entity<T>>>
             .map(|row_result| {
                 row_result.and_then(|row| {
                     T::from_attributes(row.attrs.into())
-                        .map(|data| SearchFromRestrictionsResult {
+                        .map(|data| SearchWithTraversalsResult {
                             entity: Entity {
                                 node: row.node,
                                 attributes: data,

@@ -14,11 +14,6 @@ ToolResult>
       "attribute_name": "Is type property",
       "attribute_value": "0",
       "entity_id": "U1uCAzXsRSTP4vFwo1JwJG"
-    },
-    {
-      "attribute_name": "Name",
-      "attribute_value": "Works at",
-      "entity_id": "U1uCAzXsRSTP4vFwo1JwJG"
     }
   ],
   [
