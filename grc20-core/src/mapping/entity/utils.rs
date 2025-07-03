@@ -233,7 +233,7 @@ impl TraverseRelation {
             }
         })
         // rename to change direction of relation
-        .r#rename(Rename::new(NamePair::new(
+        .rename(Rename::new(NamePair::new(
             node_var_curr.clone(),
             node_var_dest.clone(),
         )))

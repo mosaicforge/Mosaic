@@ -1,4 +1,4 @@
-This request allows you to get the detailled information about an Entity with it's ID. You will get the name, description, other attributes, inbound relations and outbound relations of the Entity.
+This request allows you to get the detailed information about an Entity with it's ID. You will get the name, description, other attributes, inbound relations and outbound relations of the Entity.
 
 The id for San Francisco is: 3qayfdjYyPv1dAYf8gPL5r
 

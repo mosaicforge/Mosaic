@@ -160,7 +160,7 @@ impl MatchQuery {
         self
     }
 
-    pub fn r#rename(mut self, rename: impl Into<Rename>) -> Self {
+    pub fn rename(mut self, rename: impl Into<Rename>) -> Self {
         let rename_clause: Rename = rename.into();
         self.rename = Some(rename_clause.name_pair);
         self
