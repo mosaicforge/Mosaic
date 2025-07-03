@@ -5,8 +5,11 @@ use neo4rs::{BoltMap, BoltType};
 use serde::Deserialize;
 
 use crate::{
-    block::BlockMetadata, error::DatabaseError, ids, indexer_ids,
-    mapping::query_utils::query_builder::Subquery, pb,
+    block::BlockMetadata,
+    error::DatabaseError,
+    ids, indexer_ids,
+    mapping::{query_utils::query_builder::Subquery, EFFECTIVE_SEARCH_RATIO},
+    pb,
 };
 
 use super::{
@@ -677,8 +680,6 @@ pub struct SemanticSearchResult {
     pub space_id: String,
     pub space_version: String,
 }
-
-const EFFECTIVE_SEARCH_RATIO: f64 = 10000.0; // Adjust this ratio based on your needs
 
 impl QueryStream<SemanticSearchResult> for SemanticSearchQuery {
     async fn send(

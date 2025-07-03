@@ -28,7 +28,7 @@ impl QueryMapper {
         self.node_counter += 1;
 
         self.match_statements
-            .push(format!("MATCH ({} {{id: \"{id}\"}})", node_var));
+            .push(format!("MATCH ({node_var} {{id: \"{id}\"}})"));
         self.return_statement_vars.insert(node_var.clone());
 
         selection
@@ -50,10 +50,8 @@ impl QueryMapper {
         self.relation_counter += 1;
         self.node_counter += 1;
 
-        self.match_statements.push(format!(
-            "MATCH ({}) -[{}]-> ({})",
-            node_var, relation_var, to_var
-        ));
+        self.match_statements
+            .push(format!("MATCH ({node_var}) -[{relation_var}]-> ({to_var})"));
         self.return_statement_vars.insert(self.relation_var());
 
         selection

@@ -139,7 +139,7 @@ impl TryFrom<pb::ipfs::ActionType> for ProposalType {
             pb::ipfs::ActionType::RemoveSubspace => Ok(Self::RemoveSubspace),
             pb::ipfs::ActionType::ImportSpace => Ok(Self::ImportSpace),
             pb::ipfs::ActionType::ArchiveSpace => Ok(Self::ArchiveSpace),
-            _ => Err(format!("Invalid action type: {:?}", action_type)),
+            _ => Err(format!("Invalid action type: {action_type:?}")),
         }
     }
 }
@@ -422,10 +422,7 @@ pub struct ProposedAccount;
 
 impl ProposedAccount {
     pub fn gen_id(proposal_id: &str, account_id: &str) -> String {
-        ids::create_id_from_unique_string(format!(
-            "PROPOSED_ACCOUNT:{}:{}",
-            proposal_id, account_id
-        ))
+        ids::create_id_from_unique_string(format!("PROPOSED_ACCOUNT:{proposal_id}:{account_id}"))
     }
 
     pub fn new(proposal_id: &str, account_id: &str) -> Relation<Self, EntityNodeRef> {

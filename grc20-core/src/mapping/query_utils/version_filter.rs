@@ -25,7 +25,7 @@ impl VersionFilter {
 
     pub fn subquery(&self, var: &str) -> WhereClause {
         if let Some(version) = &self.version {
-            let param_key = format!("{}_version", var);
+            let param_key = format!("{var}_version");
 
             WhereClause::new(format!("{var}.min_version <= ${param_key} AND ({var}.max_version IS NULL OR {var}.max_version > ${param_key})"))
                 .set_param(param_key, version.clone())

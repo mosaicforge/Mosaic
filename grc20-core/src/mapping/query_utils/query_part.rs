@@ -217,11 +217,11 @@ impl QueryPart {
         }
 
         if let Some(skip) = self.skip {
-            query.push_str(&format!("SKIP {}\n", skip));
+            query.push_str(&format!("SKIP {skip}\n"));
         }
 
         if let Some(limit) = self.limit {
-            query.push_str(&format!("LIMIT {}\n", limit));
+            query.push_str(&format!("LIMIT {limit}\n"));
         }
 
         if let Some((clause, other)) = &self.with_clauses {

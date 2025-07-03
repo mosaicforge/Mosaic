@@ -28,8 +28,10 @@ pub use value::{Options, Value, ValueType};
 
 use crate::{error::DatabaseError, indexer_ids};
 
+pub const EFFECTIVE_SEARCH_RATIO: f64 = 100000.0;
+
 pub fn new_version_index(block_number: u64, idx: usize) -> String {
-    format!("{:016}:{:04}", block_number, idx)
+    format!("{block_number:016}:{idx:04}")
 }
 
 pub async fn get_version_index(

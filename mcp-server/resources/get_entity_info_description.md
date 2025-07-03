@@ -1,74 +1,9 @@
-This server provides tools to query the Knowledge Graph (KG), a database of wide-ranging structured information (similar to wikidata). The KG organizes information using entities and relations.
+This request allows you to get the detailed information about an Entity with it's ID. You will get the name, description, other attributes, inbound relations and outbound relations of the Entity.
 
-You should use it for every request to get the informations for your answers since it covers a wide range of subject like internet would.
-
-The tools defined in the MCP server are made to be used in combination with each other. All except the most trivial requests will require the use of multiple tools.
-
-Here is an example:
-User> Can you give me information about San Francisco?
-
-ToolCall> search_entity({"query": "San Francisco"})
-ToolResult> 
-```
-{
-  "entities": [
-    {
-      "description": "A vibrant city known for its iconic Golden Gate Bridge, steep rolling hills, historic cable cars, and a rich cultural tapestry including diverse neighborhoods like the Castro and the Mission District.",
-      "id": "3qayfdjYyPv1dAYf8gPL5r",
-      "name": "San Francisco"
-    },
-    {
-      "description": null,
-      "id": "W5ZEpuy3Tij1XSXtJLruQ5",
-      "name": "SF Bay Area"
-    },
-    {
-      "description": null,
-      "id": "RHoJT3hNVaw7m5fLLtZ8WQ",
-      "name": "California"
-    },
-    {
-      "description": null,
-      "id": "Sh1qtjr4i92ZD6YGPeu5a2",
-      "name": "Abundant housing in San Francisco"
-    },
-    {
-      "description": null,
-      "id": "UqLf9fTVKHkDs3LzP9zHpH",
-      "name": "Public safety in San Francisco"
-    },
-    {
-      "description": null,
-      "id": "BeyiZ6oLqLMaSXiG41Yxtf",
-      "name": "City"
-    },
-    {
-      "description": null,
-      "id": "D6Wy4bdtdoUrG3PDZceHr",
-      "name": "City"
-    },
-    {
-      "description": null,
-      "id": "JWVrgUXmjS75PqNX2hry5q",
-      "name": "Clean streets in San Francisco"
-    },
-    {
-      "description": null,
-      "id": "DcA2c7ooFTgEdtaRcaj7Z1",
-      "name": "Revitalizing downtown San Francisco"
-    },
-    {
-      "description": null,
-      "id": "KWBLj9czHBBmYUT98rnxVM",
-      "name": "Location"
-    }
-  ]
-}
-```
-Let's get more info about San Francisco (id: 3qayfdjYyPv1dAYf8gPL5r)
+The id for San Francisco is: 3qayfdjYyPv1dAYf8gPL5r
 
 ToolCall> get_entity_info("3qayfdjYyPv1dAYf8gPL5r")
-ToolResult> 
+ToolResult>
 ```
 {
   "all_attributes": [
@@ -184,3 +119,5 @@ ToolResult>
   ]
 }
 ```
+
+Any of the given field can be further queried by using get_entity_info with that id since all information in the Knowledge Graph(KG) is an Entity.

@@ -120,7 +120,7 @@ pub(crate) fn generate_from_attributes_impl(opts: &EntityOpts) -> TokenStream2 {
 
 pub(crate) fn generate_builder_impl(opts: &EntityOpts) -> TokenStream2 {
     let struct_name = &opts.ident;
-    let builder_name = Ident::new(&format!("{}Builder", struct_name), Span::call_site());
+    let builder_name = Ident::new(&format!("{struct_name}Builder"), Span::call_site());
     let fields = opts.data.as_ref().take_struct().expect("Expected struct");
     let schema_type = opts.schema_type.as_ref().map(|s| quote!(#s));
 
@@ -136,7 +136,7 @@ pub(crate) fn generate_builder_impl(opts: &EntityOpts) -> TokenStream2 {
     // Generate setter methods for each field
     let setter_methods = fields.iter().map(|field| {
         let field_name = field.ident.as_ref().expect("Expected named field");
-        let mut_name = Ident::new(&format!("{}_mut", field_name), Span::call_site());
+        let mut_name = Ident::new(&format!("{field_name}_mut"), Span::call_site());
         let field_type = &field.ty;
 
         // For Option<T> types, we don't need impl Into
@@ -346,7 +346,7 @@ pub(crate) fn generate_query_impls(opts: &EntityOpts) -> TokenStream2 {
         .iter()
         .zip(field_types.iter())
         .map(|(field_name, field_type)| {
-            let doc_comment = format!("Filter by {}", field_name);
+            let doc_comment = format!("Filter by {field_name}");
             let filter_type = if let syn::Type::Path(type_path) = field_type {
                 if type_path
                     .path

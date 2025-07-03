@@ -197,7 +197,7 @@ impl<T: Clone + Into<BoltType>> PropFilter<T> {
 
         let expr = expr
             .map(|e| e.to_string())
-            .unwrap_or(format!("{}.`{}`", node_var, key));
+            .unwrap_or(format!("{node_var}.`{key}`"));
 
         if let Some(value) = &self.value {
             let param_key = format!("{node_var}_{key}_value");

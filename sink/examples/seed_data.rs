@@ -1,11 +1,13 @@
+use chrono::Local;
 use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 use grc20_core::{
     block::BlockMetadata,
     entity::EntityNodeRef,
-    ids,
-    mapping::{triple, Query, RelationEdge, Triple},
+    ids, indexer_ids,
+    mapping::{triple, Query, RelationEdge, Triple, Value},
     neo4rs, relation, system_ids,
 };
+use grc20_sdk::models::space;
 
 const EMBEDDING_MODEL: EmbeddingModel = EmbeddingModel::AllMiniLML6V2;
 
@@ -32,17 +34,19 @@ const RUST_ASYNC_WORKSHOP_SIDEEVENT: &str = "QPZnckrRUebWjdwQZTR7Ka";
 const RUST_HACKATHON_SIDEEVENT: &str = "ReJ5RRMqTer9qfr87Yjexp";
 const JOE_ID: &str = "MpR7wuVWyXV988F5NWZ21r";
 const CHRIS_ID: &str = "ScHYh4PpRpyuvY2Ab4Znf5";
-const _: &str = "Mu7ddiBnwZH1LvpDTpKcvq";
-const _: &str = "DVurPdLUZi7Ajfv9BC3ADm";
-const _: &str = "MPxRvh35rnDeRJNEJLU1YF";
-const _: &str = "JjoWPp8LiCKVZiWtE5iZaJ";
-const _: &str = "8bCuTuWqL3dxALLff1Awdb";
-const _: &str = "9Bj46RXQzHQq25WNPY4Lw";
-const _: &str = "RkTkM28NSx3WZuW33vZUjx";
-const _: &str = "Lc9L7StPfXMFGWw45utaTY";
-const _: &str = "G49gECRJmW6BwqHaENF5nS";
-const _: &str = "GfugZRvoWmQhkjMcFJHg49";
-const _: &str = "5bwj7yNukCHoJnW8ksgZY";
+const POLYMTL_ID: &str = "Mu7ddiBnwZH1LvpDTpKcvq";
+const MAUD_COHEN_ID: &str = "DVurPdLUZi7Ajfv9BC3ADm";
+const CIVIL_ENGINEERING_ID: &str = "YEZVCYJTudKVreLEWuxFXV";
+const SOFTWARE_ENGINEERING_ID: &str = "MPxRvh35rnDeRJNEJLU1YF";
+const COMPUTER_ENGINEERING_ID: &str = "JjoWPp8LiCKVZiWtE5iZaJ";
+const MECANICAL_ENGINEERING_ID: &str = "8bCuTuWqL3dxALLff1Awdb";
+const OLIVIER_GENDREAU_ID: &str = "9Bj46RXQzHQq25WNPY4Lw";
+const FR_SPACE_ID: &str = "RkTkM28NSx3WZuW33vZUjx";
+const FR_QC_SPACE_ID: &str = "Lc9L7StPfXMFGWw45utaTY";
+const DIRECTOR_PROP: &str = "G49gECRJmW6BwqHaENF5nS";
+const PROGRAM_TYPE: &str = "GfugZRvoWmQhkjMcFJHg49";
+const SCHOOL_TYPE: &str = "M89C7wwdJVaCW9rAVQpJbY";
+const PROGRAM_PROP: &str = "5bwj7yNukCHoJnW8ksgZY";
 const _: &str = "GKXfCXBAJ2oAufgETPcFK7";
 const _: &str = "X6q73SFySo5u2BuQrYUxR5";
 const _: &str = "S2etHTe7W92QbXz32QWimW";
@@ -80,6 +84,102 @@ async fn main() -> anyhow::Result<()> {
     reset_db(&neo4j).await?;
     bootstrap(&neo4j, &embedding_model).await?;
 
+    let dt = Local::now();
+
+    let block = BlockMetadata {
+        cursor: "random_cursor".to_string(),
+        block_number: 0,
+        timestamp: dt.to_utc(),
+        request_id: "request_id".to_string(),
+    };
+
+    create_type(
+        &neo4j,
+        &embedding_model,
+        "Space",
+        [],
+        [
+            system_ids::NAME_ATTRIBUTE,
+            system_ids::DESCRIPTION_ATTRIBUTE,
+        ],
+        Some(system_ids::SPACE_TYPE),
+        None,
+    )
+    .await?;
+
+    space::builder(FR_SPACE_ID, "0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c")
+        .build()
+        .insert(&neo4j, &block, indexer_ids::INDEXER_SPACE_ID, "0")
+        .send()
+        .await?;
+
+    space::builder(FR_QC_SPACE_ID, "0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c")
+        .build()
+        .insert(&neo4j, &block, indexer_ids::INDEXER_SPACE_ID, "0")
+        .send()
+        .await?;
+
+    space::builder(
+        system_ids::ROOT_SPACE_ID,
+        "0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c",
+    )
+    .build()
+    .insert(&neo4j, &block, indexer_ids::INDEXER_SPACE_ID, "0")
+    .send()
+    .await?;
+
+    insert_relation(
+        &neo4j,
+        FR_QC_SPACE_ID,
+        system_ids::TYPES_ATTRIBUTE,
+        system_ids::SPACE_TYPE,
+        indexer_ids::INDEXER_SPACE_ID,
+    )
+    .await?;
+    insert_relation(
+        &neo4j,
+        FR_SPACE_ID,
+        system_ids::TYPES_ATTRIBUTE,
+        system_ids::SPACE_TYPE,
+        indexer_ids::INDEXER_SPACE_ID,
+    )
+    .await?;
+    insert_relation(
+        &neo4j,
+        system_ids::ROOT_SPACE_ID,
+        system_ids::TYPES_ATTRIBUTE,
+        system_ids::SPACE_TYPE,
+        indexer_ids::INDEXER_SPACE_ID,
+    )
+    .await?;
+    insert_attribute_with_embedding(
+        &neo4j,
+        &embedding_model,
+        FR_QC_SPACE_ID,
+        system_ids::NAME_ATTRIBUTE,
+        "Quebec",
+        FR_QC_SPACE_ID,
+    )
+    .await?;
+    insert_attribute_with_embedding(
+        &neo4j,
+        &embedding_model,
+        FR_QC_SPACE_ID,
+        system_ids::DESCRIPTION_ATTRIBUTE,
+        "The space for Quebec related content",
+        FR_QC_SPACE_ID,
+    )
+    .await?;
+    insert_attribute_with_embedding(
+        &neo4j,
+        &embedding_model,
+        FR_SPACE_ID,
+        system_ids::NAME_ATTRIBUTE,
+        "Francophonie",
+        FR_SPACE_ID,
+    )
+    .await?;
+
     // Create some common types
     create_type(
         &neo4j,
@@ -91,6 +191,7 @@ async fn main() -> anyhow::Result<()> {
             system_ids::DESCRIPTION_ATTRIBUTE,
         ],
         Some(system_ids::PERSON_TYPE),
+        None,
     )
     .await?;
 
@@ -104,6 +205,7 @@ async fn main() -> anyhow::Result<()> {
             system_ids::DESCRIPTION_ATTRIBUTE,
         ],
         Some(EVENT_TYPE),
+        None,
     )
     .await?;
 
@@ -117,6 +219,35 @@ async fn main() -> anyhow::Result<()> {
             system_ids::DESCRIPTION_ATTRIBUTE,
         ],
         Some(CITY_TYPE),
+        None,
+    )
+    .await?;
+
+    create_type(
+        &neo4j,
+        &embedding_model,
+        "Program",
+        [],
+        [
+            system_ids::NAME_ATTRIBUTE,
+            system_ids::DESCRIPTION_ATTRIBUTE,
+        ],
+        Some(PROGRAM_TYPE),
+        None,
+    )
+    .await?;
+
+    create_type(
+        &neo4j,
+        &embedding_model,
+        "School",
+        [],
+        [
+            system_ids::NAME_ATTRIBUTE,
+            system_ids::DESCRIPTION_ATTRIBUTE,
+        ],
+        Some(SCHOOL_TYPE),
+        None,
     )
     .await?;
 
@@ -127,6 +258,7 @@ async fn main() -> anyhow::Result<()> {
         system_ids::RELATION_SCHEMA_TYPE,
         Some(CITY_TYPE),
         Some(EVENT_LOCATION_PROP),
+        None,
     )
     .await?;
 
@@ -137,6 +269,7 @@ async fn main() -> anyhow::Result<()> {
         system_ids::RELATION_SCHEMA_TYPE,
         Some(system_ids::PERSON_TYPE),
         Some(SPEAKERS_PROP),
+        None,
     )
     .await?;
 
@@ -147,6 +280,29 @@ async fn main() -> anyhow::Result<()> {
         system_ids::RELATION_SCHEMA_TYPE,
         Some(EVENT_TYPE),
         Some(SIDE_EVENTS),
+        None,
+    )
+    .await?;
+
+    create_property(
+        &neo4j,
+        &embedding_model,
+        "Director",
+        system_ids::RELATION_SCHEMA_TYPE,
+        Some(system_ids::PERSON_TYPE),
+        Some(DIRECTOR_PROP),
+        None,
+    )
+    .await?;
+
+    create_property(
+        &neo4j,
+        &embedding_model,
+        "Program",
+        system_ids::RELATION_SCHEMA_TYPE,
+        Some(system_ids::PERSON_TYPE),
+        Some(PROGRAM_PROP),
+        None,
     )
     .await?;
 
@@ -166,6 +322,7 @@ async fn main() -> anyhow::Result<()> {
         ],
         [],
         Some(ALICE_ID),
+        None,
     )
     .await?;
 
@@ -178,6 +335,7 @@ async fn main() -> anyhow::Result<()> {
         [],
         [],
         Some(BOB_ID),
+        None,
     )
     .await?;
 
@@ -190,6 +348,7 @@ async fn main() -> anyhow::Result<()> {
         [],
         [],
         Some(CAROL_ID),
+        None,
     )
     .await?;
 
@@ -202,6 +361,7 @@ async fn main() -> anyhow::Result<()> {
         [],
         [],
         Some(DAVE_ID),
+        None,
     )
     .await?;
 
@@ -214,6 +374,7 @@ async fn main() -> anyhow::Result<()> {
         [],
         [],
         Some(JOE_ID),
+        None,
     )
     .await?;
 
@@ -226,6 +387,125 @@ async fn main() -> anyhow::Result<()> {
         [],
         [],
         Some(CHRIS_ID),
+        None,
+    )
+    .await?;
+
+    create_entity(
+        &neo4j,
+        &embedding_model,
+        "Maud Cohen",
+        None,
+        [system_ids::PERSON_TYPE],
+        [],
+        [],
+        Some(MAUD_COHEN_ID),
+        None,
+    )
+    .await?;
+
+    create_entity(
+        &neo4j,
+        &embedding_model,
+        "Olivier Gendreau",
+        None,
+        [system_ids::PERSON_TYPE],
+        [],
+        [],
+        Some(OLIVIER_GENDREAU_ID),
+        None,
+    )
+    .await?;
+
+    //Create programs entities
+    create_entity(
+        &neo4j,
+        &embedding_model,
+        "Software Engineering",
+        None,
+        [PROGRAM_TYPE],
+        [],
+        [(DIRECTOR_PROP, OLIVIER_GENDREAU_ID)],
+        Some(SOFTWARE_ENGINEERING_ID),
+        None,
+    )
+    .await?;
+
+    insert_attribute_with_embedding(
+        &neo4j,
+        &embedding_model,
+        SOFTWARE_ENGINEERING_ID,
+        system_ids::NAME_ATTRIBUTE,
+        "Génie logiciel",
+        FR_SPACE_ID,
+    )
+    .await?;
+
+    create_entity(
+        &neo4j,
+        &embedding_model,
+        "Computer Engineering",
+        None,
+        [PROGRAM_TYPE],
+        [],
+        [],
+        Some(COMPUTER_ENGINEERING_ID),
+        None,
+    )
+    .await?;
+
+    insert_attribute_with_embedding(
+        &neo4j,
+        &embedding_model,
+        SOFTWARE_ENGINEERING_ID,
+        system_ids::NAME_ATTRIBUTE,
+        "Génie informatique",
+        FR_SPACE_ID,
+    )
+    .await?;
+
+    create_entity(
+        &neo4j,
+        &embedding_model,
+        "Civil Engineering",
+        None,
+        [PROGRAM_TYPE],
+        [],
+        [],
+        Some(CIVIL_ENGINEERING_ID),
+        None,
+    )
+    .await?;
+
+    create_entity(
+        &neo4j,
+        &embedding_model,
+        "Mecanical Engineering",
+        None,
+        [PROGRAM_TYPE],
+        [],
+        [],
+        Some(MECANICAL_ENGINEERING_ID),
+        None,
+    )
+    .await?;
+
+    create_entity(
+        &neo4j,
+        &embedding_model,
+        "Polytechnique Montreal",
+        None,
+        [SCHOOL_TYPE],
+        [],
+        [
+            (DIRECTOR_PROP, MAUD_COHEN_ID),
+            (PROGRAM_PROP, CIVIL_ENGINEERING_ID),
+            (PROGRAM_PROP, SOFTWARE_ENGINEERING_ID),
+            (PROGRAM_PROP, COMPUTER_ENGINEERING_ID),
+            (PROGRAM_PROP, MECANICAL_ENGINEERING_ID),
+        ],
+        Some(POLYMTL_ID),
+        None,
     )
     .await?;
 
@@ -239,6 +519,7 @@ async fn main() -> anyhow::Result<()> {
         [],
         [],
         Some(SAN_FRANCISCO_ID),
+        None,
     )
     .await?;
 
@@ -251,6 +532,7 @@ async fn main() -> anyhow::Result<()> {
         [],
         [],
         Some(NEW_YORK_ID),
+        None,
     )
     .await?;
 
@@ -268,6 +550,7 @@ async fn main() -> anyhow::Result<()> {
             (SPEAKERS_PROP, JOE_ID),
         ],
         Some(RUST_ASYNC_WORKSHOP_SIDEEVENT),
+        None,
     )
     .await?;
 
@@ -283,6 +566,7 @@ async fn main() -> anyhow::Result<()> {
             (SPEAKERS_PROP, CHRIS_ID),
         ],
         Some(RUST_HACKATHON_SIDEEVENT),
+        None,
     )
     .await?;
 
@@ -301,6 +585,7 @@ async fn main() -> anyhow::Result<()> {
             (SIDE_EVENTS, RUST_HACKATHON_SIDEEVENT),      // RustConf Hackathon
         ],
         Some(RUSTCONF_2023),
+        None,
     )
     .await?;
 
@@ -317,6 +602,7 @@ async fn main() -> anyhow::Result<()> {
             (EVENT_LOCATION_PROP, NEW_YORK_ID), // New York
         ],
         Some(JSCONF_2024),
+        None,
     )
     .await?;
 
@@ -427,6 +713,7 @@ pub async fn bootstrap(
         system_ids::RELATION_SCHEMA_TYPE,
         Some(system_ids::ATTRIBUTE),
         Some(system_ids::PROPERTIES),
+        None,
     )
     .await?;
 
@@ -437,6 +724,7 @@ pub async fn bootstrap(
         system_ids::RELATION_SCHEMA_TYPE,
         Some(system_ids::SCHEMA_TYPE),
         Some(system_ids::TYPES_ATTRIBUTE),
+        None,
     )
     .await?;
 
@@ -447,6 +735,7 @@ pub async fn bootstrap(
         system_ids::RELATION_SCHEMA_TYPE,
         None::<&str>,
         Some(system_ids::VALUE_TYPE_ATTRIBUTE),
+        None,
     )
     .await?;
 
@@ -457,6 +746,7 @@ pub async fn bootstrap(
         system_ids::RELATION_SCHEMA_TYPE,
         None::<&str>,
         Some(system_ids::RELATION_TYPE_ATTRIBUTE),
+        None,
     )
     .await?;
 
@@ -467,6 +757,7 @@ pub async fn bootstrap(
         system_ids::TEXT,
         None::<&str>,
         Some(system_ids::RELATION_INDEX),
+        None,
     )
     .await?;
 
@@ -477,6 +768,7 @@ pub async fn bootstrap(
         system_ids::RELATION_SCHEMA_TYPE,
         Some(system_ids::SCHEMA_TYPE),
         Some(system_ids::RELATION_TYPE_ATTRIBUTE),
+        None,
     )
     .await?;
 
@@ -487,6 +779,7 @@ pub async fn bootstrap(
         system_ids::TEXT,
         None::<&str>,
         Some(system_ids::NAME_ATTRIBUTE),
+        None,
     )
     .await?;
 
@@ -497,6 +790,7 @@ pub async fn bootstrap(
         system_ids::TEXT,
         None::<&str>,
         Some(system_ids::DESCRIPTION_ATTRIBUTE),
+        None,
     )
     .await?;
 
@@ -513,6 +807,7 @@ pub async fn bootstrap(
             system_ids::DESCRIPTION_ATTRIBUTE,
         ],
         Some(system_ids::SCHEMA_TYPE),
+        None,
     )
     .await?;
 
@@ -523,6 +818,7 @@ pub async fn bootstrap(
         [system_ids::RELATION_SCHEMA_TYPE],
         [system_ids::RELATION_VALUE_RELATIONSHIP_TYPE],
         Some(system_ids::RELATION_SCHEMA_TYPE),
+        None,
     )
     .await?;
 
@@ -537,6 +833,7 @@ pub async fn bootstrap(
             system_ids::DESCRIPTION_ATTRIBUTE,
         ],
         Some(system_ids::ATTRIBUTE),
+        None,
     )
     .await?;
 
@@ -550,6 +847,7 @@ pub async fn bootstrap(
             system_ids::RELATION_INDEX,
         ],
         Some(system_ids::RELATION_TYPE),
+        None,
     )
     .await?;
 
@@ -565,13 +863,16 @@ pub async fn create_entity(
     properties: impl IntoIterator<Item = (&str, &str)>,
     relations: impl IntoIterator<Item = (&str, &str)>,
     id: Option<&str>,
+    space_id: Option<String>,
 ) -> anyhow::Result<String> {
     let block = BlockMetadata::default();
     let entity_id = id.map(Into::into).unwrap_or_else(|| ids::create_geo_id());
     let name = name.into();
 
+    let space_id = space_id.as_deref().unwrap_or(system_ids::ROOT_SPACE_ID);
+
     // Set: Entity.name
-    triple::insert_many(neo4j, &block, system_ids::ROOT_SPACE_ID, DEFAULT_VERSION)
+    triple::insert_many(neo4j, &block, space_id, DEFAULT_VERSION)
         .triples(vec![Triple::with_embedding(
             &entity_id,
             system_ids::NAME_ATTRIBUTE,
@@ -590,7 +891,7 @@ pub async fn create_entity(
 
     // Set: Entity.description
     if let Some(description) = description {
-        triple::insert_many(neo4j, &block, system_ids::ROOT_SPACE_ID, DEFAULT_VERSION)
+        triple::insert_many(neo4j, &block, space_id, DEFAULT_VERSION)
             .triples(vec![Triple::new(
                 &entity_id,
                 system_ids::DESCRIPTION_ATTRIBUTE,
@@ -604,7 +905,7 @@ pub async fn create_entity(
     set_types(neo4j, &entity_id, types).await?;
 
     // Set: Entity.*
-    triple::insert_many(neo4j, &block, system_ids::ROOT_SPACE_ID, DEFAULT_VERSION)
+    triple::insert_many(neo4j, &block, space_id, DEFAULT_VERSION)
         .triples(
             properties
                 .into_iter()
@@ -614,24 +915,113 @@ pub async fn create_entity(
         .await?;
 
     // Set: Entity > RELATIONS > Relation[]
-    relation::insert_many::<RelationEdge<EntityNodeRef>>(
+    relation::insert_many::<RelationEdge<EntityNodeRef>>(neo4j, &block, space_id, DEFAULT_VERSION)
+        .relations(relations.into_iter().map(|(relation_type, target_id)| {
+            RelationEdge::new(
+                ids::create_geo_id(),
+                &entity_id,
+                target_id,
+                relation_type,
+                "0",
+            )
+        }))
+        .send()
+        .await?;
+
+    Ok(entity_id)
+}
+
+pub async fn insert_attribute(
+    neo4j: &neo4rs::Graph,
+    entity_id: impl Into<String>,
+    attribute_id: impl Into<String>,
+    attribute_value: impl Into<String>,
+    space_id: impl Into<String>,
+) -> anyhow::Result<String> {
+    let block = BlockMetadata::default();
+    let attribute_id = attribute_id.into();
+    let attribute_value = attribute_value.into();
+    let space_id = space_id.into();
+    let entity_id = entity_id.into();
+
+    triple::insert_one(
         neo4j,
         &block,
-        system_ids::ROOT_SPACE_ID,
+        space_id,
         DEFAULT_VERSION,
+        Triple::new(entity_id.clone(), attribute_id, attribute_value),
     )
-    .relations(relations.into_iter().map(|(relation_type, target_id)| {
-        RelationEdge::new(
-            ids::create_geo_id(),
-            &entity_id,
-            target_id,
-            relation_type,
-            "0",
-        )
-    }))
     .send()
     .await?;
+    Ok(entity_id)
+}
 
+pub async fn insert_relation(
+    neo4j: &neo4rs::Graph,
+    entity_from_id: impl Into<String>,
+    relation_id: impl Into<String>,
+    entity_to_id: impl Into<String>,
+    space_id: impl Into<String>,
+) -> anyhow::Result<String> {
+    let block = BlockMetadata::default();
+    let entity_from_id = entity_from_id.into();
+    let relation_id = relation_id.into();
+    let space_id = space_id.into();
+    let entity_to_id = entity_to_id.into();
+
+    relation::insert_one(
+        neo4j,
+        &block,
+        space_id,
+        DEFAULT_VERSION,
+        RelationEdge::new(
+            "id".to_string(),
+            entity_from_id,
+            entity_to_id,
+            relation_id.clone(),
+            Value::text(relation_id.clone()),
+        ),
+    )
+    .send()
+    .await?;
+    Ok(relation_id)
+}
+
+pub async fn insert_attribute_with_embedding(
+    neo4j: &neo4rs::Graph,
+    embedding_model: &TextEmbedding,
+    entity_id: impl Into<String>,
+    attribute_id: impl Into<String>,
+    attribute_value: impl Into<String>,
+    space_id: impl Into<String>,
+) -> anyhow::Result<String> {
+    let block = BlockMetadata::default();
+    let attribute_id = attribute_id.into();
+    let attribute_value = attribute_value.into();
+    let space_id = space_id.into();
+    let entity_id = entity_id.into();
+
+    triple::insert_one(
+        neo4j,
+        &block,
+        space_id,
+        DEFAULT_VERSION,
+        Triple::with_embedding(
+            &entity_id,
+            attribute_id,
+            attribute_value.clone(),
+            embedding_model
+                .embed(vec![attribute_value], Some(1))
+                .unwrap_or(vec![Vec::<f32>::new()])
+                .get(0)
+                .unwrap_or(&Vec::<f32>::new())
+                .iter()
+                .map(|&x| x as f64)
+                .collect(),
+        ),
+    )
+    .send()
+    .await?;
     Ok(entity_id)
 }
 
@@ -643,6 +1033,7 @@ pub async fn create_type(
     types: impl IntoIterator<Item = &str>,
     properties: impl IntoIterator<Item = &str>,
     id: Option<&str>,
+    space_id: Option<String>,
 ) -> anyhow::Result<String> {
     let block = BlockMetadata::default();
     let type_id = id.map(Into::into).unwrap_or_else(|| ids::create_geo_id());
@@ -653,8 +1044,10 @@ pub async fn create_type(
         types_vec.push(system_ids::SCHEMA_TYPE);
     }
 
+    let space_id = space_id.as_deref().unwrap_or(system_ids::ROOT_SPACE_ID);
+
     // Set: Type.name
-    triple::insert_many(neo4j, &block, system_ids::ROOT_SPACE_TYPE, DEFAULT_VERSION)
+    triple::insert_many(neo4j, &block, space_id, DEFAULT_VERSION)
         .triples(vec![Triple::with_embedding(
             &type_id,
             system_ids::NAME_ATTRIBUTE,
@@ -675,23 +1068,18 @@ pub async fn create_type(
     set_types(neo4j, &type_id, types_vec).await?;
 
     // Set: Type > PROPERTIES > Property[]
-    relation::insert_many::<RelationEdge<EntityNodeRef>>(
-        neo4j,
-        &block,
-        system_ids::ROOT_SPACE_ID,
-        DEFAULT_VERSION,
-    )
-    .relations(properties.into_iter().map(|property_id| {
-        RelationEdge::new(
-            ids::create_geo_id(),
-            &type_id,
-            system_ids::PROPERTIES,
-            property_id,
-            "0",
-        )
-    }))
-    .send()
-    .await?;
+    relation::insert_many::<RelationEdge<EntityNodeRef>>(neo4j, &block, space_id, DEFAULT_VERSION)
+        .relations(properties.into_iter().map(|property_id| {
+            RelationEdge::new(
+                ids::create_geo_id(),
+                &type_id,
+                system_ids::PROPERTIES,
+                property_id,
+                "0",
+            )
+        }))
+        .send()
+        .await?;
 
     Ok(type_id)
 }
@@ -706,14 +1094,17 @@ pub async fn create_property(
     value_type: impl Into<String>,
     relation_value_type: Option<impl Into<String>>,
     id: Option<impl Into<String>>,
+    space_id: Option<String>,
 ) -> anyhow::Result<String> {
     let block = BlockMetadata::default();
 
     let property_id = id.map(Into::into).unwrap_or_else(|| ids::create_geo_id());
     let string_name = name.into();
 
+    let space_id = space_id.as_deref().unwrap_or(system_ids::ROOT_SPACE_ID);
+
     // Set: Property.name
-    triple::insert_many(neo4j, &block, system_ids::ROOT_SPACE_ID, DEFAULT_VERSION)
+    triple::insert_many(neo4j, &block, space_id, DEFAULT_VERSION)
         .triples(vec![Triple::with_embedding(
             &property_id,
             system_ids::NAME_ATTRIBUTE,
@@ -734,7 +1125,7 @@ pub async fn create_property(
     relation::insert_one::<RelationEdge<EntityNodeRef>>(
         neo4j,
         &block,
-        system_ids::ROOT_SPACE_ID,
+        space_id,
         DEFAULT_VERSION,
         RelationEdge::new(
             ids::create_geo_id(),

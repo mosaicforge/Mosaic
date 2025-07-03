@@ -130,6 +130,7 @@ pub struct MatchQuery {
     pub(crate) match_clause: String,
     pub(crate) optional: bool,
     pub(crate) where_clauses: Vec<String>,
+    pub(crate) rename: Option<NamePair>,
     pub(crate) params: HashMap<String, neo4rs::BoltType>,
 }
 
@@ -138,6 +139,7 @@ impl MatchQuery {
         Self {
             match_clause: match_clause.into(),
             optional: false,
+            rename: None,
             where_clauses: Vec::new(),
             params: HashMap::new(),
         }
@@ -147,6 +149,7 @@ impl MatchQuery {
         Self {
             match_clause: match_clause.into(),
             optional: true,
+            rename: None,
             where_clauses: Vec::new(),
             params: HashMap::new(),
         }
@@ -154,6 +157,12 @@ impl MatchQuery {
 
     pub fn optional(mut self) -> Self {
         self.optional = true;
+        self
+    }
+
+    pub fn rename(mut self, rename: impl Into<Rename>) -> Self {
+        let rename_clause: Rename = rename.into();
+        self.rename = Some(rename_clause.name_pair);
         self
     }
 
@@ -181,18 +190,24 @@ impl MatchQuery {
 
 impl Subquery for MatchQuery {
     fn statements(&self) -> Vec<String> {
-        let mut statements = if self.optional {
-            vec![format!("OPTIONAL MATCH {}", self.match_clause)]
-        } else {
-            vec![format!("MATCH {}", self.match_clause)]
+        let mut statements = Vec::new();
+
+        if let Some(rename) = &self.rename {
+            statements.push(format!("WITH {} AS {}", rename.from_name, rename.to_name))
         };
+
+        statements.push(if self.optional {
+            format!("OPTIONAL MATCH {}", self.match_clause)
+        } else {
+            format!("MATCH {}", self.match_clause)
+        });
 
         match &self.where_clauses.as_slice() {
             [] => (),
             [clause, rest @ ..] => {
-                statements.push(format!("WHERE {}", clause));
+                statements.push(format!("WHERE {clause}"));
                 for rest_clause in rest {
-                    statements.push(format!("AND {}", rest_clause));
+                    statements.push(format!("AND {rest_clause}"));
                 }
             }
         }
@@ -202,6 +217,67 @@ impl Subquery for MatchQuery {
 
     fn params(&self) -> HashMap<String, neo4rs::BoltType> {
         self.params.clone()
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct NamePair {
+    from_name: String,
+    to_name: String,
+}
+
+impl NamePair {
+    pub fn new(from_name: impl Into<String>, to_name: impl Into<String>) -> Self {
+        Self {
+            from_name: from_name.into(),
+            to_name: to_name.into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Rename {
+    name_pair: NamePair,
+}
+
+impl Rename {
+    pub fn new(name_pair: impl Into<NamePair>) -> Self {
+        Self {
+            name_pair: name_pair.into(),
+        }
+    }
+}
+
+impl Subquery for Rename {
+    fn statements(&self) -> Vec<String> {
+        vec![format!(
+            "{} AS {}",
+            self.name_pair.from_name, self.name_pair.to_name
+        )]
+    }
+
+    fn params(&self) -> HashMap<String, neo4rs::BoltType> {
+        HashMap::new()
+    }
+}
+
+impl Rename {
+    pub fn name_pair(mut self, name_pair: impl Into<NamePair>) -> Self {
+        self.name_pair = name_pair.into();
+        self
+    }
+
+    pub fn name_pair_opt(mut self, name_pair: Option<impl Into<NamePair>>) -> Self {
+        if let Some(name_pair) = name_pair {
+            self.name_pair = name_pair.into();
+        }
+        self
+    }
+}
+
+impl From<NamePair> for Rename {
+    fn from(rename: NamePair) -> Self {
+        Self { name_pair: rename }
     }
 }
 
@@ -247,9 +323,9 @@ impl Subquery for WhereClause {
         match &self.clauses.as_slice() {
             [] => vec![],
             [clause, rest @ ..] => {
-                let mut statements = vec![format!("WHERE {}", clause)];
+                let mut statements = vec![format!("WHERE {clause}")];
                 for rest_clause in rest {
-                    statements.push(format!("AND {}", rest_clause));
+                    statements.push(format!("AND {rest_clause}"));
                 }
                 statements
             }

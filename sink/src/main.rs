@@ -81,10 +81,10 @@ async fn main() -> Result<(), Error> {
         MODULE_NAME,
         start_block
             .parse()
-            .unwrap_or_else(|_| panic!("Invalid start block: {}! Must be integer", start_block)),
+            .unwrap_or_else(|_| panic!("Invalid start block: {start_block}! Must be integer")),
         end_block
             .parse()
-            .unwrap_or_else(|_| panic!("Invalid end block: {}! Must be integer", end_block)),
+            .unwrap_or_else(|_| panic!("Invalid end block: {end_block}! Must be integer")),
         Some(64),
     )
     .await?;

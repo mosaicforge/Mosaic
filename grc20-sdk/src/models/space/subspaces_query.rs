@@ -61,7 +61,7 @@ impl<T> SubspacesQuery<T> {
                 indexer_ids::INDEXER_SPACE_ID,
             ))
             .subquery("WHERE size(s) = size(COLLECT { WITH s UNWIND s AS _ RETURN DISTINCT _ })")
-            .subquery_opt(self.max_depth.map(|depth| format!("AND size(s) <= {}", depth)))
+            .subquery_opt(self.max_depth.map(|depth| format!("AND size(s) <= {depth}")))
             .subquery("WITH {space_id: LAST([start] + s).id, depth: SIZE(s)} AS subspaces")
             .limit(self.limit)
             .skip_opt(self.skip)

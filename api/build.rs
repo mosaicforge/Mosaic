@@ -17,8 +17,8 @@ fn main() {
         .map(|desc| desc.trim().to_string())
         .unwrap_or_else(|| "unknown".to_string());
 
-    println!("cargo::rustc-env=GIT_COMMIT={}", git_hash);
-    println!("cargo::rustc-env=GIT_TAG={}", git_tag);
+    println!("cargo::rustc-env=GIT_COMMIT={git_hash}");
+    println!("cargo::rustc-env=GIT_TAG={git_tag}");
 
     // Always rerun if any git changes occur
     println!("cargo::rerun-if-changed=.git/HEAD");

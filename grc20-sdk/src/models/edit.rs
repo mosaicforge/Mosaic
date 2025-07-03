@@ -41,7 +41,7 @@ pub struct Edits;
 
 impl Edits {
     pub fn gen_id(space_id: &str, edit_id: &str) -> String {
-        ids::create_id_from_unique_string(format!("{}:{}", space_id, edit_id))
+        ids::create_id_from_unique_string(format!("{space_id}:{edit_id}"))
     }
 
     pub fn new(
@@ -70,7 +70,7 @@ pub struct ProposedEdit;
 
 impl ProposedEdit {
     pub fn gen_id(proposal_id: &str, edit_id: &str) -> String {
-        ids::create_id_from_unique_string(format!("{}:{}", proposal_id, edit_id))
+        ids::create_id_from_unique_string(format!("{proposal_id}:{edit_id}"))
     }
 
     pub fn new(
