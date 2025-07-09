@@ -131,27 +131,20 @@ async fn main() -> anyhow::Result<()> {
     insert_relation(
         &neo4j,
         FR_QC_SPACE_ID,
-        system_ids::TYPES_ATTRIBUTE,
-        system_ids::SPACE_TYPE,
+        indexer_ids::PARENT_SPACE,
+        FR_SPACE_ID,
         indexer_ids::INDEXER_SPACE_ID,
     )
     .await?;
     insert_relation(
         &neo4j,
         FR_SPACE_ID,
-        system_ids::TYPES_ATTRIBUTE,
-        system_ids::SPACE_TYPE,
-        indexer_ids::INDEXER_SPACE_ID,
-    )
-    .await?;
-    insert_relation(
-        &neo4j,
+        indexer_ids::PARENT_SPACE,
         system_ids::ROOT_SPACE_ID,
-        system_ids::TYPES_ATTRIBUTE,
-        system_ids::SPACE_TYPE,
         indexer_ids::INDEXER_SPACE_ID,
     )
     .await?;
+
     insert_attribute_with_embedding(
         &neo4j,
         &embedding_model,
@@ -422,7 +415,7 @@ async fn main() -> anyhow::Result<()> {
         &neo4j,
         &embedding_model,
         "Software Engineering",
-        None,
+        Some("Description of the software engineering program at Polytl."),
         [PROGRAM_TYPE],
         [],
         [(DIRECTOR_PROP, OLIVIER_GENDREAU_ID)],
@@ -441,11 +434,31 @@ async fn main() -> anyhow::Result<()> {
     )
     .await?;
 
+    insert_attribute_with_embedding(
+        &neo4j,
+        &embedding_model,
+        SOFTWARE_ENGINEERING_ID,
+        system_ids::NAME_ATTRIBUTE,
+        "Génie logiciel",
+        FR_QC_SPACE_ID,
+    )
+    .await?;
+
+    insert_attribute_with_embedding(
+        &neo4j,
+        &embedding_model,
+        SOFTWARE_ENGINEERING_ID,
+        system_ids::DESCRIPTION_ATTRIBUTE,
+        "Description du programme de génie logiciel à Polytechnique Montréal.",
+        FR_QC_SPACE_ID,
+    )
+    .await?;
+
     create_entity(
         &neo4j,
         &embedding_model,
         "Computer Engineering",
-        None,
+        Some("Description of the Computer engineering program at Polymtl."),
         [PROGRAM_TYPE],
         [],
         [],
@@ -459,7 +472,7 @@ async fn main() -> anyhow::Result<()> {
         &embedding_model,
         SOFTWARE_ENGINEERING_ID,
         system_ids::NAME_ATTRIBUTE,
-        "Génie informatique",
+        "Génie logiciel",
         FR_SPACE_ID,
     )
     .await?;
@@ -468,7 +481,7 @@ async fn main() -> anyhow::Result<()> {
         &neo4j,
         &embedding_model,
         "Civil Engineering",
-        None,
+        Some("Description of the program of civil engineering at polymtl"),
         [PROGRAM_TYPE],
         [],
         [],
@@ -502,10 +515,44 @@ async fn main() -> anyhow::Result<()> {
             (PROGRAM_PROP, CIVIL_ENGINEERING_ID),
             (PROGRAM_PROP, SOFTWARE_ENGINEERING_ID),
             (PROGRAM_PROP, COMPUTER_ENGINEERING_ID),
-            (PROGRAM_PROP, MECANICAL_ENGINEERING_ID),
         ],
         Some(POLYMTL_ID),
         None,
+    )
+    .await?;
+
+    insert_attribute_with_embedding(
+        &neo4j,
+        &embedding_model,
+        POLYMTL_ID,
+        system_ids::NAME_ATTRIBUTE,
+        "École Polytechnique Montréal",
+        FR_QC_SPACE_ID,
+    )
+    .await?;
+
+    insert_relation(
+        &neo4j,
+        POLYMTL_ID,
+        PROGRAM_PROP,
+        SOFTWARE_ENGINEERING_ID,
+        FR_QC_SPACE_ID,
+    )
+    .await?;
+    insert_relation(
+        &neo4j,
+        POLYMTL_ID,
+        PROGRAM_PROP,
+        CIVIL_ENGINEERING_ID,
+        FR_QC_SPACE_ID,
+    )
+    .await?;
+    insert_relation(
+        &neo4j,
+        POLYMTL_ID,
+        PROGRAM_PROP,
+        MECANICAL_ENGINEERING_ID,
+        FR_QC_SPACE_ID,
     )
     .await?;
 

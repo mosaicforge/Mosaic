@@ -123,9 +123,8 @@ impl QueryStream<SemanticSearchResult<EntityNode>> for SemanticSearchQuery<Entit
 
         if cfg!(debug_assertions) || cfg!(test) {
             tracing::info!(
-                "entity_node::FindManyQuery::<EntityNode>:\n{}\nparams:{:?}",
-                query.compile(),
-                query.params()
+                "entity_node::FindManyQuery::<EntityNode>:\n{}",
+                query.compile()
             );
         };
 
