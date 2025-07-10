@@ -5,43 +5,43 @@ use crate::{
     error::DatabaseError,
     mapping::{
         query_utils::VersionFilter, AttributeNode, FromAttributes, PropFilter, QueryBuilder,
-        QueryStream, Subquery, EFFECTIVE_SEARCH_RATIO,
+        QueryStream, Subquery,
     },
 };
 
 use super::{Entity, EntityFilter, EntityNode};
 
-pub struct SearchWithTraversals<T> {
+pub struct PrefilteredSemanticSearchQuery<T> {
     neo4j: neo4rs::Graph,
     vector: Vec<f64>,
-    filters: Vec<EntityFilter>,
+    filter: EntityFilter,
     space_id: Option<PropFilter<String>>,
     version: VersionFilter,
+    threshold: f64,
     limit: usize,
     skip: Option<usize>,
-    threshold: f64,
 
     _marker: std::marker::PhantomData<T>,
 }
 
-impl<T> SearchWithTraversals<T> {
+impl<T> PrefilteredSemanticSearchQuery<T> {
     pub fn new(neo4j: &neo4rs::Graph, vector: Vec<f64>) -> Self {
         Self {
             neo4j: neo4j.clone(),
             vector,
-            filters: Vec::new(),
+            filter: EntityFilter::default(),
             space_id: None,
             version: VersionFilter::default(),
             limit: 100,
-            skip: None,
             threshold: 0.75,
+            skip: None,
 
             _marker: std::marker::PhantomData,
         }
     }
 
     pub fn filter(mut self, filter: EntityFilter) -> Self {
-        self.filters.push(filter);
+        self.filter = filter;
         self
     }
 
@@ -67,6 +67,11 @@ impl<T> SearchWithTraversals<T> {
         self
     }
 
+    pub fn threshold(mut self, threshold: f64) -> Self {
+        self.threshold = threshold;
+        self
+    }
+
     pub fn skip(mut self, skip: usize) -> Self {
         self.skip = Some(skip);
         self
@@ -77,60 +82,54 @@ impl<T> SearchWithTraversals<T> {
         self
     }
 
-    pub fn threshold(mut self, threshold: f64) -> Self {
-        if (0.0..=1.0).contains(&threshold) {
-            self.threshold = threshold
-        }
-        self
-    }
-
     fn subquery(&self) -> QueryBuilder {
-        const QUERY: &str = r#"
-            CALL db.index.vector.queryNodes('vector_index', $effective_search_ratio, $vector)
-            YIELD node AS n, score AS score
+        const QUERY: &str = const_format::formatcp!(
+            r#"
+            MATCH (e:Entity) -[r:ATTRIBUTE]-> (a:Attribute:Indexed)
+            WHERE r.max_version IS null
+            AND a.embedding IS NOT NULL
+            WITH e, a, r, vector.similarity.cosine(a.embedding, $vector) AS score
+            ORDER BY score DESC
             WHERE score > $threshold
-            MATCH (e:Entity) -[r:ATTRIBUTE]-> (n)
-        "#;
+            "#,
+        );
 
-        self.filters
-            .iter()
-            .fold(QueryBuilder::default().subquery(QUERY), |query, filter| {
-                query.subquery(filter.subquery("e"))
-            })
+        QueryBuilder::default()
+            .subquery(self.filter.subquery("e"))
+            .subquery(QUERY)
             .limit(self.limit)
             .skip_opt(self.skip)
             .params("vector", self.vector.clone())
-            .params("effective_search_ratio", EFFECTIVE_SEARCH_RATIO)
             .params("limit", self.limit as i64)
             .params("threshold", self.threshold)
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SearchWithTraversalsResult<T> {
+pub struct SemanticSearchResult<T> {
     pub entity: T,
+    pub score: f64,
 }
-
-impl QueryStream<SearchWithTraversalsResult<EntityNode>> for SearchWithTraversals<EntityNode> {
+impl QueryStream<SemanticSearchResult<EntityNode>> for PrefilteredSemanticSearchQuery<EntityNode> {
     async fn send(
         self,
     ) -> Result<
-        impl Stream<Item = Result<SearchWithTraversalsResult<EntityNode>, DatabaseError>>,
+        impl Stream<Item = Result<SemanticSearchResult<EntityNode>, DatabaseError>>,
         DatabaseError,
     > {
-        let query = self.subquery().r#return("DISTINCT e");
+        let query = self.subquery().r#return("DISTINCT e, score");
 
         if cfg!(debug_assertions) || cfg!(test) {
             tracing::info!(
-                "entity_node::SearchWithTraversals::<EntityNode>:\n{}\nparams:{:?}",
-                query.compile(),
-                query.params()
+                "entity_node::PrefilteredSemanticSearch::<EntityNode>:\n{}",
+                query.compile()
             );
         };
 
         #[derive(Debug, serde::Deserialize)]
         struct RowResult {
             e: EntityNode,
+            score: f64,
         }
 
         Ok(self
@@ -139,35 +138,40 @@ impl QueryStream<SearchWithTraversalsResult<EntityNode>> for SearchWithTraversal
             .await?
             .into_stream_as::<RowResult>()
             .map_err(DatabaseError::from)
-            .and_then(|row| async move { Ok(SearchWithTraversalsResult { entity: row.e }) }))
+            .and_then(|row| async move {
+                Ok(SemanticSearchResult {
+                    entity: row.e,
+                    score: row.score,
+                })
+            }))
     }
 }
 
-impl<T: FromAttributes> QueryStream<SearchWithTraversalsResult<Entity<T>>>
-    for SearchWithTraversals<Entity<T>>
+impl<T: FromAttributes> QueryStream<SemanticSearchResult<Entity<T>>>
+    for PrefilteredSemanticSearchQuery<Entity<T>>
 {
     async fn send(
         self,
     ) -> Result<
-        impl Stream<Item = Result<SearchWithTraversalsResult<Entity<T>>, DatabaseError>>,
+        impl Stream<Item = Result<SemanticSearchResult<Entity<T>>, DatabaseError>>,
         DatabaseError,
     > {
         let match_entity = MatchEntity::new(&self.space_id, &self.version);
 
         let query = self.subquery().with(
-            vec!["e".to_string()],
+            vec!["e".to_string(), "score".to_string()],
             match_entity.chain(
                 "e",
                 "attrs",
                 "types",
-                Some(vec![]),
-                "RETURN e{.*, attrs: attrs, types: types}",
+                Some(vec!["score".to_string()]),
+                "RETURN e{.*, attrs: attrs, types: types, score: score}",
             ),
         );
 
         if cfg!(debug_assertions) || cfg!(test) {
             tracing::info!(
-                "entity_node::SearchWithTraversals::<Entity<T>>:\n{}\nparams:{:?}",
+                "entity_node::PrefilteredSemanticSearch::<Entity<T>>:\n{}\nparams:{:?}",
                 query.compile(),
                 query.params
             );
@@ -179,6 +183,7 @@ impl<T: FromAttributes> QueryStream<SearchWithTraversalsResult<Entity<T>>>
             node: EntityNode,
             attrs: Vec<AttributeNode>,
             types: Vec<EntityNode>,
+            score: f64,
         }
 
         let stream = self
@@ -190,12 +195,13 @@ impl<T: FromAttributes> QueryStream<SearchWithTraversalsResult<Entity<T>>>
             .map(|row_result| {
                 row_result.and_then(|row| {
                     T::from_attributes(row.attrs.into())
-                        .map(|data| SearchWithTraversalsResult {
+                        .map(|data| SemanticSearchResult {
                             entity: Entity {
                                 node: row.node,
                                 attributes: data,
                                 types: row.types.into_iter().map(|t| t.id).collect(),
                             },
+                            score: row.score,
                         })
                         .map_err(DatabaseError::from)
                 })

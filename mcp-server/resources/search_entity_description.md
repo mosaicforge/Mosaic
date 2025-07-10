@@ -8,7 +8,7 @@ search_entity(
     {
     "query": "The Graph",
     "traversal_filter": {
-        "relation_type_id": "Works at",
+        "relation_type": "Works at",
         "direction": "From"
     }
     }
@@ -46,10 +46,10 @@ search_entity(
     {
     "query": "The Graph",
     "traversal_filter": {
-        "relation_type_id": "Works at",
+        "relation_type": "Works at",
         "direction": "From",
         "traversal_filter": {
-        "relation_type_id": "Author",
+        "relation_type": "Author",
         "direction": "From"
         }
     }
