@@ -624,7 +624,7 @@ pub async fn bootstrap(
         Triple::new(system_ids::IMAGE, system_ids::NAME_ATTRIBUTE, "Image"),
         // System types
         Triple::new(
-            system_ids::ATTRIBUTE,
+            system_ids::PROPERTY_TYPE,
             system_ids::NAME_ATTRIBUTE,
             "Attribute",
         ),
@@ -711,7 +711,7 @@ pub async fn bootstrap(
         &embedding_model,
         "Properties",
         system_ids::RELATION_SCHEMA_TYPE,
-        Some(system_ids::ATTRIBUTE),
+        Some(system_ids::PROPERTY_TYPE),
         Some(system_ids::PROPERTIES),
         None,
     )
@@ -832,7 +832,7 @@ pub async fn bootstrap(
             system_ids::NAME_ATTRIBUTE,
             system_ids::DESCRIPTION_ATTRIBUTE,
         ],
-        Some(system_ids::ATTRIBUTE),
+        Some(system_ids::PROPERTY_TYPE),
         None,
     )
     .await?;
@@ -1157,7 +1157,7 @@ pub async fn create_property(
         .await?;
     }
 
-    set_types(neo4j, &property_id, [system_ids::ATTRIBUTE]).await?;
+    set_types(neo4j, &property_id, [system_ids::PROPERTY_TYPE]).await?;
 
     Ok(property_id)
 }

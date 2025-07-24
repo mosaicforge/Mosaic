@@ -396,7 +396,7 @@ impl KnowledgeGraph {
                 .relation_type(
                     EntityFilter::default().id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)),
                 )
-                .to_(EntityFilter::default().id(prop_filter::value(system_ids::ATTRIBUTE)))
+                .to_(EntityFilter::default().id(prop_filter::value(system_ids::PROPERTY_TYPE)))
         };
 
         let result_types = self
