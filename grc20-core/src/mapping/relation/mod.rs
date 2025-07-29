@@ -10,6 +10,6 @@ pub use delete_many::delete_many;
 pub use delete_one::delete_one;
 pub use insert_many::insert_many;
 pub use insert_one::insert_one;
-pub use models::{Relation, UnsetRelationFields, UpdateRelation};
+pub use models::{CreateRelation, UnsetRelationFields, UpdateRelation};
 pub use update_many::update_many;
 pub use update_one::update_one;

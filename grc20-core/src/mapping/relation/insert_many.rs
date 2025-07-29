@@ -1,4 +1,4 @@
-use super::models::Relation;
+use super::models::CreateRelation;
 use neo4rs::BoltType;
 
 /// Creates an InsertManyQuery for batch inserting relations.
@@ -17,7 +17,7 @@ pub fn insert_many(neo4j: neo4rs::Graph) -> InsertManyQuery {
 #[derive(Clone)]
 pub struct InsertManyQuery {
     /// The relations to insert.
-    pub relations: Vec<Relation>,
+    pub relations: Vec<CreateRelation>,
     neo4j: neo4rs::Graph,
 }
 
@@ -38,13 +38,13 @@ impl InsertManyQuery {
     }
 
     /// Sets the relations to be inserted.
-    pub fn relations(mut self, relations: Vec<Relation>) -> Self {
+    pub fn relations(mut self, relations: Vec<CreateRelation>) -> Self {
         self.relations = relations;
         self
     }
 
     /// Adds a relation to the query.
-    pub fn relation(mut self, relation: Relation) -> Self {
+    pub fn relation(mut self, relation: CreateRelation) -> Self {
         self.relations.push(relation);
         self
     }

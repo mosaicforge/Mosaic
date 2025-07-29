@@ -5,7 +5,7 @@ pub mod entity;
 // pub mod error;
 // pub mod pluralism;
 pub mod property;
-// pub mod query_utils;
+pub mod query_utils;
 pub mod relation;
 // pub mod triple;
 pub mod value;

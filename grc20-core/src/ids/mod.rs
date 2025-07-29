@@ -9,5 +9,5 @@ use uuid::Uuid;
 
 pub fn indexed(id: &Uuid) -> bool {
     // Add other ids to this list as needed
-    *id == system_ids::DESCRIPTION_ATTRIBUTE || *id == system_ids::NAME_ATTRIBUTE
+    *id == system_ids::DESCRIPTION_PROPERTY || *id == system_ids::NAME_PROPERTY
 }

@@ -7,8 +7,8 @@ pub const PROPERTY_TYPE: Uuid = uuid!("808a04ce-b21c-4d88-8ad1-2e240613e5ca");
 pub const SCHEMA_TYPE: Uuid = uuid!("e7d737c5-3676-4c60-9fa1-6aa64a8c90ad");
 pub const PROPERTIES: Uuid = uuid!("01412f83-8189-4ab1-8365-65c7fd358cc1");
 
-pub const NAME_ATTRIBUTE: Uuid = uuid!("a126ca53-0c8e-48d5-b888-82c734c38935");
-pub const DESCRIPTION_ATTRIBUTE: Uuid = uuid!("9b1f76ff-9711-404c-861e-59dc3fa7d037");
+pub const NAME_PROPERTY: Uuid = uuid!("a126ca53-0c8e-48d5-b888-82c734c38935");
+pub const DESCRIPTION_PROPERTY: Uuid = uuid!("9b1f76ff-9711-404c-861e-59dc3fa7d037");
 pub const COVER_ATTRIBUTE: Uuid = uuid!("34f53507-2e6b-42c5-a844-43981a77cfa2");
 pub const TYPES_ATTRIBUTE: Uuid = uuid!("8f151ba4-de20-4e3c-9cb4-99ddf96f48f1");
 pub const BLOCKS: Uuid = uuid!("beaba5cb-a677-41a8-b353-77030613fc70");

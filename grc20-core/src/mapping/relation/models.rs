@@ -15,7 +15,7 @@ pub enum ConversionError {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
-pub struct Relation {
+pub struct CreateRelation {
     pub id: Uuid,
     pub r#type: Uuid,
     pub from_entity: Uuid,
@@ -29,7 +29,7 @@ pub struct Relation {
     pub verified: Option<bool>,
 }
 
-impl Relation {
+impl CreateRelation {
     pub fn new(id: Uuid, r#type: Uuid, from_entity: Uuid, to_entity: Uuid, entity: Uuid) -> Self {
         Self {
             id,
@@ -77,8 +77,8 @@ impl Relation {
     }
 }
 
-impl From<Relation> for BoltType {
-    fn from(relation: Relation) -> Self {
+impl From<CreateRelation> for BoltType {
+    fn from(relation: CreateRelation) -> Self {
         let mut map = HashMap::new();
         map.insert(
             neo4rs::BoltString { value: "id".into() },
@@ -160,7 +160,7 @@ impl From<Relation> for BoltType {
     }
 }
 
-impl TryFrom<pb::grc20::Relation> for Relation {
+impl TryFrom<pb::grc20::Relation> for CreateRelation {
     type Error = ConversionError;
 
     fn try_from(pb_relation: pb::grc20::Relation) -> Result<Self, Self::Error> {

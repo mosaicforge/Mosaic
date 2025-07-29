@@ -1,17 +1,17 @@
-use super::models::Relation;
+use super::models::CreateRelation;
 
-pub fn insert_one(neo4j: &neo4rs::Graph, relation: Relation) -> InsertOneQuery {
+pub fn insert_one(neo4j: &neo4rs::Graph, relation: CreateRelation) -> InsertOneQuery {
     InsertOneQuery::new(neo4j, relation)
 }
 
 #[derive(Clone)]
 pub struct InsertOneQuery {
-    pub relation: Relation,
+    pub relation: CreateRelation,
     neo4j: neo4rs::Graph,
 }
 
 impl InsertOneQuery {
-    pub fn new(neo4j: &neo4rs::Graph, relation: Relation) -> Self {
+    pub fn new(neo4j: &neo4rs::Graph, relation: CreateRelation) -> Self {
         Self {
             neo4j: neo4j.clone(),
             relation,
