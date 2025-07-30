@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use futures::TryStreamExt;
 use grc20_core::{
     ids::system_ids,
@@ -26,13 +28,19 @@ async fn test_semantic_search_basic() {
     // Create entities with similar embeddings (should score well)
     let entity1 = UpdateEntity {
         id: entity1_id,
-        values: vec![Value::new(system_ids::NAME_PROPERTY, "first entity")],
+        values: {
+            let v = Value::new(system_ids::NAME_PROPERTY, "first entity");
+            HashMap::from([(v.property, v)])
+        },
         embedding: Some(vec![1.0, 0.0, 0.0]), // Close to search vector
     };
 
     let entity2 = UpdateEntity {
         id: entity2_id,
-        values: vec![Value::new(system_ids::NAME_PROPERTY, "second entity")],
+        values: {
+            let v = Value::new(system_ids::NAME_PROPERTY, "second entity");
+            HashMap::from([(v.property, v)])
+        },
         embedding: Some(vec![0.0, 1.0, 0.0]), // Different from search vector
     };
 
@@ -85,17 +93,26 @@ async fn test_semantic_search_with_limit() {
     let entities = vec![
         UpdateEntity {
             id: Uuid::new_v4(),
-            values: vec![Value::new(system_ids::NAME_PROPERTY, "entity 1")],
+            values: {
+                let v = Value::new(system_ids::NAME_PROPERTY, "entity 1");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![1.0, 0.0, 0.0]),
         },
         UpdateEntity {
             id: Uuid::new_v4(),
-            values: vec![Value::new(system_ids::NAME_PROPERTY, "entity 2")],
+            values: {
+                let v = Value::new(system_ids::NAME_PROPERTY, "entity 2");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![0.8, 0.2, 0.0]),
         },
         UpdateEntity {
             id: Uuid::new_v4(),
-            values: vec![Value::new(system_ids::NAME_PROPERTY, "entity 3")],
+            values: {
+                let v = Value::new(system_ids::NAME_PROPERTY, "entity 3");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![0.6, 0.4, 0.0]),
         },
     ];
@@ -137,17 +154,26 @@ async fn test_semantic_search_with_skip() {
     let entities = vec![
         UpdateEntity {
             id: Uuid::new_v4(),
-            values: vec![Value::new(system_ids::NAME_PROPERTY, "entity 1")],
+            values: {
+                let v = Value::new(system_ids::NAME_PROPERTY, "entity 1");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![1.0, 0.0, 0.0]),
         },
         UpdateEntity {
             id: Uuid::new_v4(),
-            values: vec![Value::new(system_ids::NAME_PROPERTY, "entity 2")],
+            values: {
+                let v = Value::new(system_ids::NAME_PROPERTY, "entity 2");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![0.8, 0.2, 0.0]),
         },
         UpdateEntity {
             id: Uuid::new_v4(),
-            values: vec![Value::new(system_ids::NAME_PROPERTY, "entity 3")],
+            values: {
+                let v = Value::new(system_ids::NAME_PROPERTY, "entity 3");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![0.6, 0.4, 0.0]),
         },
     ];
@@ -219,13 +245,19 @@ async fn test_semantic_search_multiple_spaces() {
 
     let entity1 = UpdateEntity {
         id: Uuid::new_v4(),
-        values: vec![Value::new(system_ids::NAME_PROPERTY, "entity in space 1")],
+        values: {
+            let v = Value::new(system_ids::NAME_PROPERTY, "entity in space 1");
+            HashMap::from([(v.property, v)])
+        },
         embedding: Some(vec![1.0, 0.0, 0.0]),
     };
 
     let entity2 = UpdateEntity {
         id: Uuid::new_v4(),
-        values: vec![Value::new(system_ids::NAME_PROPERTY, "entity in space 2")],
+        values: {
+            let v = Value::new(system_ids::NAME_PROPERTY, "entity in space 2");
+            HashMap::from([(v.property, v)])
+        },
         embedding: Some(vec![0.9, 0.1, 0.0]),
     };
 
@@ -260,57 +292,6 @@ async fn test_semantic_search_multiple_spaces() {
 }
 
 #[tokio::test]
-async fn test_semantic_search_multiple_properties() {
-    // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
-    let (neo4j, _container) = common::setup_neo4j_container().await;
-
-    // Create entity with multiple properties
-    let entity_id = Uuid::new_v4();
-    let space_id = Uuid::new_v4();
-    let property1_id = Uuid::new_v4();
-    let property2_id = Uuid::new_v4();
-
-    let entity = UpdateEntity {
-        id: entity_id,
-        values: vec![
-            Value::new(property1_id, "first property"),
-            Value::new(property2_id, "second property"),
-        ],
-        embedding: Some(vec![1.0, 0.0, 0.0]),
-    };
-
-    // Insert the entity
-    update_one(&neo4j, entity, space_id)
-        .send()
-        .await
-        .expect("Failed to insert entity");
-
-    // Perform semantic search
-    let search_vector = vec![1.0, 0.0, 0.0];
-    let results: Vec<SemanticSearchResult> = search(&neo4j, search_vector)
-        .send()
-        .await
-        .expect("Failed to execute search")
-        .try_collect()
-        .await
-        .expect("Failed to collect results");
-
-    // Should return results for each property of the entity
-    assert_eq!(results.len(), 2);
-
-    // Both results should be for the same entity but different properties
-    assert_eq!(results[0].entity, entity_id);
-    assert_eq!(results[1].entity, entity_id);
-    assert_ne!(results[0].value.property, results[1].value.property);
-
-    // Check that both properties are represented
-    let property_ids: std::collections::HashSet<Uuid> =
-        results.iter().map(|r| r.value.property).collect();
-    assert!(property_ids.contains(&property1_id));
-    assert!(property_ids.contains(&property2_id));
-}
-
-#[tokio::test]
 async fn test_semantic_search_query_builder() {
     // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
     let (neo4j, _container) = common::setup_neo4j_container().await;
@@ -318,11 +299,14 @@ async fn test_semantic_search_query_builder() {
     // Create test entity
     let entity_id = Uuid::new_v4();
     let space_id = Uuid::new_v4();
-    let property_id = Uuid::new_v4();
+    let property_id = system_ids::NAME_PROPERTY;
 
     let entity = UpdateEntity {
         id: entity_id,
-        values: vec![Value::new(property_id, "test entity")],
+        values: {
+            let v = Value::new(property_id, "test entity");
+            HashMap::from([(v.property, v)])
+        },
         embedding: Some(vec![1.0, 0.0, 0.0]),
     };
 
@@ -357,25 +341,33 @@ async fn test_semantic_search_score_ordering() {
 
     // Create entities with different similarity to search vector
     let space_id = Uuid::new_v4();
-    let property_id = Uuid::new_v4();
+    let property_id = system_ids::NAME_PROPERTY;
 
     let entities = vec![
-        // Most similar (should score highest)
         UpdateEntity {
             id: Uuid::new_v4(),
-            values: vec![Value::new(property_id, "most similar")],
+            values: {
+                let v = Value::new(property_id, "most similar");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![1.0, 0.0, 0.0]),
         },
         // Least similar (should score lowest)
         UpdateEntity {
             id: Uuid::new_v4(),
-            values: vec![Value::new(property_id, "least similar")],
+            values: {
+                let v = Value::new(property_id, "least similar");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![0.0, 0.0, 1.0]),
         },
         // Moderately similar (should score in between)
         UpdateEntity {
             id: Uuid::new_v4(),
-            values: vec![Value::new(property_id, "moderately similar")],
+            values: {
+                let v = Value::new(property_id, "moderately similar");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![0.7, 0.7, 0.0]),
         },
     ];

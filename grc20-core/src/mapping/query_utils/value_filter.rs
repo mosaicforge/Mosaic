@@ -5,65 +5,69 @@ use crate::value::Value;
 
 use super::query_builder::WhereClause;
 
-pub fn value<T>(value: impl Into<T>) -> PropFilter<T> {
-    PropFilter::default().value(value)
+pub fn value<T>(value: impl Into<T>) -> ValueFilter<T> {
+    ValueFilter::default().value(value)
 }
 
-pub fn value_gt<T>(value: impl Into<T>) -> PropFilter<T> {
-    PropFilter::default().value_gt(value)
+pub fn value_gt<T>(value: impl Into<T>) -> ValueFilter<T> {
+    ValueFilter::default().value_gt(value)
 }
 
-pub fn value_gte<T>(value: impl Into<T>) -> PropFilter<T> {
-    PropFilter::default().value_gte(value)
+pub fn value_gte<T>(value: impl Into<T>) -> ValueFilter<T> {
+    ValueFilter::default().value_gte(value)
 }
 
-pub fn value_lt<T>(value: impl Into<T>) -> PropFilter<T> {
-    PropFilter::default().value_lt(value)
+pub fn value_lt<T>(value: impl Into<T>) -> ValueFilter<T> {
+    ValueFilter::default().value_lt(value)
 }
 
-pub fn value_lte<T>(value: impl Into<T>) -> PropFilter<T> {
-    PropFilter::default().value_lte(value)
+pub fn value_lte<T>(value: impl Into<T>) -> ValueFilter<T> {
+    ValueFilter::default().value_lte(value)
 }
 
-pub fn value_not<T>(value: impl Into<T>) -> PropFilter<T> {
-    PropFilter::default().value_not(value)
+pub fn value_not<T>(value: impl Into<T>) -> ValueFilter<T> {
+    ValueFilter::default().value_not(value)
 }
 
-pub fn value_in<T>(values: Vec<T>) -> PropFilter<T> {
-    PropFilter::default().value_in(values)
+pub fn value_in<T>(values: Vec<T>) -> ValueFilter<T> {
+    ValueFilter::default().value_in(values)
 }
 
-pub fn value_not_in<T>(values: Vec<T>) -> PropFilter<T> {
-    PropFilter::default().value_not_in(values)
+pub fn value_not_in<T>(values: Vec<T>) -> ValueFilter<T> {
+    ValueFilter::default().value_not_in(values)
 }
 
-impl From<&str> for PropFilter<String> {
+pub fn value_exists<T>() -> ValueFilter<T> {
+    ValueFilter::default().exists(true)
+}
+
+impl From<&str> for ValueFilter<String> {
     fn from(value: &str) -> Self {
-        PropFilter::default().value(value.to_string())
+        ValueFilter::default().value(value.to_string())
     }
 }
 
-impl From<Uuid> for PropFilter<String> {
+impl From<Uuid> for ValueFilter<String> {
     fn from(value: Uuid) -> Self {
-        PropFilter::default().value(value.to_string())
+        ValueFilter::default().value(value.to_string())
     }
 }
 
-impl<T> From<T> for PropFilter<T> {
+impl<T> From<T> for ValueFilter<T> {
     fn from(value: T) -> Self {
-        PropFilter::default().value(value)
+        ValueFilter::default().value(value)
     }
 }
 
-impl<T> From<Vec<T>> for PropFilter<T> {
+impl<T> From<Vec<T>> for ValueFilter<T> {
     fn from(value: Vec<T>) -> Self {
-        PropFilter::default().value_in(value)
+        ValueFilter::default().value_in(value)
     }
 }
 
-impl<T: ToString> PropFilter<T> {
-    pub fn as_string_filter(self) -> PropFilter<String> {
-        PropFilter {
+impl<T: ToString> ValueFilter<T> {
+    pub fn as_string_filter(self) -> ValueFilter<String> {
+        ValueFilter {
             value: self.value.map(|v| v.to_string()),
             value_gt: self.value_gt.map(|v| v.to_string()),
             value_gte: self.value_gte.map(|v| v.to_string()),
@@ -76,13 +80,14 @@ impl<T: ToString> PropFilter<T> {
             value_not_in: self
                 .value_not_in
                 .map(|v| v.into_iter().map(|v| v.to_string()).collect()),
+            exists: self.exists,
         }
     }
 }
 
 /// Filter for property P of node N
 #[derive(Clone, Debug)]
-pub struct PropFilter<T> {
+pub struct ValueFilter<T> {
     value: Option<T>,
     value_gt: Option<T>,
     value_gte: Option<T>,
@@ -91,10 +96,11 @@ pub struct PropFilter<T> {
     value_not: Option<T>,
     value_in: Option<Vec<T>>,
     value_not_in: Option<Vec<T>>,
-    // or: Option<Vec<PropFilter<T>>>,
+    exists: Option<bool>, // This field is not used in the current implementation, but can be used to check if the property exists
+                          // or: Option<Vec<PropFilter<T>>>,
 }
 
-impl<T> Default for PropFilter<T> {
+impl<T> Default for ValueFilter<T> {
     fn default() -> Self {
         Self {
             value: None,
@@ -105,11 +111,12 @@ impl<T> Default for PropFilter<T> {
             value_not: None,
             value_in: None,
             value_not_in: None,
+            exists: None, // Default to None, meaning no existence check
         }
     }
 }
 
-impl<T> PropFilter<T> {
+impl<T> ValueFilter<T> {
     pub fn value(mut self, value: impl Into<T>) -> Self {
         self.value = Some(value.into());
         self
@@ -181,9 +188,14 @@ impl<T> PropFilter<T> {
     pub fn value_not_in_mut(&mut self, values: Vec<T>) {
         self.value_not_in = Some(values);
     }
+
+    pub fn exists(mut self, exists: bool) -> Self {
+        self.exists = Some(exists);
+        self
+    }
 }
 
-impl<T: Clone + Into<BoltType>> PropFilter<T> {
+impl<T: Clone + Into<BoltType>> ValueFilter<T> {
     /// Compiles the attribute filter into a [WhereClause] Neo4j subquery that will apply
     /// a filter on the `key` field of the `node_var` node(s) (i.e.: `{node_var}.{key}`).
     ///
@@ -281,13 +293,25 @@ impl<T: Clone + Into<BoltType>> PropFilter<T> {
                 .set_param(param_key, value_not_in.clone());
         }
 
+        if where_clause.params.is_empty() {
+            match self.exists {
+                Some(true) => {
+                    where_clause = where_clause.clause(format!("{expr} IS NOT NULL"));
+                }
+                Some(false) => {
+                    where_clause = where_clause.clause(format!("{expr} IS NULL"));
+                }
+                _ => (),
+            }
+        }
+
         where_clause
     }
 }
 
-impl<T: Into<Value>> PropFilter<T> {
-    pub fn as_string(self) -> PropFilter<String> {
-        PropFilter {
+impl<T: Into<Value>> ValueFilter<T> {
+    pub fn as_string(self) -> ValueFilter<String> {
+        ValueFilter {
             value: self.value.map(|v| v.into().value),
             value_gt: self.value_gt.map(|v| v.into().value),
             value_gte: self.value_gte.map(|v| v.into().value),
@@ -300,6 +324,7 @@ impl<T: Into<Value>> PropFilter<T> {
             value_not_in: self
                 .value_not_in
                 .map(|v| v.into_iter().map(|v| v.into().value).collect()),
+            exists: self.exists,
         }
     }
 }

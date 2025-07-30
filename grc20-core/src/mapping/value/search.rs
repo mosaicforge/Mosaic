@@ -1,5 +1,12 @@
 use super::models::Value;
-use crate::{error::DatabaseError, mapping::EFFECTIVE_SEARCH_RATIO, system_ids};
+use crate::{
+    error::DatabaseError,
+    mapping::{
+        query_utils::{QueryBuilder, Subquery},
+        EFFECTIVE_SEARCH_RATIO,
+    },
+    system_ids,
+};
 use futures::{Stream, TryStreamExt};
 use serde::Deserialize;
 use uuid::Uuid;
@@ -11,6 +18,7 @@ pub struct SemanticSearchQuery {
     search_vector: Vec<f64>,
     limit: usize,
     skip: Option<usize>,
+    threshold: Option<f64>,
 }
 
 impl SemanticSearchQuery {
@@ -21,6 +29,7 @@ impl SemanticSearchQuery {
             search_vector,
             limit: 100,
             skip: None,
+            threshold: None,
         }
     }
 
@@ -36,31 +45,39 @@ impl SemanticSearchQuery {
         self
     }
 
+    /// Set the threshold for minimum similarity score (builder pattern)
+    pub fn threshold(mut self, threshold: f64) -> Self {
+        self.threshold = Some(threshold);
+        self
+    }
+
     /// Execute the semantic search query
     pub async fn send(
         self,
     ) -> Result<impl Stream<Item = Result<SemanticSearchResult, DatabaseError>>, DatabaseError>
     {
-        // let skip_clause = match self.skip {
-        //     Some(skip) => format!("SKIP {}", skip),
-        //     None => String::new(),
-        // };
+        let builder = QueryBuilder::default()
+            .subquery(format!(
+                "CALL db.index.vector.queryNodes('vector_index', $limit * $effective_search_ratio, $vector)
+                YIELD node, score
+                WHERE score >= $threshold
+                ORDER BY score DESC
+                MATCH (e:Entity)-[r:PROPERTIES]->(node)",
+            ))
+            .params("vector", self.search_vector)
+            .params("limit", self.limit as i64)
+            .params("effective_search_ratio", EFFECTIVE_SEARCH_RATIO)
+            .params("threshold", self.threshold.unwrap_or(0.0));
 
-        let query = format!("
-            CALL db.index.vector.queryNodes('vector_index', $limit * $effective_search_ratio, $vector)
-            YIELD node, score
-            ORDER BY score DESC
-            MATCH (e:Entity)-[r:PROPERTIES]->(node)
-            RETURN {{value: {{property: \"{NAME_PROPERTY}\", value: node[\"{NAME_PROPERTY}\"]}}, entity: e.id, space_id: r.space_id, score: score}}
-            LIMIT $limit
-        ", NAME_PROPERTY = system_ids::NAME_PROPERTY);
-
-        let query = neo4rs::query(&query)
-            .param("vector", self.search_vector)
-            .param("limit", self.limit as i64)
-            .param("effective_search_ratio", EFFECTIVE_SEARCH_RATIO);
-
-        // let mut result = self.neo4j.execute(query).await?;
+        let query = builder
+            .skip_opt(self.skip)
+            .limit(self.limit)
+            .r#return(format!(
+                "{{value: {{property: \"{}\", value: node[\"{}\"]}}, entity: e.id, space_id: r.space_id, score: score}}",
+                system_ids::NAME_PROPERTY,
+                system_ids::NAME_PROPERTY
+            ))
+            .build();
 
         Ok(self
             .neo4j

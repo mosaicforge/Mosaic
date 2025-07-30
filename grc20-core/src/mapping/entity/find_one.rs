@@ -6,10 +6,47 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
-struct EntityQueryResult {
-    entity_id: Uuid,
-    spaces: Vec<Uuid>,
-    properties: Vec<HashMap<Uuid, String>>,
+pub(super) struct EntityQueryResult {
+    pub(super) entity_id: Uuid,
+    pub(super) types: Vec<String>,
+    pub(super) spaces: Vec<Uuid>,
+    pub(super) properties: Vec<HashMap<Uuid, String>>,
+}
+
+impl EntityQueryResult {
+    pub fn into_entity(self) -> Entity {
+        Entity {
+            id: self.entity_id,
+            types: self
+                .types
+                .into_iter()
+                .filter_map(|id| Uuid::parse_str(&id).ok())
+                .collect(),
+            values: self
+                .spaces
+                .into_iter()
+                .zip(self.properties)
+                .map(|(space_id, props)| {
+                    (
+                        space_id,
+                        props
+                            .into_iter()
+                            .map(|(key, value)| {
+                                (
+                                    key,
+                                    Value {
+                                        property: key,
+                                        value,
+                                        options: None,
+                                    },
+                                )
+                            })
+                            .collect(),
+                    )
+                })
+                .collect(),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -30,8 +67,8 @@ impl FindOneQuery {
         let cypher = "
             MATCH (e:Entity {id: $entity_id})
             OPTIONAL MATCH (e)-[p:PROPERTIES]->(props:Properties)
-            WITH e, collect(p.space_id) AS spaces, collect(apoc.map.removeKey(properties(props), 'embedding')) AS props
-            RETURN {entity_id: e.id, spaces: spaces, properties: props}
+            WITH e, collect(p.space_id) AS spaces, collect(apoc.map.removeKey(properties(props), 'embedding'])) AS props
+            RETURN {entity_id: e.id, spaces: spaces, properties: props, types: labels(e)}
         ";
 
         let query = neo4rs::query(cypher).param("entity_id", self.entity_id.to_string());
@@ -39,32 +76,9 @@ impl FindOneQuery {
         let mut result = self.neo4j.execute(query).await?;
 
         if let Some(row) = result.next().await? {
-            println!("Found entity with ID: {} row: {:?}", self.entity_id, row);
             let query_result: EntityQueryResult = row.to()?;
 
-            let entity = Entity {
-                id: query_result.entity_id,
-                values: query_result
-                    .spaces
-                    .into_iter()
-                    .zip(query_result.properties)
-                    .map(|(space_id, props)| {
-                        (
-                            space_id,
-                            props
-                                .into_iter()
-                                .map(|(key, value)| Value {
-                                    property: key,
-                                    value,
-                                    options: None,
-                                })
-                                .collect(),
-                        )
-                    })
-                    .collect(),
-            };
-
-            Ok(Some(entity))
+            Ok(Some(query_result.into_entity()))
         } else {
             Ok(None)
         }

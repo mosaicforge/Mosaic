@@ -20,7 +20,10 @@ async fn test_update_one_entity() {
 
     let entity = UpdateEntity {
         id: entity_id,
-        values: vec![Value::new(property_id, "test_value")],
+        values: {
+            let v = Value::new(property_id, "test_value");
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
 
@@ -85,10 +88,13 @@ async fn test_update_one_entity_multiple_properties() {
 
     let entity = UpdateEntity {
         id: entity_id,
-        values: vec![
-            Value::new(property1_id, "value1"),
-            Value::new(property2_id, "value2"),
-        ],
+        values: {
+            let values = vec![
+                Value::new(property1_id, "value1"),
+                Value::new(property2_id, "value2"),
+            ];
+            HashMap::from_iter(values.into_iter().map(|v| (v.property, v)))
+        },
         embedding: None,
     };
 

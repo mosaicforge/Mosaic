@@ -17,7 +17,8 @@ impl DeleteOneQuery {
 
     pub async fn send(self) -> Result<(), neo4rs::Error> {
         let cypher = "
-            MATCH ()-[r:RELATION {id: $relation_id}]->()
+            MATCH (from)-[r:RELATION {id: $relation_id}]->(to)
+            REMOVE from:$(to.id)
             DELETE r
         ";
 

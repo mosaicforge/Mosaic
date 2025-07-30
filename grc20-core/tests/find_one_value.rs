@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use grc20_core::mapping::{
     entity::{update_one, UpdateEntity},
     value::{
@@ -21,7 +23,10 @@ async fn test_find_one_value_basic() {
 
     let entity = UpdateEntity {
         id: entity_id,
-        values: vec![Value::new(property_id, "test_value")],
+        values: {
+            let v = Value::new(property_id, "test_value");
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
 
@@ -61,7 +66,10 @@ async fn test_find_one_value_not_found() {
 
     let entity = UpdateEntity {
         id: entity_id,
-        values: vec![Value::new(property_id, "test_value")],
+        values: {
+            let v = Value::new(property_id, "test_value");
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
 
@@ -94,7 +102,10 @@ async fn test_find_one_value_wrong_space() {
 
     let entity = UpdateEntity {
         id: entity_id,
-        values: vec![Value::new(property_id, "test_value")],
+        values: {
+            let v = Value::new(property_id, "test_value");
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
 
@@ -127,7 +138,10 @@ async fn test_find_one_value_wrong_entity() {
 
     let entity = UpdateEntity {
         id: entity_id,
-        values: vec![Value::new(property_id, "test_value")],
+        values: {
+            let v = Value::new(property_id, "test_value");
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
 
@@ -161,11 +175,14 @@ async fn test_find_one_value_multiple_properties() {
 
     let entity = UpdateEntity {
         id: entity_id,
-        values: vec![
-            Value::new(property1_id, "first_value"),
-            Value::new(property2_id, "second_value"),
-            Value::new(property3_id, "third_value"),
-        ],
+        values: {
+            let values = vec![
+                Value::new(property1_id, "first_value"),
+                Value::new(property2_id, "second_value"),
+                Value::new(property3_id, "third_value"),
+            ];
+            HashMap::from_iter(values.into_iter().map(|v| (v.property, v)))
+        },
         embedding: None,
     };
 
@@ -219,13 +236,19 @@ async fn test_find_one_value_multiple_spaces() {
     // Insert the same entity with different values in different spaces
     let entity1 = UpdateEntity {
         id: entity_id,
-        values: vec![Value::new(property_id, "value_in_space1")],
+        values: {
+            let v = Value::new(property_id, "value_in_space1");
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
 
     let entity2 = UpdateEntity {
         id: entity_id,
-        values: vec![Value::new(property_id, "value_in_space2")],
+        values: {
+            let v = Value::new(property_id, "value_in_space2");
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
 
@@ -277,7 +300,10 @@ async fn test_find_one_value_options_always_none() {
 
     let entity = UpdateEntity {
         id: entity_id,
-        values: vec![value],
+        values: {
+            let v = value;
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
 

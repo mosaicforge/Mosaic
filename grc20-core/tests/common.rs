@@ -15,6 +15,7 @@ pub async fn setup_neo4j_container() -> (neo4rs::Graph, ContainerAsync<GenericIm
         .with_exposed_port(BOLT_PORT.tcp())
         .with_exposed_port(HTTP_PORT.tcp())
         .with_env_var("NEO4J_AUTH", "none")
+        .with_env_var("NEO4J_PLUGINS", "[\"apoc\"]")
         .start()
         .await
         .expect("Failed to start Neo 4J container");

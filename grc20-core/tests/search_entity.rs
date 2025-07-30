@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use futures::TryStreamExt;
 use grc20_core::{
     ids::system_ids,
@@ -23,13 +25,19 @@ async fn test_semantic_search_entity_basic() {
     // Create entities with similar embeddings (should score well)
     let entity1 = UpdateEntity {
         id: entity1_id,
-        values: vec![Value::new(system_ids::NAME_PROPERTY, "first entity")],
+        values: {
+            let v = Value::new(system_ids::NAME_PROPERTY, "first entity");
+            HashMap::from([(v.property, v)])
+        },
         embedding: Some(vec![1.0, 0.0, 0.0]), // Close to search vector
     };
 
     let entity2 = UpdateEntity {
         id: entity2_id,
-        values: vec![Value::new(system_ids::NAME_PROPERTY, "second entity")],
+        values: {
+            let v = Value::new(system_ids::NAME_PROPERTY, "second entity");
+            HashMap::from([(v.property, v)])
+        },
         embedding: Some(vec![0.0, 1.0, 0.0]), // Different from search vector
     };
 
@@ -72,8 +80,10 @@ async fn test_semantic_search_entity_basic() {
     assert_eq!(entity.values.len(), 1);
     let space_values = entity.values.get(&space_id).expect("Space should exist");
     assert_eq!(space_values.len(), 1);
-    assert_eq!(space_values[0].property, system_ids::NAME_PROPERTY);
-    assert_eq!(space_values[0].value, "first entity");
+    assert_eq!(
+        space_values[&system_ids::NAME_PROPERTY].value,
+        "first entity"
+    );
     assert_eq!(score, results[0].score);
 }
 
@@ -88,17 +98,26 @@ async fn test_semantic_search_entity_with_limit() {
     let entities = vec![
         UpdateEntity {
             id: Uuid::new_v4(),
-            values: vec![Value::new(system_ids::NAME_PROPERTY, "entity 1")],
+            values: {
+                let v = Value::new(system_ids::NAME_PROPERTY, "entity 1");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![1.0, 0.0, 0.0]),
         },
         UpdateEntity {
             id: Uuid::new_v4(),
-            values: vec![Value::new(system_ids::NAME_PROPERTY, "entity 2")],
+            values: {
+                let v = Value::new(system_ids::NAME_PROPERTY, "entity 2");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![0.8, 0.2, 0.0]),
         },
         UpdateEntity {
             id: Uuid::new_v4(),
-            values: vec![Value::new(system_ids::NAME_PROPERTY, "entity 3")],
+            values: {
+                let v = Value::new(system_ids::NAME_PROPERTY, "entity 3");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![0.6, 0.4, 0.0]),
         },
     ];
@@ -140,17 +159,26 @@ async fn test_semantic_search_entity_with_skip() {
     let entities = vec![
         UpdateEntity {
             id: Uuid::new_v4(),
-            values: vec![Value::new(system_ids::NAME_PROPERTY, "entity 1")],
+            values: {
+                let v = Value::new(system_ids::NAME_PROPERTY, "entity 1");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![1.0, 0.0, 0.0]),
         },
         UpdateEntity {
             id: Uuid::new_v4(),
-            values: vec![Value::new(system_ids::NAME_PROPERTY, "entity 2")],
+            values: {
+                let v = Value::new(system_ids::NAME_PROPERTY, "entity 2");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![0.8, 0.2, 0.0]),
         },
         UpdateEntity {
             id: Uuid::new_v4(),
-            values: vec![Value::new(system_ids::NAME_PROPERTY, "entity 3")],
+            values: {
+                let v = Value::new(system_ids::NAME_PROPERTY, "entity 3");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![0.6, 0.4, 0.0]),
         },
     ];
@@ -224,7 +252,10 @@ async fn test_semantic_search_entity_multiple_spaces() {
     // Insert entity with properties in first space
     let entity1 = UpdateEntity {
         id: entity_id,
-        values: vec![Value::new(system_ids::NAME_PROPERTY, "entity in space 1")],
+        values: {
+            let v = Value::new(system_ids::NAME_PROPERTY, "entity in space 1");
+            HashMap::from([(v.property, v)])
+        },
         embedding: Some(vec![1.0, 0.0, 0.0]),
     };
 
@@ -236,7 +267,10 @@ async fn test_semantic_search_entity_multiple_spaces() {
     // Insert entity with properties in second space
     let entity2 = UpdateEntity {
         id: entity_id,
-        values: vec![Value::new(system_ids::NAME_PROPERTY, "entity in space 2")],
+        values: {
+            let v = Value::new(system_ids::NAME_PROPERTY, "entity in space 2");
+            HashMap::from([(v.property, v)])
+        },
         embedding: Some(vec![1.0, 0.0, 0.0]),
     };
 
@@ -283,10 +317,13 @@ async fn test_semantic_search_entity_multiple_properties() {
 
     let entity = UpdateEntity {
         id: entity_id,
-        values: vec![
-            Value::new(property1_id, "first property"),
-            Value::new(property2_id, "second property"),
-        ],
+        values: {
+            let values = vec![
+                Value::new(property1_id, "first property"),
+                Value::new(property2_id, "second property"),
+            ];
+            HashMap::from_iter(values.into_iter().map(|v| (v.property, v)))
+        },
         embedding: Some(vec![1.0, 0.0, 0.0]),
     };
 
@@ -319,7 +356,7 @@ async fn test_semantic_search_entity_multiple_properties() {
 
     // Check that both properties are represented
     let property_ids: std::collections::HashSet<Uuid> =
-        space_values.iter().map(|v| v.property).collect();
+        space_values.iter().map(|(_, v)| v.property).collect();
     assert!(property_ids.contains(&property1_id));
     assert!(property_ids.contains(&property2_id));
 }
@@ -336,7 +373,10 @@ async fn test_semantic_search_entity_query_builder() {
 
     let entity = UpdateEntity {
         id: entity_id,
-        values: vec![Value::new(property_id, "test entity")],
+        values: {
+            let v = Value::new(property_id, "test entity");
+            HashMap::from([(v.property, v)])
+        },
         embedding: Some(vec![1.0, 0.0, 0.0]),
     };
 
@@ -371,7 +411,7 @@ async fn test_semantic_search_entity_score_ordering() {
 
     // Create entities with different similarity to search vector
     let space_id = Uuid::new_v4();
-    let property_id = Uuid::new_v4();
+    let property_id = system_ids::NAME_PROPERTY;
 
     let most_similar_id = Uuid::new_v4();
     let least_similar_id = Uuid::new_v4();
@@ -381,19 +421,28 @@ async fn test_semantic_search_entity_score_ordering() {
         // Most similar (should score highest)
         UpdateEntity {
             id: most_similar_id,
-            values: vec![Value::new(property_id, "most similar")],
+            values: {
+                let v = Value::new(property_id, "most similar");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![1.0, 0.0, 0.0]),
         },
         // Least similar (should score lowest)
         UpdateEntity {
             id: least_similar_id,
-            values: vec![Value::new(property_id, "least similar")],
+            values: {
+                let v = Value::new(property_id, "least similar");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![0.0, 0.0, 1.0]),
         },
         // Moderately similar (should score in between)
         UpdateEntity {
             id: moderately_similar_id,
-            values: vec![Value::new(property_id, "moderately similar")],
+            values: {
+                let v = Value::new(property_id, "moderately similar");
+                HashMap::from([(v.property, v)])
+            },
             embedding: Some(vec![0.7, 0.7, 0.0]),
         },
     ];
@@ -430,7 +479,7 @@ async fn test_semantic_search_entity_score_ordering() {
         .values
         .get(&space_id)
         .expect("Space should exist");
-    assert_eq!(first_space_values[0].value, "most similar");
+    assert_eq!(first_space_values[&property_id].value, "most similar");
 
     // Last result should be the least similar entity
     assert_eq!(results[2].entity_id, least_similar_id);
@@ -439,7 +488,7 @@ async fn test_semantic_search_entity_score_ordering() {
         .values
         .get(&space_id)
         .expect("Space should exist");
-    assert_eq!(last_space_values[0].value, "least similar");
+    assert_eq!(last_space_values[&property_id].value, "least similar");
 }
 
 #[tokio::test]
@@ -454,7 +503,10 @@ async fn test_semantic_search_entity_conversion_methods() {
 
     let entity = UpdateEntity {
         id: entity_id,
-        values: vec![Value::new(property_id, "test entity")],
+        values: {
+            let v = Value::new(property_id, "test entity");
+            HashMap::from([(v.property, v)])
+        },
         embedding: Some(vec![1.0, 0.0, 0.0]),
     };
 

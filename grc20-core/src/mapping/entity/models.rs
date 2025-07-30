@@ -1,10 +1,12 @@
 use neo4rs::BoltType;
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
+use crate::entity::FindManyQuery;
+use crate::mapping::query_utils::value_filter;
 use crate::mapping::value::models::{Value, ValueConversionError};
-use crate::pb;
+use crate::{pb, system_ids};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConversionError {
@@ -17,30 +19,79 @@ pub enum ConversionError {
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct Entity {
     pub id: Uuid,
-    pub values: HashMap<Uuid, Vec<Value>>,
+    pub types: Vec<Uuid>,
+    pub values: HashMap<Uuid, HashMap<Uuid, Value>>,
 }
 
 impl Entity {
     pub fn new(id: Uuid) -> Self {
         Self {
             id,
+            types: Vec::new(),
             values: HashMap::new(),
         }
     }
 
+    pub fn with_types(mut self, types: Vec<Uuid>) -> Self {
+        self.types = types;
+        self
+    }
+
     pub fn value(mut self, space_id: impl Into<Uuid>, value: impl Into<Value>) -> Self {
+        let val = value.into();
+
         self.values
             .entry(space_id.into())
             .or_default()
-            .push(value.into());
+            .insert(val.property, val);
         self
+    }
+
+    /// Returns the possible names of the entity
+    pub fn names(&self) -> Vec<String> {
+        self.values
+            .iter()
+            .filter_map(|(_, props)| props.get(&system_ids::NAME_PROPERTY))
+            .map(|value| value.value.clone())
+            .collect()
+    }
+
+    /// Returns a query to fetch the entities of the types of the entity
+    pub fn get_types(&self, neo4j: &neo4rs::Graph) -> FindManyQuery {
+        FindManyQuery::new(neo4j).id(value_filter::value_in(self.types.clone()))
+    }
+
+    /// Returns a query to fetch the entities of the properties of the entity
+    pub fn get_properties(&self, neo4j: &neo4rs::Graph) -> FindManyQuery {
+        FindManyQuery::new(neo4j).id(value_filter::value_in(
+            self.values
+                .values()
+                .flat_map(|props| props.values().map(|v| v.property))
+                .collect::<HashSet<_>>()
+                .into_iter()
+                .collect(),
+        ))
+    }
+
+    /// Returns a flattened map of all properties across all spaces
+    pub fn flattened_properties(&self) -> HashMap<Uuid, Vec<Value>> {
+        let mut flattened = HashMap::new();
+        for (_, props) in &self.values {
+            for value in props.values() {
+                flattened
+                    .entry(value.property)
+                    .or_insert_with(Vec::new)
+                    .push(value.clone());
+            }
+        }
+        flattened
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct UpdateEntity {
     pub id: Uuid,
-    pub values: Vec<Value>,
+    pub values: HashMap<Uuid, Value>,
     pub embedding: Option<Vec<f32>>,
 }
 
@@ -48,18 +99,21 @@ impl UpdateEntity {
     pub fn new(id: Uuid) -> Self {
         Self {
             id,
-            values: Vec::new(),
+            values: HashMap::new(),
             embedding: None,
         }
     }
 
     pub fn value(mut self, value: impl Into<Value>) -> Self {
-        self.values.push(value.into());
+        let val = value.into();
+        self.values.insert(val.property, val);
         self
     }
 
     pub fn values(mut self, values: Vec<Value>) -> Self {
-        self.values = values;
+        for value in values {
+            self.values.insert(value.property, value);
+        }
         self
     }
 
@@ -82,7 +136,7 @@ impl TryFrom<pb::grc20::Entity> for UpdateEntity {
 
         Ok(Self {
             id,
-            values: values?,
+            values: values?.into_iter().map(|v| (v.property, v)).collect(),
             embedding: None,
         })
     }
@@ -97,7 +151,11 @@ impl From<UpdateEntity> for BoltType {
             entity.id.to_string().into(),
         );
 
-        let values: Vec<BoltType> = entity.values.into_iter().map(BoltType::from).collect();
+        let values: Vec<BoltType> = entity
+            .values
+            .into_iter()
+            .map(|(_, val)| BoltType::from(val))
+            .collect();
 
         map.insert(
             neo4rs::BoltString {
@@ -201,7 +259,10 @@ impl From<Entity> for BoltType {
                     space_id.to_string().into(),
                 );
                 // Convert Vec<Value> to Vec<BoltType>
-                let values: Vec<BoltType> = values.into_iter().map(BoltType::from).collect();
+                let values: Vec<BoltType> = values
+                    .into_iter()
+                    .map(|(_, val)| BoltType::from(val))
+                    .collect();
                 space_map.insert(
                     neo4rs::BoltString {
                         value: "values".into(),

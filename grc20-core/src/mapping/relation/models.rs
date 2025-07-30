@@ -3,7 +3,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::pb;
+use crate::{pb, system_ids};
 
 /// Error type for converting from pb::grc20::Relation to Relation
 #[derive(Debug, thiserror::Error)]
@@ -12,6 +12,15 @@ pub enum ConversionError {
     InvalidUuid(String, String),
     #[error("Invalid UTF-8 for position: {0}")]
     InvalidPositionUtf8(String),
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct Relation {
+    pub id: Uuid,
+    pub r#type: Uuid,
+    pub from_entity: Uuid,
+    pub to_entity: Uuid,
+    pub entity: Uuid,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
@@ -90,6 +99,21 @@ impl From<CreateRelation> for BoltType {
             },
             relation.r#type.to_string().into(),
         );
+        if relation.r#type == system_ids::TYPES_ATTRIBUTE {
+            map.insert(
+                neo4rs::BoltString {
+                    value: "labels".into(),
+                },
+                relation.to_entity.to_string().into(),
+            );
+        } else {
+            map.insert(
+                neo4rs::BoltString {
+                    value: "labels".into(),
+                },
+                Vec::<String>::new().into(),
+            );
+        }
         map.insert(
             neo4rs::BoltString {
                 value: "from_entity".into(),

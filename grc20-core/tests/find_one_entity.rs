@@ -20,7 +20,10 @@ async fn test_find_one_entity_exists() {
 
     let entity = UpdateEntity {
         id: entity_id,
-        values: vec![Value::new(property_id, "test_value")],
+        values: {
+            let v = Value::new(property_id, "test_value");
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
 
@@ -46,8 +49,7 @@ async fn test_find_one_entity_exists() {
         .get(&space_id)
         .expect("Space should exist");
     assert_eq!(space_values.len(), 1);
-    assert_eq!(space_values[0].property, property_id);
-    assert_eq!(space_values[0].value, "test_value");
+    assert_eq!(space_values[&property_id].value, "test_value");
 }
 
 #[tokio::test]
@@ -79,10 +81,13 @@ async fn test_find_one_entity_multiple_properties() {
 
     let entity = UpdateEntity {
         id: entity_id,
-        values: vec![
-            Value::new(property1_id, "value1"),
-            Value::new(property2_id, "value2"),
-        ],
+        values: {
+            let values = vec![
+                Value::new(property1_id, "value1"),
+                Value::new(property2_id, "value2"),
+            ];
+            HashMap::from_iter(values.into_iter().map(|v| (v.property, v)))
+        },
         embedding: None,
     };
 
@@ -111,7 +116,7 @@ async fn test_find_one_entity_multiple_properties() {
 
     // Check both properties exist (order may vary)
     let mut found_properties = HashMap::new();
-    for value in space_values {
+    for (_, value) in space_values {
         found_properties.insert(value.property, &value.value);
     }
 
@@ -143,7 +148,10 @@ async fn test_find_one_entity_multiple_spaces() {
     // Insert entity with properties in first space
     let entity1 = UpdateEntity {
         id: entity_id,
-        values: vec![Value::new(property1_id, "value1")],
+        values: {
+            let v = Value::new(property1_id, "value1");
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
 
@@ -155,7 +163,10 @@ async fn test_find_one_entity_multiple_spaces() {
     // Insert entity with properties in second space
     let entity2 = UpdateEntity {
         id: entity_id,
-        values: vec![Value::new(property2_id, "value2")],
+        values: {
+            let v = Value::new(property2_id, "value2");
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
 
@@ -180,16 +191,14 @@ async fn test_find_one_entity_multiple_spaces() {
         .get(&space1_id)
         .expect("Space1 should exist");
     assert_eq!(space1_values.len(), 1);
-    assert_eq!(space1_values[0].property, property1_id);
-    assert_eq!(space1_values[0].value, "value1");
+    assert_eq!(space1_values[&property1_id].value, "value1");
 
     let space2_values = found_entity
         .values
         .get(&space2_id)
         .expect("Space2 should exist");
     assert_eq!(space2_values.len(), 1);
-    assert_eq!(space2_values[0].property, property2_id);
-    assert_eq!(space2_values[0].value, "value2");
+    assert_eq!(space2_values[&property2_id].value, "value2");
 }
 
 #[tokio::test]

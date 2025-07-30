@@ -60,6 +60,7 @@ impl InsertManyQuery {
             MATCH (to_entity:Entity {id: relation.to_entity})
             CREATE (from_entity)-[r:RELATION]->(to_entity)
             SET r = relation
+            SET from_entity:$(relation.labels)
         ";
 
         let relations: Vec<BoltType> = self.relations.into_iter().map(BoltType::from).collect();

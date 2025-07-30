@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use grc20_core::mapping::{
     entity::{update_one as insert_entity, UpdateEntity},
     relation::{insert_one, update_one, CreateRelation, UnsetRelationFields, UpdateRelation},
@@ -20,12 +22,18 @@ async fn test_update_one_relation() {
 
     let from_entity = UpdateEntity {
         id: from_entity_id,
-        values: vec![Value::new(property_id, "from_value")],
+        values: {
+            let v = Value::new(property_id, "from_value");
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
     let to_entity = UpdateEntity {
         id: to_entity_id,
-        values: vec![Value::new(property_id, "to_value")],
+        values: {
+            let v = Value::new(property_id, "to_value");
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
 
@@ -124,12 +132,18 @@ async fn test_update_one_relation_partial() {
 
     let from_entity = UpdateEntity {
         id: from_entity_id,
-        values: vec![Value::new(property_id, "from_value")],
+        values: {
+            let v = Value::new(property_id, "from_value");
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
     let to_entity = UpdateEntity {
         id: to_entity_id,
-        values: vec![Value::new(property_id, "to_value")],
+        values: {
+            let v = Value::new(property_id, "to_value");
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
 
@@ -230,12 +244,18 @@ async fn test_unset_relation_fields() {
 
     let from_entity = UpdateEntity {
         id: from_entity_id,
-        values: vec![Value::new(property_id, "from_value")],
+        values: {
+            let v = Value::new(property_id, "from_value");
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
     let to_entity = UpdateEntity {
         id: to_entity_id,
-        values: vec![Value::new(property_id, "to_value")],
+        values: {
+            let v = Value::new(property_id, "to_value");
+            HashMap::from([(v.property, v)])
+        },
         embedding: None,
     };
 
