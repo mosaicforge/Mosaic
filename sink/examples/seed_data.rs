@@ -98,10 +98,7 @@ async fn main() -> anyhow::Result<()> {
         &embedding_model,
         "Space",
         [],
-        [
-            system_ids::NAME_ATTRIBUTE,
-            system_ids::DESCRIPTION_ATTRIBUTE,
-        ],
+        [system_ids::NAME_PROPERTY, system_ids::DESCRIPTION_PROPERTY,],
         Some(system_ids::SPACE_TYPE),
         None,
     )
@@ -156,7 +153,7 @@ async fn main() -> anyhow::Result<()> {
         &neo4j,
         &embedding_model,
         FR_QC_SPACE_ID,
-        system_ids::NAME_ATTRIBUTE,
+        system_ids::NAME_PROPERTY,
         "Quebec",
         FR_QC_SPACE_ID,
     )
@@ -165,7 +162,7 @@ async fn main() -> anyhow::Result<()> {
         &neo4j,
         &embedding_model,
         FR_QC_SPACE_ID,
-        system_ids::DESCRIPTION_ATTRIBUTE,
+        system_ids::DESCRIPTION_PROPERTY,
         "The space for Quebec related content",
         FR_QC_SPACE_ID,
     )
@@ -174,7 +171,7 @@ async fn main() -> anyhow::Result<()> {
         &neo4j,
         &embedding_model,
         FR_SPACE_ID,
-        system_ids::NAME_ATTRIBUTE,
+        system_ids::NAME_PROPERTY,
         "Francophonie",
         FR_SPACE_ID,
     )
@@ -186,10 +183,7 @@ async fn main() -> anyhow::Result<()> {
         &embedding_model,
         "Person",
         [],
-        [
-            system_ids::NAME_ATTRIBUTE,
-            system_ids::DESCRIPTION_ATTRIBUTE,
-        ],
+        [system_ids::NAME_PROPERTY, system_ids::DESCRIPTION_PROPERTY,],
         Some(system_ids::PERSON_TYPE),
         None,
     )
@@ -200,10 +194,7 @@ async fn main() -> anyhow::Result<()> {
         &embedding_model,
         "Event",
         [],
-        [
-            system_ids::NAME_ATTRIBUTE,
-            system_ids::DESCRIPTION_ATTRIBUTE,
-        ],
+        [system_ids::NAME_PROPERTY, system_ids::DESCRIPTION_PROPERTY,],
         Some(EVENT_TYPE),
         None,
     )
@@ -214,10 +205,7 @@ async fn main() -> anyhow::Result<()> {
         &embedding_model,
         "City",
         [],
-        [
-            system_ids::NAME_ATTRIBUTE,
-            system_ids::DESCRIPTION_ATTRIBUTE,
-        ],
+        [system_ids::NAME_PROPERTY, system_ids::DESCRIPTION_PROPERTY,],
         Some(CITY_TYPE),
         None,
     )
@@ -228,10 +216,7 @@ async fn main() -> anyhow::Result<()> {
         &embedding_model,
         "Program",
         [],
-        [
-            system_ids::NAME_ATTRIBUTE,
-            system_ids::DESCRIPTION_ATTRIBUTE,
-        ],
+        [system_ids::NAME_PROPERTY, system_ids::DESCRIPTION_PROPERTY,],
         Some(PROGRAM_TYPE),
         None,
     )
@@ -242,10 +227,7 @@ async fn main() -> anyhow::Result<()> {
         &embedding_model,
         "School",
         [],
-        [
-            system_ids::NAME_ATTRIBUTE,
-            system_ids::DESCRIPTION_ATTRIBUTE,
-        ],
+        [system_ids::NAME_PROPERTY, system_ids::DESCRIPTION_PROPERTY,],
         Some(SCHOOL_TYPE),
         None,
     )
@@ -314,9 +296,9 @@ async fn main() -> anyhow::Result<()> {
         None,
         [system_ids::PERSON_TYPE],
         [
-            (system_ids::NAME_ATTRIBUTE, "Alice"),
+            (system_ids::NAME_PROPERTY, "Alice"),
             (
-                system_ids::DESCRIPTION_ATTRIBUTE,
+                system_ids::DESCRIPTION_PROPERTY,
                 "Speaker at Rust Conference 2023",
             ),
         ],
@@ -435,7 +417,7 @@ async fn main() -> anyhow::Result<()> {
         &neo4j,
         &embedding_model,
         SOFTWARE_ENGINEERING_ID,
-        system_ids::NAME_ATTRIBUTE,
+        system_ids::NAME_PROPERTY,
         "Génie logiciel",
         FR_SPACE_ID,
     )
@@ -458,7 +440,7 @@ async fn main() -> anyhow::Result<()> {
         &neo4j,
         &embedding_model,
         SOFTWARE_ENGINEERING_ID,
-        system_ids::NAME_ATTRIBUTE,
+        system_ids::NAME_PROPERTY,
         "Génie informatique",
         FR_SPACE_ID,
     )
@@ -615,69 +597,65 @@ pub async fn bootstrap(
 ) -> anyhow::Result<()> {
     let triples = vec![
         // Value types
-        Triple::new(system_ids::CHECKBOX, system_ids::NAME_ATTRIBUTE, "Checkbox"),
-        Triple::new(system_ids::TIME, system_ids::NAME_ATTRIBUTE, "Time"),
-        Triple::new(system_ids::TEXT, system_ids::NAME_ATTRIBUTE, "Text"),
-        Triple::new(system_ids::URL, system_ids::NAME_ATTRIBUTE, "Url"),
-        Triple::new(system_ids::NUMBER, system_ids::NAME_ATTRIBUTE, "Number"),
-        Triple::new(system_ids::POINT, system_ids::NAME_ATTRIBUTE, "Point"),
-        Triple::new(system_ids::IMAGE, system_ids::NAME_ATTRIBUTE, "Image"),
+        Triple::new(system_ids::CHECKBOX, system_ids::NAME_PROPERTY, "Checkbox"),
+        Triple::new(system_ids::TIME, system_ids::NAME_PROPERTY, "Time"),
+        Triple::new(system_ids::TEXT, system_ids::NAME_PROPERTY, "Text"),
+        Triple::new(system_ids::URL, system_ids::NAME_PROPERTY, "Url"),
+        Triple::new(system_ids::NUMBER, system_ids::NAME_PROPERTY, "Number"),
+        Triple::new(system_ids::POINT, system_ids::NAME_PROPERTY, "Point"),
+        Triple::new(system_ids::IMAGE, system_ids::NAME_PROPERTY, "Image"),
         // System types
         Triple::new(
             system_ids::PROPERTY_TYPE,
-            system_ids::NAME_ATTRIBUTE,
+            system_ids::NAME_PROPERTY,
             "Attribute",
         ),
-        Triple::new(system_ids::SCHEMA_TYPE, system_ids::NAME_ATTRIBUTE, "Type"),
+        Triple::new(system_ids::SCHEMA_TYPE, system_ids::NAME_PROPERTY, "Type"),
         Triple::new(
             system_ids::RELATION_SCHEMA_TYPE,
-            system_ids::NAME_ATTRIBUTE,
+            system_ids::NAME_PROPERTY,
             "Relation schema type",
         ),
         Triple::new(
             system_ids::RELATION_TYPE,
-            system_ids::NAME_ATTRIBUTE,
+            system_ids::NAME_PROPERTY,
             "Relation instance type",
         ),
         // Properties
         Triple::new(
             system_ids::PROPERTIES,
-            system_ids::NAME_ATTRIBUTE,
+            system_ids::NAME_PROPERTY,
             "Properties",
         ),
         Triple::new(
             system_ids::TYPES_ATTRIBUTE,
-            system_ids::NAME_ATTRIBUTE,
+            system_ids::NAME_PROPERTY,
             "Types",
         ),
         Triple::new(
             system_ids::VALUE_TYPE_ATTRIBUTE,
-            system_ids::NAME_ATTRIBUTE,
+            system_ids::NAME_PROPERTY,
             "Value Type",
         ),
         Triple::new(
             system_ids::RELATION_TYPE_ATTRIBUTE,
-            system_ids::NAME_ATTRIBUTE,
+            system_ids::NAME_PROPERTY,
             "Relation type attribute",
         ),
         Triple::new(
             system_ids::RELATION_INDEX,
-            system_ids::NAME_ATTRIBUTE,
+            system_ids::NAME_PROPERTY,
             "Relation index",
         ),
         Triple::new(
             system_ids::RELATION_VALUE_RELATIONSHIP_TYPE,
-            system_ids::NAME_ATTRIBUTE,
+            system_ids::NAME_PROPERTY,
             "Relation value type",
         ),
+        Triple::new(system_ids::NAME_PROPERTY, system_ids::NAME_PROPERTY, "Name"),
         Triple::new(
-            system_ids::NAME_ATTRIBUTE,
-            system_ids::NAME_ATTRIBUTE,
-            "Name",
-        ),
-        Triple::new(
-            system_ids::DESCRIPTION_ATTRIBUTE,
-            system_ids::NAME_ATTRIBUTE,
+            system_ids::DESCRIPTION_PROPERTY,
+            system_ids::NAME_PROPERTY,
             "Description",
         ),
     ];
@@ -778,7 +756,7 @@ pub async fn bootstrap(
         "Name",
         system_ids::TEXT,
         None::<&str>,
-        Some(system_ids::NAME_ATTRIBUTE),
+        Some(system_ids::NAME_PROPERTY),
         None,
     )
     .await?;
@@ -789,7 +767,7 @@ pub async fn bootstrap(
         "Description",
         system_ids::TEXT,
         None::<&str>,
-        Some(system_ids::DESCRIPTION_ATTRIBUTE),
+        Some(system_ids::DESCRIPTION_PROPERTY),
         None,
     )
     .await?;
@@ -803,8 +781,8 @@ pub async fn bootstrap(
         [
             system_ids::TYPES_ATTRIBUTE,
             system_ids::PROPERTIES,
-            system_ids::NAME_ATTRIBUTE,
-            system_ids::DESCRIPTION_ATTRIBUTE,
+            system_ids::NAME_PROPERTY,
+            system_ids::DESCRIPTION_PROPERTY,
         ],
         Some(system_ids::SCHEMA_TYPE),
         None,
@@ -829,8 +807,8 @@ pub async fn bootstrap(
         [system_ids::SCHEMA_TYPE],
         [
             system_ids::VALUE_TYPE_ATTRIBUTE,
-            system_ids::NAME_ATTRIBUTE,
-            system_ids::DESCRIPTION_ATTRIBUTE,
+            system_ids::NAME_PROPERTY,
+            system_ids::DESCRIPTION_PROPERTY,
         ],
         Some(system_ids::PROPERTY_TYPE),
         None,
@@ -875,7 +853,7 @@ pub async fn create_entity(
     triple::insert_many(neo4j, &block, space_id, DEFAULT_VERSION)
         .triples(vec![Triple::with_embedding(
             &entity_id,
-            system_ids::NAME_ATTRIBUTE,
+            system_ids::NAME_PROPERTY,
             name.clone(),
             embedding_model
                 .embed(vec![name], Some(1))
@@ -894,7 +872,7 @@ pub async fn create_entity(
         triple::insert_many(neo4j, &block, space_id, DEFAULT_VERSION)
             .triples(vec![Triple::new(
                 &entity_id,
-                system_ids::DESCRIPTION_ATTRIBUTE,
+                system_ids::DESCRIPTION_PROPERTY,
                 description,
             )])
             .send()
@@ -1050,7 +1028,7 @@ pub async fn create_type(
     triple::insert_many(neo4j, &block, space_id, DEFAULT_VERSION)
         .triples(vec![Triple::with_embedding(
             &type_id,
-            system_ids::NAME_ATTRIBUTE,
+            system_ids::NAME_PROPERTY,
             name.clone(),
             embedding_model
                 .embed(vec![name], Some(1))
@@ -1107,7 +1085,7 @@ pub async fn create_property(
     triple::insert_many(neo4j, &block, space_id, DEFAULT_VERSION)
         .triples(vec![Triple::with_embedding(
             &property_id,
-            system_ids::NAME_ATTRIBUTE,
+            system_ids::NAME_PROPERTY,
             string_name.clone(),
             embedding_model
                 .embed(vec![string_name], Some(1))

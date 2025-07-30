@@ -178,12 +178,6 @@ pub async fn reset_db(handler: &EventHandler) -> anyhow::Result<()> {
             "CREATE INDEX relation_id_index FOR () -[r:RELATION]-> () ON (r.id)",
         ))
         .await?;
-    handler
-        .neo4j()
-        .run(neo4rs::query(
-            "CREATE INDEX relation_type_index FOR () -[r:RELATION]-> () ON (r.relation_type)",
-        ))
-        .await?;
 
     handler.neo4j()
         .run(neo4rs::query(&format!(

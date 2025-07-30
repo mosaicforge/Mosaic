@@ -1,20 +1,14 @@
 use clap::{Args, Parser};
 use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
-use futures::{TryStreamExt, future::join_all, pin_mut};
+use futures::{StreamExt, TryStreamExt, future::join_all};
 use grc20_core::{
     entity::{
-        self, Entity, EntityFilter, EntityNode, EntityRelationFilter, utils::TraverseRelation,
+        self, Entity,
+        utils::{EntityFilter, TypesFilter},
     },
-    mapping::{
-        Query, QueryStream, RelationEdge, Triple, prop_filter,
-        query_utils::RelationDirection,
-        triple::{self, SemanticSearchResult},
-    },
-    neo4rs,
-    relation::{self, RelationFilter},
-    system_ids,
+    neo4rs, relation, system_ids,
 };
-use grc20_sdk::models::BaseEntity;
+// use grc20_sdk::models::BaseEntity;
 use mcp_server::input_types::{self, SearchTraversalInputFilter};
 use rmcp::{
     Error as McpError, RoleServer, ServerHandler,
@@ -23,13 +17,14 @@ use rmcp::{
     tool,
     transport::sse_server::{SseServer, SseServerConfig},
 };
-use serde_json::{Value, json};
-use std::{collections::HashSet, sync::Arc};
+use serde_json::json;
+use std::{collections::HashMap, sync::Arc};
 use tracing_subscriber::{
     layer::SubscriberExt,
     util::SubscriberInitExt,
     {self},
 };
+use uuid::Uuid;
 
 const BIND_ADDRESS: &str = "0.0.0.0:8080";
 
@@ -113,11 +108,30 @@ impl KnowledgeGraph {
         RawResource::new(uri, name.to_string()).no_annotation()
     }
 
+    fn embed_query(&self, query: &str) -> Result<Vec<f64>, McpError> {
+        self.embedding_model
+            .embed(vec![query], None)
+            .map_err(|e| {
+                McpError::internal_error(
+                    "embedding_failed",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?
+            .pop()
+            .ok_or_else(|| {
+                McpError::internal_error(
+                    "embedding_failed",
+                    Some(json!({ "error": "Embedding is empty" })),
+                )
+            })
+            .map(|embedding| embedding.into_iter().map(|v| v as f64).collect::<Vec<_>>())
+    }
+
     async fn search(
         &self,
         query: String,
         limit: Option<usize>,
-    ) -> Result<Vec<SemanticSearchResult>, McpError> {
+    ) -> Result<Vec<entity::SemanticSearchResult>, McpError> {
         let embedding = self
             .embedding_model
             .embed(vec![&query], None)
@@ -130,7 +144,7 @@ impl KnowledgeGraph {
 
         let limit = limit.unwrap_or(10);
 
-        let semantic_search_triples = triple::search(&self.neo4j, embedding)
+        let semantic_search_triples = entity::search(&self.neo4j, embedding)
             .limit(limit)
             .send()
             .await
@@ -148,50 +162,68 @@ impl KnowledgeGraph {
                     Some(json!({ "error": e.to_string() })),
                 )
             })?;
+
         Ok(semantic_search_triples)
     }
 
-    async fn get_ids_from_search(
-        &self,
-        search_triples: Vec<SemanticSearchResult>,
-        create_relation_filter: impl Fn(SemanticSearchResult) -> RelationFilter,
-    ) -> Result<Vec<String>, McpError> {
-        let mut seen_ids: HashSet<String> = HashSet::new();
-        let mut result_ids: Vec<String> = Vec::new();
+    // async fn get_ids_from_search(
+    //     &self,
+    //     search_triples: Vec<SemanticSearchResult>,
+    //     create_relation_filter: impl Fn(SemanticSearchResult) -> RelationFilter,
+    // ) -> Result<Vec<String>, McpError> {
+    //     let mut seen_ids: HashSet<String> = HashSet::new();
+    //     let mut result_ids: Vec<String> = Vec::new();
 
-        for semantic_search_triple in search_triples {
-            let filtered_for_types = relation::find_many::<RelationEdge<EntityNode>>(&self.neo4j)
-                .filter(create_relation_filter(semantic_search_triple))
-                .send()
-                .await;
+    //     for semantic_search_triple in search_triples {
+    //         let filtered_for_types = relation::find_many(&self.neo4j)
+    //             .filter(create_relation_filter(semantic_search_triple))
+    //             .send()
+    //             .await;
 
-            //We only need to get the first relation since they would share the same entity id
-            if let Ok(stream) = filtered_for_types {
-                pin_mut!(stream);
-                if let Some(edge) = stream.try_next().await.ok().flatten() {
-                    let id = edge.from.id;
-                    if seen_ids.insert(id.clone()) {
-                        result_ids.push(id);
-                    }
-                }
-            }
-        }
-        Ok(result_ids)
-    }
+    //         //We only need to get the first relation since they would share the same entity id
+    //         if let Ok(stream) = filtered_for_types {
+    //             pin_mut!(stream);
+    //             if let Some(edge) = stream.try_next().await.ok().flatten() {
+    //                 let id = edge.from.id;
+    //                 if seen_ids.insert(id.clone()) {
+    //                     result_ids.push(id);
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     Ok(result_ids)
+    // }
 
-    async fn format_triples_detailled(
-        &self,
-        triples: Result<Vec<Triple>, ErrorData>,
-    ) -> Vec<Value> {
-        if let Ok(triples) = triples {
-            join_all(triples.into_iter().map(|triple| async move {json!({
-                            "entity_id": triple.entity,
-                            "attribute_name": self.get_name_of_id(triple.attribute).await.unwrap_or("No attribute name".to_string()),
-                            "attribute_value": String::try_from(triple.value).unwrap_or("No value".to_string())
-                        })})).await.to_vec()
-        } else {
-            Vec::new()
-        }
+    async fn format_entity_detailled(&self, entity: Entity) -> Result<serde_json::Value, McpError> {
+        let properties = entity
+            .get_properties(&self.neo4j)
+            .send()
+            .await
+            .map_err(|e| {
+                McpError::internal_error(
+                    "format_entity_detailled",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?
+            .map_ok(|prop| (prop.id, prop))
+            .try_collect::<HashMap<_, _>>()
+            .await
+            .map_err(|e| {
+                McpError::internal_error(
+                    "format_entity_detailled",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?;
+
+        Ok(json!({
+            "entity_id": entity.id,
+            "properties": entity.flattened_properties().into_iter()
+                .map(|(prop_id, values)| json!({
+                    "name": properties.get(&prop_id).map(|e| e.names().join(",")).unwrap_or("UNKNOWN".to_string()),
+                    "values": values.into_iter().map(|v| v.value).collect::<Vec<_>>()
+                }))
+                .collect::<Vec<_>>()
+        }))
     }
 
     #[tool(description = include_str!("../resources/search_type_description.md"))]
@@ -201,55 +233,73 @@ impl KnowledgeGraph {
         #[schemars(description = "The query string to search for types")]
         query: String,
     ) -> Result<CallToolResult, McpError> {
-        let semantic_search_triples = self.search(query, Some(10)).await.unwrap_or_default();
+        let vector = self.embed_query(&query)?;
 
-        let create_relation_filter = |search_result: SemanticSearchResult| {
-            RelationFilter::default()
-                .from_(EntityFilter::default().id(prop_filter::value(search_result.triple.entity)))
-                .relation_type(
-                    EntityFilter::default().id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)),
+        // let semantic_search_triples = self.search(query, Some(10)).await.unwrap_or_default();
+
+        // let create_relation_filter = |search_result: SemanticSearchResult| {
+        //     RelationFilter::default()
+        //         .from_(EntityFilter::default().id(prop_filter::value(search_result.triple.entity)))
+        //         .relation_type(
+        //             EntityFilter::default().id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)),
+        //         )
+        //         .to_(EntityFilter::default().id(prop_filter::value(system_ids::SCHEMA_TYPE)))
+        // };
+
+        // let result_types = self
+        //     .get_ids_from_search(semantic_search_triples, &create_relation_filter)
+        //     .await
+        //     .unwrap_or_default();
+        //
+        let types = entity::exact_search(&self.neo4j, vector)
+            .filter(TypesFilter::default().r#type(system_ids::SCHEMA_TYPE))
+            .limit(10)
+            .send()
+            .await
+            .map_err(|e| {
+                McpError::internal_error(
+                    "search_types_failed",
+                    Some(json!({ "error": e.to_string() })),
                 )
-                .to_(EntityFilter::default().id(prop_filter::value(system_ids::SCHEMA_TYPE)))
-        };
-
-        let result_types = self
-            .get_ids_from_search(semantic_search_triples, &create_relation_filter)
+            })?
+            .try_collect::<Vec<_>>()
             .await
-            .unwrap_or_default();
+            .map_err(|e| {
+                McpError::internal_error(
+                    "search_types_failed",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?;
 
-        let entities: Vec<Result<Vec<Triple>, McpError>> =
-            join_all(result_types.into_iter().map(|id| async {
-                triple::find_many(&self.neo4j)
-                    .entity_id(prop_filter::value(id))
-                    .send()
-                    .await
-                    .map_err(|e| {
-                        McpError::internal_error(
-                            "search_types_failed",
-                            Some(json!({ "error": e.to_string() })),
-                        )
-                    })?
-                    .try_collect::<Vec<_>>()
-                    .await
-                    .map_err(|e| {
-                        McpError::internal_error(
-                            "search_types_failed",
-                            Some(json!({ "error": e.to_string() })),
-                        )
-                    })
-            }))
-            .await
-            .to_vec();
+        // let entities: Vec<Result<Vec<Triple>, McpError>> =
+        //     join_all(result_types.into_iter().map(|id| async {
+        //         triple::find_many(&self.neo4j)
+        //             .entity_id(prop_filter::value(id))
+        //             .send()
+        //             .await
+        //             .map_err(|e| {
+        //                 McpError::internal_error(
+        //                     "search_types_failed",
+        //                     Some(json!({ "error": e.to_string() })),
+        //                 )
+        //             })?
+        //             .try_collect::<Vec<_>>()
+        //             .await
+        //             .map_err(|e| {
+        //                 McpError::internal_error(
+        //                     "search_types_failed",
+        //                     Some(json!({ "error": e.to_string() })),
+        //                 )
+        //             })
+        //     }))
+        //     .await
+        //     .to_vec();
 
         Ok(CallToolResult::success(
-            join_all(
-                entities
-                    .into_iter()
-                    .map(|result: Result<Vec<Triple>, _>| async {
-                        Content::json(self.format_triples_detailled(result).await)
-                            .expect("Failed to create JSON content")
-                    }),
-            )
+            join_all(types.into_iter().map(|result| async {
+                Content::json(self.format_entity_detailled(result.into_entity()).await)
+                    .expect("Failed to create JSON content")
+            }))
             .await
             .to_vec(),
         ))
@@ -262,59 +312,82 @@ impl KnowledgeGraph {
         #[schemars(description = "The query string to search for relation types")]
         query: String,
     ) -> Result<CallToolResult, McpError> {
-        let semantic_search_triples = self.search(query, Some(10)).await.unwrap_or_default();
+        let vector = self.embed_query(&query)?;
 
-        let create_relation_filter = |search_result: SemanticSearchResult| {
-            RelationFilter::default()
-                .from_(EntityFilter::default().id(prop_filter::value(search_result.triple.entity)))
-                .relation_type(
-                    EntityFilter::default()
-                        .id(prop_filter::value(system_ids::VALUE_TYPE_ATTRIBUTE)),
-                )
-                .to_(
-                    EntityFilter::default()
-                        .id(prop_filter::value(system_ids::RELATION_SCHEMA_TYPE)),
-                )
-        };
+        // let semantic_search_triples = self.search(query, Some(10)).await.unwrap_or_default();
 
-        let result_types = self
-            .get_ids_from_search(semantic_search_triples, &create_relation_filter)
+        // let create_relation_filter = |search_result: SemanticSearchResult| {
+        //     RelationFilter::default()
+        //         .from_(EntityFilter::default().id(prop_filter::value(search_result.triple.entity)))
+        //         .relation_type(
+        //             EntityFilter::default()
+        //                 .id(prop_filter::value(system_ids::VALUE_TYPE_ATTRIBUTE)),
+        //         )
+        //         .to_(
+        //             EntityFilter::default()
+        //                 .id(prop_filter::value(system_ids::RELATION_SCHEMA_TYPE)),
+        //         )
+        // };
+
+        // let result_types = self
+        //     .get_ids_from_search(semantic_search_triples, &create_relation_filter)
+        //     .await
+        //     .unwrap_or_default();
+        let relation_types = entity::exact_search(&self.neo4j, vector)
+            .filter(
+                entity::EntityFilter::default().relations(
+                    entity::EntityRelationFilter::default()
+                        .relation_type(system_ids::VALUE_TYPE_ATTRIBUTE)
+                        .to_id(system_ids::RELATION_SCHEMA_TYPE),
+                ),
+            )
+            .limit(10)
+            .send()
             .await
-            .unwrap_or_default();
-
-        let entities: Vec<Result<Vec<Triple>, McpError>> =
-            join_all(result_types.into_iter().map(|id| async {
-                triple::find_many(&self.neo4j)
-                    .entity_id(prop_filter::value(id))
-                    .send()
-                    .await
-                    .map_err(|e| {
-                        McpError::internal_error(
-                            "search_types_failed",
-                            Some(json!({ "error": e.to_string() })),
-                        )
-                    })?
-                    .try_collect::<Vec<_>>()
-                    .await
-                    .map_err(|e| {
-                        McpError::internal_error(
-                            "search_types_failed",
-                            Some(json!({ "error": e.to_string() })),
-                        )
-                    })
-            }))
+            .map_err(|e| {
+                McpError::internal_error(
+                    "search_types_failed",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?
+            .try_collect::<Vec<_>>()
             .await
-            .to_vec();
+            .map_err(|e| {
+                McpError::internal_error(
+                    "search_types_failed",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?;
+
+        // let entities: Vec<Result<Vec<Triple>, McpError>> =
+        //     join_all(result_types.into_iter().map(|id| async {
+        //         triple::find_many(&self.neo4j)
+        //             .entity_id(prop_filter::value(id))
+        //             .send()
+        //             .await
+        //             .map_err(|e| {
+        //                 McpError::internal_error(
+        //                     "search_types_failed",
+        //                     Some(json!({ "error": e.to_string() })),
+        //                 )
+        //             })?
+        //             .try_collect::<Vec<_>>()
+        //             .await
+        //             .map_err(|e| {
+        //                 McpError::internal_error(
+        //                     "search_types_failed",
+        //                     Some(json!({ "error": e.to_string() })),
+        //                 )
+        //             })
+        //     }))
+        //     .await
+        //     .to_vec();
 
         Ok(CallToolResult::success(
-            join_all(
-                entities
-                    .into_iter()
-                    .map(|result: Result<Vec<Triple>, _>| async {
-                        Content::json(self.format_triples_detailled(result).await)
-                            .expect("Failed to create JSON content")
-                    }),
-            )
+            join_all(relation_types.into_iter().map(|result| async {
+                Content::json(self.format_entity_detailled(result.into_entity()).await)
+                    .expect("Failed to create JSON content")
+            }))
             .await
             .to_vec(),
         ))
@@ -327,55 +400,73 @@ impl KnowledgeGraph {
         #[schemars(description = "The query string to search for space")]
         query: String,
     ) -> Result<CallToolResult, McpError> {
-        let semantic_search_triples = self.search(query, Some(10)).await.unwrap_or_default();
+        let vector = self.embed_query(&query)?;
 
-        let create_relation_filter = |search_result: SemanticSearchResult| {
-            RelationFilter::default()
-                .from_(EntityFilter::default().id(prop_filter::value(search_result.triple.entity)))
-                .relation_type(
-                    EntityFilter::default().id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)),
+        // let semantic_search_triples = self.search(query, Some(10)).await.unwrap_or_default();
+
+        // let create_relation_filter = |search_result: SemanticSearchResult| {
+        //     RelationFilter::default()
+        //         .from_(EntityFilter::default().id(prop_filter::value(search_result.triple.entity)))
+        //         .relation_type(
+        //             EntityFilter::default().id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)),
+        //         )
+        //         .to_(EntityFilter::default().id(prop_filter::value(system_ids::SPACE_TYPE)))
+        // };
+
+        // let result_types = self
+        //     .get_ids_from_search(semantic_search_triples, &create_relation_filter)
+        //     .await
+        //     .unwrap_or_default();
+
+        // let entities: Vec<Result<Vec<Triple>, McpError>> =
+        //     join_all(result_types.into_iter().map(|id| async {
+        //         triple::find_many(&self.neo4j)
+        //             .entity_id(prop_filter::value(id))
+        //             .send()
+        //             .await
+        //             .map_err(|e| {
+        //                 McpError::internal_error(
+        //                     "search_types_failed",
+        //                     Some(json!({ "error": e.to_string() })),
+        //                 )
+        //             })?
+        //             .try_collect::<Vec<_>>()
+        //             .await
+        //             .map_err(|e| {
+        //                 McpError::internal_error(
+        //                     "search_types_failed",
+        //                     Some(json!({ "error": e.to_string() })),
+        //                 )
+        //             })
+        //     }))
+        //     .await
+        //     .to_vec();
+
+        let spaces = entity::exact_search(&self.neo4j, vector)
+            .filter(TypesFilter::default().r#type(system_ids::SPACE_TYPE))
+            .limit(10)
+            .send()
+            .await
+            .map_err(|e| {
+                McpError::internal_error(
+                    "search_types_failed",
+                    Some(json!({ "error": e.to_string() })),
                 )
-                .to_(EntityFilter::default().id(prop_filter::value(system_ids::SPACE_TYPE)))
-        };
-
-        let result_types = self
-            .get_ids_from_search(semantic_search_triples, &create_relation_filter)
+            })?
+            .try_collect::<Vec<_>>()
             .await
-            .unwrap_or_default();
-
-        let entities: Vec<Result<Vec<Triple>, McpError>> =
-            join_all(result_types.into_iter().map(|id| async {
-                triple::find_many(&self.neo4j)
-                    .entity_id(prop_filter::value(id))
-                    .send()
-                    .await
-                    .map_err(|e| {
-                        McpError::internal_error(
-                            "search_types_failed",
-                            Some(json!({ "error": e.to_string() })),
-                        )
-                    })?
-                    .try_collect::<Vec<_>>()
-                    .await
-                    .map_err(|e| {
-                        McpError::internal_error(
-                            "search_types_failed",
-                            Some(json!({ "error": e.to_string() })),
-                        )
-                    })
-            }))
-            .await
-            .to_vec();
+            .map_err(|e| {
+                McpError::internal_error(
+                    "search_types_failed",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?;
 
         Ok(CallToolResult::success(
-            join_all(
-                entities
-                    .into_iter()
-                    .map(|result: Result<Vec<Triple>, _>| async {
-                        Content::json(self.format_triples_detailled(result).await)
-                            .expect("Failed to create JSON content")
-                    }),
-            )
+            join_all(spaces.into_iter().map(|result| async {
+                Content::json(self.format_entity_detailled(result.into_entity()).await)
+                    .expect("Failed to create JSON content")
+            }))
             .await
             .to_vec(),
         ))
@@ -388,55 +479,73 @@ impl KnowledgeGraph {
         #[schemars(description = "The query string to search for properties")]
         query: String,
     ) -> Result<CallToolResult, McpError> {
-        let semantic_search_triples = self.search(query, Some(10)).await.unwrap_or_default();
+        let vector = self.embed_query(&query)?;
 
-        let create_relation_filter = |search_result: SemanticSearchResult| {
-            RelationFilter::default()
-                .from_(EntityFilter::default().id(prop_filter::value(search_result.triple.entity)))
-                .relation_type(
-                    EntityFilter::default().id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)),
+        // let semantic_search_triples = self.search(query, Some(10)).await.unwrap_or_default();
+
+        // let create_relation_filter = |search_result: SemanticSearchResult| {
+        //     RelationFilter::default()
+        //         .from_(EntityFilter::default().id(prop_filter::value(search_result.triple.entity)))
+        //         .relation_type(
+        //             EntityFilter::default().id(prop_filter::value(system_ids::TYPES_ATTRIBUTE)),
+        //         )
+        //         .to_(EntityFilter::default().id(prop_filter::value(system_ids::PROPERTY_TYPE)))
+        // };
+
+        // let result_types = self
+        //     .get_ids_from_search(semantic_search_triples, &create_relation_filter)
+        //     .await
+        //     .unwrap_or_default();
+
+        // let entities: Vec<Result<Vec<Triple>, McpError>> =
+        //     join_all(result_types.into_iter().map(|id| async {
+        //         triple::find_many(&self.neo4j)
+        //             .entity_id(prop_filter::value(id))
+        //             .send()
+        //             .await
+        //             .map_err(|e| {
+        //                 McpError::internal_error(
+        //                     "search_types_failed",
+        //                     Some(json!({ "error": e.to_string() })),
+        //                 )
+        //             })?
+        //             .try_collect::<Vec<_>>()
+        //             .await
+        //             .map_err(|e| {
+        //                 McpError::internal_error(
+        //                     "search_types_failed",
+        //                     Some(json!({ "error": e.to_string() })),
+        //                 )
+        //             })
+        //     }))
+        //     .await
+        //     .to_vec();
+
+        let properties = entity::exact_search(&self.neo4j, vector)
+            .filter(TypesFilter::default().r#type(system_ids::PROPERTY_TYPE))
+            .limit(10)
+            .send()
+            .await
+            .map_err(|e| {
+                McpError::internal_error(
+                    "search_types_failed",
+                    Some(json!({ "error": e.to_string() })),
                 )
-                .to_(EntityFilter::default().id(prop_filter::value(system_ids::PROPERTY_TYPE)))
-        };
-
-        let result_types = self
-            .get_ids_from_search(semantic_search_triples, &create_relation_filter)
+            })?
+            .try_collect::<Vec<_>>()
             .await
-            .unwrap_or_default();
-
-        let entities: Vec<Result<Vec<Triple>, McpError>> =
-            join_all(result_types.into_iter().map(|id| async {
-                triple::find_many(&self.neo4j)
-                    .entity_id(prop_filter::value(id))
-                    .send()
-                    .await
-                    .map_err(|e| {
-                        McpError::internal_error(
-                            "search_types_failed",
-                            Some(json!({ "error": e.to_string() })),
-                        )
-                    })?
-                    .try_collect::<Vec<_>>()
-                    .await
-                    .map_err(|e| {
-                        McpError::internal_error(
-                            "search_types_failed",
-                            Some(json!({ "error": e.to_string() })),
-                        )
-                    })
-            }))
-            .await
-            .to_vec();
+            .map_err(|e| {
+                McpError::internal_error(
+                    "search_types_failed",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?;
 
         Ok(CallToolResult::success(
-            join_all(
-                entities
-                    .into_iter()
-                    .map(|result: Result<Vec<Triple>, _>| async {
-                        Content::json(self.format_triples_detailled(result).await)
-                            .expect("Failed to create JSON content")
-                    }),
-            )
+            join_all(properties.into_iter().map(|result| async {
+                Content::json(self.format_entity_detailled(result.into_entity()).await)
+                    .expect("Failed to create JSON content")
+            }))
             .await
             .to_vec(),
         ))
@@ -559,7 +668,7 @@ impl KnowledgeGraph {
                             .map(|v| v as f64)
                             .collect::<Vec<_>>();
 
-                        let rel_results = entity::search::<EntityNode>(&self.neo4j, rel_embedding)
+                        let rel_results = entity::search(&self.neo4j, rel_embedding)
                             .filter(
                                 entity::EntityFilter::default().relations(
                                     EntityRelationFilter::default()
@@ -659,24 +768,36 @@ impl KnowledgeGraph {
         )]
         id: String,
     ) -> Result<CallToolResult, McpError> {
-        let entity_attributes = triple::find_many(&self.neo4j)
-            .entity_id(prop_filter::value(&id))
+        let id = id
+            .parse::<Uuid>()
+            .map_err(|e| McpError::invalid_params("Invalid UUID for entity_id", None))?;
+
+        let entity = entity::find_one(&self.neo4j, id)
             .send()
-            .await
-            .map_err(|e| {
-                McpError::internal_error("get_entity_info", Some(json!({ "error": e.to_string() })))
-            })?
-            .try_collect::<Vec<_>>()
             .await
             .map_err(|e| {
                 McpError::internal_error("get_entity_info", Some(json!({ "error": e.to_string() })))
             })?;
 
-        let out_relations = relation::find_many::<RelationEdge<EntityNode>>(&self.neo4j)
-            .filter(
-                relation::RelationFilter::default()
-                    .from_(EntityFilter::default().id(prop_filter::value(id.clone()))),
-            )
+        // let entity_attributes = triple::find_many(&self.neo4j)
+        //     .entity_id(prop_filter::value(&id))
+        //     .send()
+        //     .await
+        //     .map_err(|e| {
+        //         McpError::internal_error("get_entity_info", Some(json!({ "error": e.to_string() })))
+        //     })?
+        //     .try_collect::<Vec<_>>()
+        //     .await
+        //     .map_err(|e| {
+        //         McpError::internal_error("get_entity_info", Some(json!({ "error": e.to_string() })))
+        //     })?;
+
+        let out_relations = relation::find_many(&self.neo4j)
+            .from(id.clone())
+            // .filter(
+            // relation::RelationFilter::default()
+            //     .from_(EntityFilter::default().id(prop_filter::value(id.clone()))),
+            // )
             .limit(10)
             .send()
             .await
@@ -695,11 +816,12 @@ impl KnowledgeGraph {
                 )
             })?;
 
-        let in_relations = relation::find_many::<RelationEdge<EntityNode>>(&self.neo4j)
-            .filter(
-                relation::RelationFilter::default()
-                    .to_(EntityFilter::default().id(prop_filter::value(id.clone()))),
-            )
+        let in_relations = relation::find_many(&self.neo4j)
+            .to(id.clone())
+            // .filter(
+            //     relation::RelationFilter::default()
+            //         .to_(EntityFilter::default().id(prop_filter::value(id.clone()))),
+            // )
             .limit(10)
             .send()
             .await
@@ -767,18 +889,26 @@ impl KnowledgeGraph {
         #[schemars(description = "The id of the second Entity to find relations")]
         entity2_id: String,
     ) -> Result<CallToolResult, McpError> {
-        let relations = entity::find_path(&self.neo4j, entity1_id.clone(), entity2_id.clone())
-            .limit(10)
-            .send()
-            .await
-            .map_err(|e| {
-                McpError::internal_error(
-                    "get_relation_by_ids",
-                    Some(json!({ "error": e.to_string() })),
-                )
-            })?
-            .into_iter()
-            .collect::<Vec<_>>();
+        let relations = entity::find_path(
+            &self.neo4j,
+            entity1_id
+                .parse::<Uuid>()
+                .map_err(|e| McpError::invalid_params("Invalid UUID for entity1_id", None))?,
+            entity2_id
+                .parse::<Uuid>()
+                .map_err(|e| McpError::invalid_params("Invalid UUID for entity2_id", None))?,
+        )
+        .limit(10)
+        .send()
+        .await
+        .map_err(|e| {
+            McpError::internal_error(
+                "get_relation_by_ids",
+                Some(json!({ "error": e.to_string() })),
+            )
+        })?
+        .into_iter()
+        .collect::<Vec<_>>();
 
         tracing::info!("Found {} relations", relations.len());
 
@@ -797,18 +927,19 @@ impl KnowledgeGraph {
         ))
     }
 
-    async fn get_name_of_id(&self, id: String) -> Result<String, McpError> {
-        let entity = entity::find_one::<Entity<BaseEntity>>(&self.neo4j, &id)
-            .send()
-            .await
-            .map_err(|e| {
-                McpError::internal_error("get_entity_name", Some(json!({ "error": e.to_string() })))
-            })?
-            .ok_or_else(|| {
-                McpError::internal_error("entity_name_not_found", Some(json!({ "id": id })))
-            })?;
-        Ok(entity.attributes.name.unwrap_or("No name".to_string()))
-    }
+    // async fn get_name_of_id(&self, id: Uuid) -> Result<String, McpError> {
+    //     let entity = entity::find_one(&self.neo4j, id)
+    //         .send()
+    //         .await
+    //         .map_err(|e| {
+    //             McpError::internal_error("get_entity_name", Some(json!({ "error": e.to_string() })))
+    //         })?
+    //         .ok_or_else(|| {
+    //             McpError::internal_error("entity_name_not_found", Some(json!({ "id": id })))
+    //         })?;
+
+    //     Ok(entity.attributes.name.unwrap_or("No name".to_string()))
+    // }
 }
 
 #[tool(tool_box)]
