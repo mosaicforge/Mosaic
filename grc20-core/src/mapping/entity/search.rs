@@ -99,7 +99,7 @@ impl SemanticSearchQuery {
                         q.as_string_filter()
                             .subquery(&format!("r{i}"), "type", None)
                     }))
-                    .subquery("WITH score, DISTINCT dest AS e")
+                    .subquery("WITH DISTINCT dest AS e, score")
             });
 
         builder
@@ -117,11 +117,19 @@ impl SemanticSearchQuery {
         self,
     ) -> Result<impl Stream<Item = Result<SemanticSearchResult, DatabaseError>>, DatabaseError>
     {
-        let query = self.subquery().build();
+        let query = self.subquery();
+
+        if cfg!(debug_assertions) || cfg!(test) {
+            println!(
+                "entity_node::FindManyQuery:\n{}\nparams:{:?}",
+                query.compile(),
+                query.params()
+            );
+        };
 
         Ok(self
             .neo4j
-            .execute(query)
+            .execute(query.build())
             .await?
             .into_stream_as::<SemanticSearchResult>()
             .map_err(DatabaseError::from))

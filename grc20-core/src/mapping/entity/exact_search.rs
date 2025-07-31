@@ -107,7 +107,7 @@ impl ExactSemanticSearchQuery {
                         q.as_string_filter()
                             .subquery(&format!("r{i}"), "type", None)
                     }))
-                    .subquery("WITH score, DISTINCT dest AS e")
+                    .subquery("WITH DISTINCT dest AS e, score")
             });
 
         builder
