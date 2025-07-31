@@ -77,7 +77,7 @@ impl<T> SemanticSearchQuery<T> {
 
     fn subquery(&self) -> QueryBuilder {
         const QUERY: &str = r#"
-            CALL db.index.vector.queryNodes('vector_index', $limit * $effective_search_ratio, $vector)
+            CALL db.index.vector.queryNodes('vector_index', $effective_search_ratio, $vector)
             YIELD node AS n, score AS score
             MATCH (e:Entity) -[r:ATTRIBUTE]-> (n)
         "#;
@@ -123,9 +123,8 @@ impl QueryStream<SemanticSearchResult<EntityNode>> for SemanticSearchQuery<Entit
 
         if cfg!(debug_assertions) || cfg!(test) {
             tracing::info!(
-                "entity_node::FindManyQuery::<EntityNode>:\n{}\nparams:{:?}",
-                query.compile(),
-                query.params()
+                "entity_node::FindManyQuery::<EntityNode>:\n{}",
+                query.compile()
             );
         };
 

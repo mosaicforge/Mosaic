@@ -1,85 +1,20 @@
-This request allows you to get the Entities from a name/description search and traversal from that query if needed.
+This request allows you to get Entities from a name/description search and traversal from that query by using relation name.
 
-
-Example Query: Can you give me information about San Francisco?
+Example Query: Find employees that works at The Graph.
 
 ToolCall>
 ```
-search_entity({
-"query": "San Francisco"
-})
-```
-Tool Result>
-```
-{
-  "entities": [
+search_entity(
     {
-      "description": "A vibrant city known for its iconic Golden Gate Bridge, steep rolling hills, historic cable cars, and a rich cultural tapestry including diverse neighborhoods like the Castro and the Mission District.",
-      "id": "3qayfdjYyPv1dAYf8gPL5r",
-      "name": "San Francisco"
-    },
-    {
-      "description": null,
-      "id": "W5ZEpuy3Tij1XSXtJLruQ5",
-      "name": "SF Bay Area"
-    },
-    {
-      "description": null,
-      "id": "RHoJT3hNVaw7m5fLLtZ8WQ",
-      "name": "California"
-    },
-    {
-      "description": null,
-      "id": "Sh1qtjr4i92ZD6YGPeu5a2",
-      "name": "Abundant housing in San Francisco"
-    },
-    {
-      "description": null,
-      "id": "UqLf9fTVKHkDs3LzP9zHpH",
-      "name": "Public safety in San Francisco"
-    },
-    {
-      "description": null,
-      "id": "BeyiZ6oLqLMaSXiG41Yxtf",
-      "name": "City"
-    },
-    {
-      "description": null,
-      "id": "D6Wy4bdtdoUrG3PDZceHr",
-      "name": "City"
-    },
-    {
-      "description": null,
-      "id": "JWVrgUXmjS75PqNX2hry5q",
-      "name": "Clean streets in San Francisco"
-    },
-    {
-      "description": null,
-      "id": "DcA2c7ooFTgEdtaRcaj7Z1",
-      "name": "Revitalizing downtown San Francisco"
-    },
-    {
-      "description": null,
-      "id": "KWBLj9czHBBmYUT98rnxVM",
-      "name": "Location"
+    "query": "The Graph",
+    "traversal_filter": {
+        "relation_type": "Works at",
+        "direction": "From"
     }
-  ]
-}
+    }
+)
 ```
 
-Another Query: Give me the employees that work at The Graph?
-
-Work_at id: U1uCAzXsRSTP4vFwo1JwJG
-ToolCall>
-```
-search_entity({
-"query": "The Graph",
-"traversal_filter": {
-  "relation_type_id": "U1uCAzXsRSTP4vFwo1JwJG",
-  "direction": "From"
-}
-})
-```
 ToolResult>
 ```
 {
@@ -98,6 +33,48 @@ ToolResult>
       "description": "Description will go here",
       "id": "JYTfEcdmdjiNzBg469gE83",
       "name": "Pedro Diogo"
+    }
+  ]
+}
+```
+
+Example Query: Find all the articles written by employees that works at The Graph.
+
+ToolCall>
+```
+search_entity(
+    {
+    "query": "The Graph",
+    "traversal_filter": {
+        "relation_type": "Works at",
+        "direction": "From",
+        "traversal_filter": {
+        "relation_type": "Author",
+        "direction": "From"
+        }
+    }
+    }
+)
+```
+
+ToolResult>
+```
+{
+  "entities": [
+    {
+      "description": "A fresh look at what web3 is and what the missing pieces have been for making it a reality.",
+      "id": "XYo6aR3VqFQSEcf6AeTikW",
+      "name": "Knowledge graphs are web3"
+    },
+    {
+      "description": "A new standard is here for structuring knowledge. GRC-20 will reshape how we make applications composable and redefine web3.",
+      "id": "5FkVvS4mTz6Ge7wHkAUMRk",
+      "name": "Introducing GRC-20: A knowledge graph standard for web3"
+    },
+    {
+      "description": "How do you know what is true? Who do you trust? Everybody has a point of view, but no one is an authority. As humanity we need a way to aggregate our knowledge into something we can trust. We need a system.",
+      "id": "5WHP8BuoCdSiqtfy87SYWG",
+      "name": "Governing public knowledge"
     }
   ]
 }

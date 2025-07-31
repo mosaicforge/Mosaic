@@ -688,7 +688,7 @@ impl QueryStream<SemanticSearchResult> for SemanticSearchQuery {
     {
         const QUERY: &str = const_format::formatcp!(
             r#"
-            CALL db.index.vector.queryNodes('vector_index', $limit * $effective_search_ratio, $vector)
+            CALL db.index.vector.queryNodes('vector_index', $effective_search_ratio, $vector)
             YIELD node AS n, score AS score
             ORDER BY score DESC
             LIMIT $limit
