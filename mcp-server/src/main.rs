@@ -1,9 +1,9 @@
 use clap::{Args, Parser};
 use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
-use futures::{TryStreamExt, future::join_all};
+use futures::{StreamExt, TryStreamExt, future::join_all, stream};
 use grc20_core::{
     entity::{
-        self, Entity, EntityRelationFilter,
+        self, Entity, EntityFilter, EntityRelationFilter,
         utils::{RelationTraversal, TypesFilter},
     },
     mapping::query_utils::value_filter,
@@ -21,7 +21,12 @@ use rmcp::{
     transport::sse_server::{SseServer, SseServerConfig},
 };
 use serde_json::json;
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    hash::Hash,
+    sync::Arc,
+    time::Instant,
+};
 use tracing_subscriber::{
     layer::SubscriberExt,
     util::SubscriberInitExt,
@@ -239,141 +244,8 @@ impl KnowledgeGraph {
             .to_vec(),
         ))
     }
-
-    #[tool(description = include_str!("../resources/search_space_description.md"))]
-    async fn search_space(
-        &self,
-        #[tool(param)]
-        #[schemars(description = "The query string to search for space")]
-        query: String,
-    ) -> Result<CallToolResult, McpError> {
-        let vector = self.embed_query(&query)?;
-
-        let spaces = entity::exact_search(&self.neo4j, vector)
-            .filter(TypesFilter::default().r#type(system_ids::SPACE_TYPE))
-            .limit(10)
-            .send()
-            .await
-            .map_err(mcp_server::error::Error::from)?
-            .try_collect::<Vec<_>>()
-            .await
-            .map_err(mcp_server::error::Error::from)?;
-
-        Ok(CallToolResult::success(
-            join_all(spaces.into_iter().map(|result| async {
-                Content::json(self.format_entity(result.into_entity()).await)
-                    .expect("Failed to create JSON content")
-            }))
-            .await
-            .to_vec(),
-        ))
-    }
-
-    #[tool(description = include_str!("../resources/search_properties_description.md"))]
-    async fn search_properties(
-        &self,
-        #[tool(param)]
-        #[schemars(description = "The query string to search for properties")]
-        query: String,
-    ) -> Result<CallToolResult, McpError> {
-        let vector = self.embed_query(&query)?;
-
-        let properties = entity::exact_search(&self.neo4j, vector)
-            .filter(TypesFilter::default().r#type(system_ids::PROPERTY_TYPE))
-            .limit(10)
-            .send()
-            .await
-            .map_err(mcp_server::error::Error::from)?
-            .try_collect::<Vec<_>>()
-            .await
-            .map_err(mcp_server::error::Error::from)?;
-
-        Ok(CallToolResult::success(
-            join_all(properties.into_iter().map(|result| async {
-                Content::json(self.format_entity(result.into_entity()).await)
-                    .expect("Failed to create JSON content")
-            }))
-            .await
-            .to_vec(),
-        ))
-    }
-
-    #[tool(description = include_str!("../resources/search_entity_description.md"))]
-    async fn search_entity(
-        &self,
-        #[tool(param)]
-        #[schemars(description = "A filter of the relation(s) to traverse from the query")]
-        search_traversal_filter: SearchTraversalInputFilter,
-    ) -> Result<CallToolResult, McpError> {
-        tracing::info!(
-            "SearchTraversalFilter query: {}",
-            search_traversal_filter.query
-        );
-
-        let embedding = self
-            .embedding_model
-            .embed(vec![&search_traversal_filter.query], None)
-            .expect("Failed to get embedding")
-            .pop()
-            .expect("Embedding is empty")
-            .into_iter()
-            .map(|v| v as f64)
-            .collect::<Vec<_>>();
-
-        let traversal_filters: Vec<_> = search_traversal_filter
-            .traversal_filter
-            .map(|relation_filter| relation_filter.into_iter().collect())
-            .unwrap_or_default();
-
-        let results_search = traversal_filters
-            .into_iter()
-            .try_fold(
-                entity::search(&self.neo4j, embedding.clone()),
-                |query, filter| {
-                    Ok::<_, McpError>(
-                        query.traversal(
-                            RelationTraversal::default()
-                                .relation_type_id(filter.relation_type_id.parse::<Uuid>().map_err(
-                                    |e| mcp_server::error::Error::InvalidUuid(e.to_string()),
-                                )?)
-                                .direction(match filter.direction {
-                                    input_types::RelationDirection::From => RelationDirection::From,
-                                    input_types::RelationDirection::To => RelationDirection::To,
-                                }),
-                        ),
-                    )
-                },
-            )?
-            .limit(10)
-            .send()
-            .await
-            .map_err(mcp_server::error::Error::from)?
-            .try_collect::<Vec<_>>()
-            .await
-            .map_err(mcp_server::error::Error::from)?;
-
-        let entities_vec: Vec<_> = results_search
-            .into_iter()
-            .map(|result| {
-                let entity = result.into_entity();
-                json!({
-                    "id": entity.id,
-                    "name": entity.names(),
-                    "description": entity.descriptions(),
-                })
-            })
-            .collect::<Vec<_>>();
-
-        Ok(CallToolResult::success(vec![
-            Content::json(json!({
-                "entities": entities_vec,
-            }))
-            .expect("Failed to create JSON content"),
-        ]))
-    }
-
-    #[tool(description = include_str!("../resources/name_search_entity_description.md"))]
-    async fn name_search_entity(
+    #[tool(description = include_str!("../resources/search_entity_using_ids_description.md"))]
+    async fn search_entity_using_ids(
         &self,
         #[tool(param)]
         #[schemars(description = "A filter of the relation(s) to traverse from the query")]
@@ -397,7 +269,7 @@ impl KnowledgeGraph {
                     join_all(traversal_filter.into_iter().map(|filter| async move {
                         let rel_embedding = self
                             .embedding_model
-                            .embed(vec![&filter.relation_type_id], None)
+                            .embed(vec![&filter.relation_type], None)
                             .expect("Failed to get embedding")
                             .pop()
                             .expect("Embedding is empty")
@@ -405,14 +277,9 @@ impl KnowledgeGraph {
                             .map(|v| v as f64)
                             .collect::<Vec<_>>();
 
-                        let rel_results = entity::search(&self.neo4j, rel_embedding)
-                            .filter(
-                                entity::EntityFilter::default().relations(
-                                    EntityRelationFilter::default()
-                                        .relation_type(system_ids::VALUE_TYPE_ATTRIBUTE)
-                                        .to_id(system_ids::RELATION_SCHEMA_TYPE),
-                                ),
-                            )
+                        let rel_results = entity::exact_search(&self.neo4j, rel_embedding)
+                            .filter(TypesFilter::default().r#type(system_ids::PROPERTY_TYPE))
+                            .data_type(property::DataType::Relation)
                             .limit(10)
                             .send()
                             .await
@@ -427,10 +294,10 @@ impl KnowledgeGraph {
                             .collect::<Vec<_>>();
 
                         Ok(RelationTraversal::default()
-                            .direction(match filter.direction {
-                                input_types::RelationDirection::From => RelationDirection::From,
-                                input_types::RelationDirection::To => RelationDirection::To,
-                            })
+                            // .direction(match filter.direction {
+                            //     input_types::RelationDirection::From => RelationDirection::From,
+                            //     input_types::RelationDirection::To => RelationDirection::To,
+                            // })
                             .relation_type_id(value_filter::value_in(relation_ids)))
                     }))
                     .await
@@ -456,22 +323,269 @@ impl KnowledgeGraph {
             .await
             .map_err(mcp_server::error::Error::from)?;
 
-        let entities_vec: Vec<_> = results_search
+        Ok(CallToolResult::success(vec![
+            Content::json(
+                results_search
+                    .into_iter()
+                    .map(|result| {
+                        let entity = result.into_entity();
+                        json!({
+                            "id": entity.id,
+                            "name": entity.names(),
+                            "description": entity.descriptions(),
+                        })
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .expect("Failed to create JSON content"),
+        ]))
+    }
+
+    #[tool(description = include_str!("../resources/search_entity_description.md"))]
+    async fn search_entity(
+        &self,
+        #[tool(param)]
+        #[schemars(description = "A filter of the relation(s) to traverse from the query")]
+        search_traversal_filter: SearchTraversalInputFilter,
+    ) -> Result<CallToolResult, McpError> {
+        tracing::info!("SearchTraversalFilter query: {:?}", search_traversal_filter);
+
+        let embedding = self
+            .embedding_model
+            .embed(vec![&search_traversal_filter.query], None)
+            .expect("Failed to get embedding")
+            .pop()
+            .expect("Embedding is empty")
             .into_iter()
-            .map(|result| {
-                let entity = result.into_entity();
-                json!({
-                    "id": entity.id,
-                    "name": entity.names(),
-                    "description": entity.descriptions(),
-                })
-            })
+            .map(|v| v as f64)
             .collect::<Vec<_>>();
 
+        let start_filters = Instant::now();
+
+        let traversal_filters: Vec<Result<RelationTraversal, McpError>> =
+            match search_traversal_filter.traversal_filter {
+                Some(traversal_filter_input) => {
+                    join_all(traversal_filter_input.into_iter().map(|filter| async move {
+                        let rel_embedding = self
+                            .embedding_model
+                            .embed(vec![&filter.relation_type], None)
+                            .expect("Failed to get embedding")
+                            .pop()
+                            .expect("Embedding is empty")
+                            .into_iter()
+                            .map(|v| v as f64)
+                            .collect::<Vec<_>>();
+
+                        let rel_results = entity::exact_search(&self.neo4j, rel_embedding)
+                            .filter(TypesFilter::default().r#type(system_ids::PROPERTY_TYPE))
+                            .data_type(property::DataType::Relation)
+                            .limit(10)
+                            .send()
+                            .await
+                            .map_err(mcp_server::error::Error::from)?
+                            .try_collect::<Vec<_>>()
+                            .await
+                            .map_err(mcp_server::error::Error::from)?;
+
+                        let relation_ids = rel_results
+                            .into_iter()
+                            .map(|sem_search| sem_search.entity_id)
+                            .collect::<Vec<_>>();
+
+                        Ok(RelationTraversal::default()
+                            // .direction(match filter.direction {
+                            //     input_types::RelationDirection::From => RelationDirection::From,
+                            //     input_types::RelationDirection::To => RelationDirection::To,
+                            // })
+                            .relation_type_id(value_filter::value_in(relation_ids)))
+                    }))
+                    .await
+                    .to_vec()
+                }
+                None => Vec::new(),
+            };
+
+        let end_filters = Instant::now();
+
+        let results_search = traversal_filters
+            .into_iter()
+            .fold(
+                entity::search(&self.neo4j, embedding.clone()),
+                |query, result_traversal_filter: Result<_, McpError>| match result_traversal_filter
+                {
+                    Ok(traversal_filter) => query.traversal(traversal_filter),
+                    Err(_) => query,
+                },
+            )
+            .limit(10)
+            .send()
+            .await
+            .map_err(mcp_server::error::Error::from)?
+            .try_collect::<Vec<_>>()
+            .await
+            .map_err(mcp_server::error::Error::from)?;
+
+        let end_search = Instant::now();
+        let search_time = end_search - end_filters;
+        let filters_time = end_filters - start_filters;
+
+        tracing::info!("filters time: {filters_time:?}");
+        tracing::info!("search time: {search_time:?}");
+
         Ok(CallToolResult::success(vec![
-            Content::json(json!({
-                "entities": entities_vec,
-            }))
+            Content::json(
+                results_search
+                    .into_iter()
+                    .map(|result| {
+                        let entity = result.into_entity();
+                        json!({
+                            "id": entity.id,
+                            "name": entity.names(),
+                            "description": entity.descriptions(),
+                        })
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .expect("Failed to create JSON content"),
+        ]))
+    }
+
+    #[tool(description = "Same as get_entity_info, but accepts a list of entity IDs")]
+    async fn get_entities_info(
+        &self,
+        #[tool(param)]
+        #[schemars(
+            description = "The IDs of the entities to retrieve information for, as a comma-separated list."
+        )]
+        ids: Vec<String>,
+    ) -> Result<CallToolResult, McpError> {
+        let parsed_ids = ids
+            .iter()
+            .map(|id| {
+                id.parse::<Uuid>()
+                    .map_err(|e| McpError::invalid_params("Invalid UUID for entity_id", None))
+            })
+            .collect::<Result<Vec<Uuid>, McpError>>()?;
+
+        let entities = entity::find_many(&self.neo4j)
+            .id(parsed_ids.clone())
+            .send()
+            .await
+            .map_err(mcp_server::error::Error::from)?
+            .try_collect::<Vec<_>>()
+            .await
+            .map_err(mcp_server::error::Error::from)?;
+
+        let out_relations = relation::find_many(&self.neo4j)
+            .from(parsed_ids.clone())
+            .limit(10)
+            .send()
+            .await
+            .map_err(mcp_server::error::Error::from)?
+            .try_collect::<Vec<_>>()
+            .await
+            .map_err(mcp_server::error::Error::from)?;
+
+        let in_relations = relation::find_many(&self.neo4j)
+            .to(parsed_ids)
+            .limit(10)
+            .send()
+            .await
+            .map_err(mcp_server::error::Error::from)?
+            .try_collect::<Vec<_>>()
+            .await
+            .map_err(mcp_server::error::Error::from)?;
+
+        // Function to get the related entities of the relations, i.e.: the entities that the relations point to and the type entity of the relation
+        let format_relations = |relations: Vec<Relation>, is_inbound: bool| async move {
+            let mut data = HashMap::new();
+
+            // Get the entities of the relations' types
+            let relation_type_entities = entity::find_many(&self.neo4j)
+                .id(relations
+                    .iter()
+                    .map(|r| r.r#type.clone())
+                    .collect::<Vec<_>>())
+                .send()
+                .await
+                .map_err(mcp_server::error::Error::from)?
+                .map_ok(|entity| (entity.id, entity))
+                .try_collect::<HashMap<_, _>>()
+                .await
+                .map_err(mcp_server::error::Error::from)?;
+
+            // Get the entities of the relations' neighbors
+            let neighbors = entity::find_many(&self.neo4j)
+                .id(relations
+                    .iter()
+                    .map(|r| {
+                        if is_inbound {
+                            r.from_entity.clone()
+                        } else {
+                            r.to_entity.clone()
+                        }
+                    })
+                    .collect::<Vec<_>>())
+                .send()
+                .await
+                .map_err(mcp_server::error::Error::from)?
+                .map_ok(|entity| (entity.id, entity))
+                .try_collect::<HashMap<_, _>>()
+                .await
+                .map_err(mcp_server::error::Error::from)?;
+
+            relations.into_iter().for_each(|result| {
+                let relation_type = relation_type_entities.get(&result.r#type);
+                let neighbor = neighbors.get(
+                    if is_inbound {
+                        &result.from_entity
+                    } else {
+                        &result.to_entity
+                    },
+                );
+
+                if let (Some(relation_type), Some(neighbor)) = (relation_type, neighbor) {
+                    data.entry(if is_inbound {
+                        result.to_entity.clone()
+                    } else {
+                        result.from_entity.clone()
+                    })
+                    .or_insert_with(Vec::new)
+                    .push(json!({
+                        "relation_id": result.id,
+                        "relation_type": relation_type.names().join(", "),
+                        "id": if is_inbound {result.from_entity.clone()} else {result.to_entity.clone()},
+                        "name": neighbor.names().join(", "),
+                    }));
+                }
+            });
+
+            Ok::<_, McpError>(data)
+        };
+
+        let inbound_relations = format_relations(in_relations, true).await?;
+        let outbound_relations = format_relations(out_relations, false).await?;
+
+        let entities_details = stream::iter(entities)
+            .map(|entity| async move {
+                let id = entity.id.clone();
+                self.format_entity(entity)
+                    .await
+                    .map(|details| (id, details))
+            })
+            .buffered(10)
+            .try_collect::<Vec<_>>()
+            .await?;
+
+        Ok(CallToolResult::success(vec![
+            Content::json(entities_details.into_iter().map(|(id, entity_details)| {
+                json!({
+                    "id": id,
+                    "properties": entity_details.get("properties").cloned().unwrap_or_default(),
+                    "inbound_relations": inbound_relations.get(&id),
+                    "outbound_relations": outbound_relations.get(&id),
+                })
+            }).collect::<Vec<_>>())
             .expect("Failed to create JSON content"),
         ]))
     }
@@ -665,6 +779,61 @@ impl KnowledgeGraph {
                 })
                 .collect::<Vec<_>>(),
         ))
+    }
+
+    async fn query_search(
+        &self,
+        query: String,
+        limit: Option<usize>,
+        filter: EntityFilter,
+    ) -> Result<Vec<Uuid>, McpError> {
+        let embedding = self
+            .embedding_model
+            .embed(vec![&query], None)
+            .expect("Failed to get embedding")
+            .pop()
+            .expect("Embedding is empty")
+            .into_iter()
+            .map(|v| v as f64)
+            .collect::<Vec<_>>();
+
+        let limit = limit.unwrap_or(10);
+        let semantic_search_triples = entity::exact_search(&self.neo4j, embedding.clone())
+            .filter(filter.clone())
+            .limit(limit)
+            .send()
+            .await
+            .map_err(|e| {
+                tracing::error!("Error: {e:?}");
+                McpError::internal_error(
+                    "search_types_failed",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?
+            .try_collect::<Vec<_>>()
+            .await
+            .map_err(|e| {
+                tracing::error!("Error changing to vec: {e:?}");
+                McpError::internal_error(
+                    "search_types_failed",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?;
+
+        let mut ids = semantic_search_triples
+            .into_iter()
+            .map(|semantic_search_result| semantic_search_result.entity_id)
+            .collect::<Vec<_>>();
+
+        self.dedup(&mut ids);
+
+        Ok(ids)
+    }
+
+    fn dedup<T: Eq + Hash + Clone>(&self, v: &mut Vec<T>) {
+        let mut set = HashSet::new();
+
+        v.retain(|x| set.insert(x.clone()));
     }
 }
 

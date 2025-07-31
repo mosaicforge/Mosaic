@@ -146,7 +146,7 @@ impl EntityRelationFilter {
 pub struct RelationTraversal {
     pub relation_type_id: Option<ValueFilter<Uuid>>,
     pub destination_id: Option<ValueFilter<Uuid>>,
-    pub direction: RelationDirection,
+    pub direction: Option<RelationDirection>,
 }
 
 impl RelationTraversal {
@@ -161,7 +161,7 @@ impl RelationTraversal {
     }
 
     pub fn direction(mut self, direction: RelationDirection) -> Self {
-        self.direction = direction;
+        self.direction = Some(direction);
         self
     }
 

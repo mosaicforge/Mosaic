@@ -111,10 +111,11 @@ impl ExactSemanticSearchQuery {
             });
 
         builder
-            .subquery(
-                "OPTIONAL MATCH (e)-[p:PROPERTIES]->(props:Properties)
-                WITH e, score, collect(p.space_id) AS spaces, collect(apoc.map.removeKey(properties(props), 'embedding')) AS props",
-            )
+            .subqueries(vec![
+                "OPTIONAL MATCH (e)-[p:PROPERTIES]->(props:Properties)",
+                "WHERE props IS NOT NULL",
+                "WITH e, score, collect(p.space_id) AS spaces, collect(apoc.map.removeKey(properties(props), 'embedding')) AS props",
+            ])
             .skip_opt(self.skip)
             .limit(self.limit)
             .r#return("{entity_id: e.id, spaces: spaces, properties: props, score: score, types: labels(e)}")

@@ -91,7 +91,7 @@ impl FindManyQuery {
                 QueryBuilder::default()
                     .subqueries(vec![
                         "OPTIONAL MATCH (e)-[p:PROPERTIES]->(props:Properties)",
-                        "WHERE size(keys(props)) > 0",
+                        "WHERE props IS NOT NULL",
                     ])
                     .r#return("e.id AS entity_id, collect(p.space_id) AS spaces, collect(apoc.map.removeKey(properties(props), 'embedding')) AS properties, labels(e) AS types"))
     }
