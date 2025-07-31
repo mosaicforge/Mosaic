@@ -5,6 +5,7 @@ use grc20_core::{
     ids::system_ids,
     mapping::{
         entity::{search, update_one, SemanticSearchQuery, SemanticSearchResult, UpdateEntity},
+        query_utils::Subquery,
         value::models::Value,
     },
 };
@@ -538,4 +539,34 @@ async fn test_semantic_search_entity_conversion_methods() {
     let entity_only = result.clone().into_entity();
     assert_eq!(entity_only.id, entity_id);
     assert_eq!(entity_only.values, entity_with_score.values);
+}
+
+#[tokio::test]
+async fn test_semantic_search_query_with_traversals() {
+    use grc20_core::entity::utils::RelationTraversal;
+    use grc20_core::relation::utils::RelationDirection;
+
+    // Setup a local Neo 4J container for testing. NOTE: docker service must be running.
+    let (neo4j, _container) = common::setup_neo4j_container().await;
+
+    // Create a sample search vector
+    let search_vector = vec![0.1, 0.2, 0.3, 0.4, 0.5];
+
+    // Create traversals
+    let traversal1 = RelationTraversal::default()
+        .relation_type_id(uuid::Uuid::new_v4())
+        .direction(RelationDirection::From);
+    let traversal2 = RelationTraversal::default()
+        .relation_type_id(uuid::Uuid::new_v4())
+        .direction(RelationDirection::To);
+
+    // Build the query with traversals
+    let query = SemanticSearchQuery::new(&neo4j, search_vector)
+        .limit(50)
+        .skip(10)
+        .threshold(0.8)
+        .traversal(traversal1)
+        .traversal(traversal2);
+
+    println!("{}", query.subquery().compile());
 }

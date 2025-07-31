@@ -1,3 +1,5 @@
+use crate::mapping::query_utils::{QueryBuilder, Subquery};
+
 use super::models::Property;
 
 pub fn insert_one(neo4j: &neo4rs::Graph, property: Property) -> InsertOneQuery {
@@ -25,11 +27,14 @@ impl InsertOneQuery {
 impl InsertOneQuery {
     /// Executes the query to insert the property into the Neo4j database.
     pub async fn send(self) -> Result<(), neo4rs::Error> {
-        let query = "CREATE (p:Entity {id: $prop.id, data_type: $prop.data_type})";
+        let query = QueryBuilder::default()
+            .subqueries(vec![
+                "MERGE (p:Entity {id: $prop.id})",
+                "SET p.data_type = $prop.data_type",
+            ])
+            .params("prop", self.property);
 
-        self.neo4j
-            .run(neo4rs::query(&query).param("prop", self.property))
-            .await?;
+        self.neo4j.run(query.build()).await?;
 
         Ok(())
     }

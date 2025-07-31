@@ -66,19 +66,21 @@ impl<T> From<Vec<T>> for ValueFilter<T> {
 }
 
 impl<T: ToString> ValueFilter<T> {
-    pub fn as_string_filter(self) -> ValueFilter<String> {
+    pub fn as_string_filter(&self) -> ValueFilter<String> {
         ValueFilter {
-            value: self.value.map(|v| v.to_string()),
-            value_gt: self.value_gt.map(|v| v.to_string()),
-            value_gte: self.value_gte.map(|v| v.to_string()),
-            value_lt: self.value_lt.map(|v| v.to_string()),
-            value_lte: self.value_lte.map(|v| v.to_string()),
-            value_not: self.value_not.map(|v| v.to_string()),
+            value: self.value.as_ref().map(|v| v.to_string()),
+            value_gt: self.value_gt.as_ref().map(|v| v.to_string()),
+            value_gte: self.value_gte.as_ref().map(|v| v.to_string()),
+            value_lt: self.value_lt.as_ref().map(|v| v.to_string()),
+            value_lte: self.value_lte.as_ref().map(|v| v.to_string()),
+            value_not: self.value_not.as_ref().map(|v| v.to_string()),
             value_in: self
                 .value_in
+                .as_ref()
                 .map(|v| v.into_iter().map(|v| v.to_string()).collect()),
             value_not_in: self
                 .value_not_in
+                .as_ref()
                 .map(|v| v.into_iter().map(|v| v.to_string()).collect()),
             exists: self.exists,
         }

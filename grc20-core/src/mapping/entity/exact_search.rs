@@ -1,6 +1,7 @@
-use crate::entity::utils::EntityFilter;
+use crate::entity::utils::{EntityFilter, RelationTraversal};
 use crate::entity::SemanticSearchResult;
-use crate::mapping::query_utils::Subquery;
+use crate::mapping::query_utils::{Subquery, ValueFilter};
+use crate::property::DataType;
 use crate::{
     error::DatabaseError,
     mapping::{query_utils::QueryBuilder, EFFECTIVE_SEARCH_RATIO},
@@ -16,6 +17,8 @@ pub struct ExactSemanticSearchQuery {
     skip: Option<usize>,
     threshold: Option<f64>,
     filter: EntityFilter,
+    traversals: Vec<RelationTraversal>,
+    data_type: Option<ValueFilter<DataType>>,
 }
 
 impl ExactSemanticSearchQuery {
@@ -28,6 +31,8 @@ impl ExactSemanticSearchQuery {
             skip: None,
             threshold: None,
             filter: EntityFilter::default(),
+            traversals: Vec::new(),
+            data_type: None,
         }
     }
 
@@ -55,26 +60,27 @@ impl ExactSemanticSearchQuery {
         self
     }
 
-    /// Execute the semantic search query
-    pub async fn send(
-        self,
-    ) -> Result<impl Stream<Item = Result<SemanticSearchResult, DatabaseError>>, DatabaseError>
-    {
-        // Exact neighbor search using vector index (very expensive but allows prefiltering)
-        // const QUERY: &str = const_format::formatcp!(
-        //     r#"
-        //     MATCH (e:Entity) -[r:ATTRIBUTE]-> (a:Attribute:Indexed)
-        //     WHERE r.max_version IS null
-        //     AND a.embedding IS NOT NULL
-        //     WITH e, a, r, vector.similarity.cosine(a.embedding, $vector) AS score
-        //     ORDER BY score DESC
-        //     WHERE score IS NOT null
-        //     LIMIT $limit
-        //     RETURN a{{.*, entity: e.id, space_version: r.min_version, space_id: r.space_id, score: score}}
-        //     "#,
-        // );
+    /// Add a traversal relation to the search query (builder pattern)
+    pub fn traversal(mut self, traversal: impl Into<RelationTraversal>) -> Self {
+        self.traversals.push(traversal.into());
+        self
+    }
 
-        let builder = QueryBuilder::default()
+    /// Add multiple traversal relations to the search query (builder pattern)
+    pub fn traversals(mut self, traversals: impl IntoIterator<Item = RelationTraversal>) -> Self {
+        self.traversals.extend(traversals);
+        self
+    }
+
+    /// Set the data type filter for the search query (builder pattern)
+    /// Note: This is only useful if searching for an entity of type `Property`
+    pub fn data_type(mut self, data_type: impl Into<ValueFilter<DataType>>) -> Self {
+        self.data_type = Some(data_type.into());
+        self
+    }
+
+    pub fn subquery(&self) -> impl Subquery {
+        let mut builder = QueryBuilder::default()
             .subquery("MATCH (e:Entity)")
             .subquery(self.filter.subquery("e"))
             .subquery("WITH DISTINCT e")
@@ -84,12 +90,27 @@ impl ExactSemanticSearchQuery {
             .subquery("WHERE score IS NOT NULL")
             .subquery("ORDER BY score DESC")
             .subquery("LIMIT $limit")
-            .params("vector", self.search_vector)
+            .subquery("WITH DISTINCT e, score")
+            .params("vector", self.search_vector.clone())
             .params("limit", self.limit as i64)
             .params("effective_search_ratio", EFFECTIVE_SEARCH_RATIO)
             .params("threshold", self.threshold.unwrap_or(0.0));
 
-        let query = builder
+        builder = self
+            .traversals
+            .iter()
+            .enumerate()
+            .fold(builder, |query, (i, traversal)| {
+                query
+                    .subquery(format!("MATCH (e) -[r{i}:RELATION]- (dest)"))
+                    .subquery_opt(traversal.relation_type_id.as_ref().map(|q| {
+                        q.as_string_filter()
+                            .subquery(&format!("r{i}"), "type", None)
+                    }))
+                    .subquery("WITH score, DISTINCT dest AS e")
+            });
+
+        builder
             .subquery(
                 "OPTIONAL MATCH (e)-[p:PROPERTIES]->(props:Properties)
                 WITH e, score, collect(p.space_id) AS spaces, collect(apoc.map.removeKey(properties(props), 'embedding')) AS props",
@@ -97,11 +118,26 @@ impl ExactSemanticSearchQuery {
             .skip_opt(self.skip)
             .limit(self.limit)
             .r#return("{entity_id: e.id, spaces: spaces, properties: props, score: score, types: labels(e)}")
-            .build();
+    }
+
+    /// Execute the semantic search query
+    pub async fn send(
+        self,
+    ) -> Result<impl Stream<Item = Result<SemanticSearchResult, DatabaseError>>, DatabaseError>
+    {
+        let query = self.subquery();
+
+        if cfg!(debug_assertions) || cfg!(test) {
+            println!(
+                "entity_node::FindManyQuery:\n{}\nparams:{:?}",
+                query.compile(),
+                query.params()
+            );
+        };
 
         Ok(self
             .neo4j
-            .execute(query)
+            .execute(query.build())
             .await?
             .into_stream_as::<SemanticSearchResult>()
             .map_err(DatabaseError::from))

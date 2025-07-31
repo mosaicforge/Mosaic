@@ -22,8 +22,8 @@ use crate::{
 
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct Path {
-    pub nodes_ids: Vec<String>,
-    pub relations_ids: Vec<String>,
+    pub nodes_ids: Vec<Uuid>,
+    pub relation_type_ids: Vec<Uuid>,
 }
 
 pub struct FindPathQuery {
@@ -88,10 +88,10 @@ impl FindPathQuery {
                     .iter()
                     .filter_map(|rel| rel.get("id").ok())
                     .collect()),
-                relations_ids: (path
+                relation_type_ids: (path
                     .rels()
                     .iter()
-                    .filter_map(|rel| rel.get("relation_type").ok())
+                    .filter_map(|rel| rel.get("type").ok())
                     .collect()),
             };
 

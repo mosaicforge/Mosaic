@@ -1,5 +1,5 @@
 use super::models::Entity;
-use crate::entity::utils::EntityFilter;
+use crate::entity::utils::{EntityFilter, RelationTraversal};
 use crate::mapping::query_utils::Subquery;
 use crate::mapping::value::models::Value;
 use crate::{
@@ -20,6 +20,7 @@ pub struct SemanticSearchQuery {
     skip: Option<usize>,
     threshold: Option<f64>,
     filter: EntityFilter,
+    traversals: Vec<RelationTraversal>,
 }
 
 impl SemanticSearchQuery {
@@ -32,6 +33,7 @@ impl SemanticSearchQuery {
             skip: None,
             threshold: None,
             filter: EntityFilter::default(),
+            traversals: Vec::new(),
         }
     }
 
@@ -59,35 +61,63 @@ impl SemanticSearchQuery {
         self
     }
 
+    /// Add a single traversal relation to the search query
+    pub fn traversal(mut self, relation: RelationTraversal) -> Self {
+        self.traversals.push(relation);
+        self
+    }
+
+    pub fn traversals(mut self, traversals: impl IntoIterator<Item = RelationTraversal>) -> Self {
+        self.traversals.extend(traversals);
+        self
+    }
+
+    pub fn subquery(&self) -> impl Subquery {
+        let mut builder = QueryBuilder::default()
+            .subqueries(vec![
+                "CALL db.index.vector.queryNodes('vector_index', $limit * $effective_search_ratio, $vector)",
+                "YIELD node, score",
+                "WHERE score >= $threshold",
+                "ORDER BY score DESC",
+                "MATCH (e:Entity)-[r:PROPERTIES]->(node)",
+                "WITH DISTINCT e, score",
+            ])
+            .subquery(self.filter.subquery("e"))
+            .params("vector", self.search_vector.clone())
+            .params("limit", self.limit as i64)
+            .params("effective_search_ratio", EFFECTIVE_SEARCH_RATIO)
+            .params("threshold", self.threshold.unwrap_or(0.0));
+
+        builder = self
+            .traversals
+            .iter()
+            .enumerate()
+            .fold(builder, |query, (i, traversal)| {
+                query
+                    .subquery(format!("MATCH (e) -[r{i}:RELATION]- (dest)"))
+                    .subquery_opt(traversal.relation_type_id.as_ref().map(|q| {
+                        q.as_string_filter()
+                            .subquery(&format!("r{i}"), "type", None)
+                    }))
+                    .subquery("WITH score, DISTINCT dest AS e")
+            });
+
+        builder
+            .subqueries(vec![
+                "OPTIONAL MATCH (e)-[p:PROPERTIES]->(props:Properties)",
+                "WITH e, score, collect(p.space_id) AS spaces, collect(apoc.map.removeKey(properties(props), 'embedding')) AS props",
+            ])
+            .skip_opt(self.skip)
+            .limit(self.limit)
+            .r#return("{entity_id: e.id, spaces: spaces, properties: props, score: score, types: labels(e)}")
+    }
+
     /// Execute the semantic search query
     pub async fn send(
         self,
     ) -> Result<impl Stream<Item = Result<SemanticSearchResult, DatabaseError>>, DatabaseError>
     {
-        let builder = QueryBuilder::default()
-            .subquery(
-                "CALL db.index.vector.queryNodes('vector_index', $limit * $effective_search_ratio, $vector)
-                YIELD node, score
-                WHERE score >= $threshold
-                ORDER BY score DESC
-                MATCH (e:Entity)-[r:PROPERTIES]->(node)
-                WITH DISTINCT e, score",
-            )
-            .subquery(self.filter.subquery("e"))
-            .params("vector", self.search_vector)
-            .params("limit", self.limit as i64)
-            .params("effective_search_ratio", EFFECTIVE_SEARCH_RATIO)
-            .params("threshold", self.threshold.unwrap_or(0.0));
-
-        let query = builder
-            .subquery(
-                "OPTIONAL MATCH (e)-[p:PROPERTIES]->(props:Properties)
-                WITH e, score, collect(p.space_id) AS spaces, collect(apoc.map.removeKey(properties(props), 'embedding')) AS props",
-            )
-            .skip_opt(self.skip)
-            .limit(self.limit)
-            .r#return("{entity_id: e.id, spaces: spaces, properties: props, score: score, types: labels(e)}")
-            .build();
+        let query = self.subquery().build();
 
         Ok(self
             .neo4j

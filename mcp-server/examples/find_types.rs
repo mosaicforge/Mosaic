@@ -1,5 +1,5 @@
 use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
-use futures::{StreamExt, TryStreamExt};
+use futures::TryStreamExt;
 use grc20_core::{
     entity::{self, utils::TypesFilter},
     neo4rs, system_ids,

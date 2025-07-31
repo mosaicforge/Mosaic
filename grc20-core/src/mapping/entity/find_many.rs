@@ -32,8 +32,8 @@ impl FindManyQuery {
         }
     }
 
-    pub fn id(mut self, id: ValueFilter<Uuid>) -> Self {
-        self.filter.id = Some(id);
+    pub fn id(mut self, id: impl Into<ValueFilter<Uuid>>) -> Self {
+        self.filter.id = Some(id.into());
         self
     }
 
@@ -89,7 +89,10 @@ impl FindManyQuery {
             .skip_opt(self.skip)
             .with(vec!["DISTINCT e".to_string()],
                 QueryBuilder::default()
-                    .subquery("OPTIONAL MATCH (e)-[p:PROPERTIES]->(props:Properties)")
+                    .subqueries(vec![
+                        "OPTIONAL MATCH (e)-[p:PROPERTIES]->(props:Properties)",
+                        "WHERE size(keys(props)) > 0",
+                    ])
                     .r#return("e.id AS entity_id, collect(p.space_id) AS spaces, collect(apoc.map.removeKey(properties(props), 'embedding')) AS properties, labels(e) AS types"))
     }
 

@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::{
     mapping::query_utils::{
-        query_builder::{MatchQuery, NamePair, QueryBuilder, Rename},
+        query_builder::{MatchQuery, QueryBuilder},
         PropertyFilter, ValueFilter,
     },
     relation::RelationDirection,
@@ -16,8 +16,6 @@ pub struct EntityFilter {
     pub(crate) properties: Vec<PropertyFilter>,
     pub(crate) types: Option<TypesFilter>,
     pub(crate) relations: Option<EntityRelationFilter>,
-    /// traverse relation now in entity directly but eventually for modularity will be standalone to be chained
-    pub(crate) traverse_relation: Option<TraverseRelation>,
 }
 
 impl EntityFilter {
@@ -58,11 +56,6 @@ impl EntityFilter {
         self
     }
 
-    pub fn traverse_relation(mut self, traverse_relation: impl Into<TraverseRelation>) -> Self {
-        self.traverse_relation = Some(traverse_relation.into());
-        self
-    }
-
     pub(crate) fn subquery(&self, node_var: impl Into<String>) -> QueryBuilder {
         let node_var = node_var.into();
 
@@ -94,12 +87,6 @@ impl EntityFilter {
                 self.relations
                     .as_ref()
                     .map(|relations| relations.subquery(&node_var)),
-            )
-            // Apply relation traversal
-            .subquery_opt(
-                self.traverse_relation
-                    .as_ref()
-                    .map(|traverse| traverse.subquery(&node_var)),
             )
     }
 }
@@ -156,19 +143,19 @@ impl EntityRelationFilter {
 /// Filter used to:
 /// - Traverse to inbound or outbound relation
 #[derive(Clone, Debug, Default)]
-pub struct TraverseRelation {
-    relation_type_id: Option<ValueFilter<String>>,
-    destination_id: Option<ValueFilter<String>>,
-    direction: RelationDirection,
+pub struct RelationTraversal {
+    pub relation_type_id: Option<ValueFilter<Uuid>>,
+    pub destination_id: Option<ValueFilter<Uuid>>,
+    pub direction: RelationDirection,
 }
 
-impl TraverseRelation {
-    pub fn relation_type_id(mut self, relation_type_id: impl Into<ValueFilter<String>>) -> Self {
+impl RelationTraversal {
+    pub fn relation_type_id(mut self, relation_type_id: impl Into<ValueFilter<Uuid>>) -> Self {
         self.relation_type_id = Some(relation_type_id.into());
         self
     }
 
-    pub fn destination_id(mut self, destination_id: impl Into<ValueFilter<String>>) -> Self {
+    pub fn destination_id(mut self, destination_id: impl Into<ValueFilter<Uuid>>) -> Self {
         self.destination_id = Some(destination_id.into());
         self
     }
@@ -180,40 +167,6 @@ impl TraverseRelation {
 
     pub fn is_empty(&self) -> bool {
         self.relation_type_id.is_none() && self.destination_id.is_none()
-    }
-
-    pub(crate) fn subquery(&self, node_var: impl Into<String>) -> MatchQuery {
-        let node_var_curr = node_var.into();
-        let random_suffix: String =
-            rand::distributions::Alphanumeric.sample_string(&mut rand::thread_rng(), 4);
-        let rel_edge_var = format!("r_{node_var_curr}_{random_suffix}");
-        let node_var_dest = format!("r_{node_var_curr}_{random_suffix}_to");
-
-        MatchQuery::new(match self.direction {
-            RelationDirection::From => {
-                format!("({node_var_curr}) -[{rel_edge_var}:RELATION]-> ({node_var_dest})")
-            }
-            RelationDirection::To => {
-                format!("({node_var_dest}) -[{rel_edge_var}:RELATION]-> ({node_var_curr})")
-            }
-        })
-        // rename to change direction of relation
-        .rename(Rename::new(NamePair::new(
-            node_var_curr.clone(),
-            node_var_dest.clone(),
-        )))
-        // Apply the relation_type filter to the relation (if any)
-        .where_opt(
-            self.relation_type_id
-                .as_ref()
-                .map(|relation_type| relation_type.subquery(&rel_edge_var, "relation_type", None)),
-        )
-        // Apply the from_id filter to the relation (if any)
-        .where_opt(
-            self.destination_id
-                .as_ref()
-                .map(|dest_id| dest_id.subquery(&node_var_curr, "id", None)),
-        )
     }
 }
 

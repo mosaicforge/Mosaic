@@ -56,6 +56,15 @@ impl Entity {
             .collect()
     }
 
+    /// Returns the possible descriptions of the entity
+    pub fn descriptions(&self) -> Vec<String> {
+        self.values
+            .iter()
+            .filter_map(|(_, props)| props.get(&system_ids::DESCRIPTION_PROPERTY))
+            .map(|value| value.value.clone())
+            .collect()
+    }
+
     /// Returns a query to fetch the entities of the types of the entity
     pub fn get_types(&self, neo4j: &neo4rs::Graph) -> FindManyQuery {
         FindManyQuery::new(neo4j).id(value_filter::value_in(self.types.clone()))

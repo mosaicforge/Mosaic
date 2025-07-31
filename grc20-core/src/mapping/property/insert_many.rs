@@ -1,3 +1,5 @@
+use crate::mapping::query_utils::{QueryBuilder, Subquery};
+
 use super::models::Property;
 
 pub fn insert_many(neo4j: neo4rs::Graph) -> InsertManyQuery {
@@ -36,18 +38,15 @@ impl InsertManyQuery {
     /// Executes the query to insert all properties into the Neo4j database.
     pub async fn send(self) -> Result<(), neo4rs::Error> {
         // Use UNWIND for batch insertion
-        let query = r#"
-            UNWIND $props AS prop
-            CREATE (p:Entity {id: prop.id, data_type: prop.data_type})
-        "#;
+        let query = QueryBuilder::default()
+            .subqueries(vec![
+                "UNWIND $props AS prop",
+                "MERGE (p:Entity {id: prop.id})",
+                "SET p.data_type = prop.data_type",
+            ])
+            .params("props", self.properties);
 
-        // Convert Vec<Property> to Vec<BoltType> for Neo4j parameter
-        let bolt_props: Vec<neo4rs::BoltType> =
-            self.properties.into_iter().map(Into::into).collect();
-
-        self.neo4j
-            .run(neo4rs::query(query).param("props", bolt_props))
-            .await?;
+        self.neo4j.run(query.build()).await?;
 
         Ok(())
     }

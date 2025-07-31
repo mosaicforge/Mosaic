@@ -1,5 +1,6 @@
 use super::models::Entity;
 use crate::error::DatabaseError;
+use crate::mapping::query_utils::{QueryBuilder, Subquery};
 use crate::mapping::value::models::Value;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -64,16 +65,25 @@ impl FindOneQuery {
     }
 
     pub async fn send(self) -> Result<Option<Entity>, DatabaseError> {
-        let cypher = "
-            MATCH (e:Entity {id: $entity_id})
-            OPTIONAL MATCH (e)-[p:PROPERTIES]->(props:Properties)
-            WITH e, collect(p.space_id) AS spaces, collect(apoc.map.removeKey(properties(props), 'embedding'])) AS props
-            RETURN {entity_id: e.id, spaces: spaces, properties: props, types: labels(e)}
-        ";
+        let query = QueryBuilder::default()
+            .subqueries(vec![
+                "MATCH (e:Entity {id: $entity_id})",
+                "OPTIONAL MATCH (e)-[p:PROPERTIES]->(props:Properties)",
+                "WHERE size(keys(props)) > 0",
+                "WITH e, collect(p.space_id) AS spaces, collect(apoc.map.removeKey(properties(props), 'embedding')) AS props",
+                "RETURN {entity_id: e.id, spaces: spaces, properties: props, types: labels(e)}",
+            ])
+            .params("entity_id", self.entity_id.to_string());
 
-        let query = neo4rs::query(cypher).param("entity_id", self.entity_id.to_string());
+        if cfg!(debug_assertions) || cfg!(test) {
+            println!(
+                "entity_node::FindOneQuery:\n{}\nparams:{:?}",
+                query.compile(),
+                query.params
+            );
+        };
 
-        let mut result = self.neo4j.execute(query).await?;
+        let mut result = self.neo4j.execute(query.build()).await?;
 
         if let Some(row) = result.next().await? {
             let query_result: EntityQueryResult = row.to()?;
