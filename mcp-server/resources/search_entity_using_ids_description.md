@@ -1,24 +1,18 @@
-This request allows you to get Entities from a name/description search and traversal from that query by using relation name.
+This request allows you to get the Entities from a name/description search and traversal from that query if needed.
 
-Example Query: Find all the articles written by employees that works at The Graph.
 
+Example Query: Give me the employees that work at The Graph?
+
+Work_at id: U1uCAzXsRSTP4vFwo1JwJG
 ToolCall>
 ```
-search_entity(
-  {
-    "query": "The graph",
-    "traversal_filter": 
-    {
-      "relation_type": "works at",
-      "traversal_filter": 
-      {
-        "relation_type": "authors"
-      }
-    }
-  }
-)
+search_entity_using_ids({
+"query": "The Graph",
+"traversal_filter": {
+  "relation_type": "U1uCAzXsRSTP4vFwo1JwJG"
+}
+})
 ```
-
 ToolResult>
 ```
 [

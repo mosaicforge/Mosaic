@@ -43,7 +43,7 @@ impl RelationFilter {
                     .map(|from_filter| from_filter.subquery(from)),
             )
             .subquery_opt(self.to_.as_ref().map(|to_filter| to_filter.subquery(to)))
-            .subquery(MatchQuery::new(format!(
+            .subquery(MatchQuery::new_optional(format!(
                 "(rt:Entity {{id: {edge_var}.relation_type}})"
             )))
             .subquery_opt(self.relation_type.as_ref().map(|rt| rt.subquery("rt")))
