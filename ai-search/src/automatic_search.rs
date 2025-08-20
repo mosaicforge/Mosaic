@@ -475,10 +475,10 @@ impl AutomaticSearchAgent {
                 tracing::error!("Error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
-        if let Some(name_entity) = triple_result.first() {
-            if let Some(embedding) = &name_entity.embedding {
-                return Ok((embedding.clone(), name_entity.value.value.clone()));
-            }
+        if let Some(name_entity) = triple_result.first()
+            && let Some(embedding) = &name_entity.embedding
+        {
+            return Ok((embedding.clone(), name_entity.value.value.clone()));
         }
         Err(StatusCode::INTERNAL_SERVER_ERROR)
     }
