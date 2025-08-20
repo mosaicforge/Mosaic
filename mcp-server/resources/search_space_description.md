@@ -19,20 +19,6 @@ ToolResult>
         "attribute_value": "San Francisco",
         "entity_id": "3qayfdjYyPv1dAYf8gPL5r"
     }
-    ],
-    [
-    {
-        "attribute_name": "Name",
-        "attribute_value": "SF Bay Area",
-        "entity_id": "W5ZEpuy3Tij1XSXtJLruQ5"
-    }
-    ],
-    [
-    {
-        "attribute_name": "Name",
-        "attribute_value": "California",
-        "entity_id": "RHoJT3hNVaw7m5fLLtZ8WQ"
-    }
     ]
 ]
 ```

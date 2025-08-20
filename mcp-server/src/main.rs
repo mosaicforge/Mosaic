@@ -113,87 +113,7 @@ impl KnowledgeGraph {
         RawResource::new(uri, name.to_string()).no_annotation()
     }
 
-    async fn search(
-        &self,
-        query: String,
-        limit: Option<usize>,
-    ) -> Result<Vec<SemanticSearchResult>, McpError> {
-        let embedding = self
-            .embedding_model
-            .embed(vec![&query], None)
-            .expect("Failed to get embedding")
-            .pop()
-            .expect("Embedding is empty")
-            .into_iter()
-            .map(|v| v as f64)
-            .collect::<Vec<_>>();
-
-        let limit = limit.unwrap_or(10);
-
-        let semantic_search_triples = triple::search(&self.neo4j, embedding)
-            .limit(limit)
-            .send()
-            .await
-            .map_err(|e| {
-                McpError::internal_error(
-                    "search_types_failed",
-                    Some(json!({ "error": e.to_string() })),
-                )
-            })?
-            .try_collect::<Vec<_>>()
-            .await
-            .map_err(|e| {
-                McpError::internal_error(
-                    "search_types_failed",
-                    Some(json!({ "error": e.to_string() })),
-                )
-            })?;
-        Ok(semantic_search_triples)
-    }
-
-    async fn get_ids_from_search(
-        &self,
-        search_triples: Vec<SemanticSearchResult>,
-        create_relation_filter: impl Fn(SemanticSearchResult) -> RelationFilter,
-    ) -> Result<Vec<String>, McpError> {
-        let mut seen_ids: HashSet<String> = HashSet::new();
-        let mut result_ids: Vec<String> = Vec::new();
-
-        for semantic_search_triple in search_triples {
-            let filtered_for_types = relation::find_many::<RelationEdge<EntityNode>>(&self.neo4j)
-                .filter(create_relation_filter(semantic_search_triple))
-                .send()
-                .await;
-
-            //We only need to get the first relation since they would share the same entity id
-            if let Ok(stream) = filtered_for_types {
-                pin_mut!(stream);
-                if let Some(edge) = stream.try_next().await.ok().flatten() {
-                    let id = edge.from.id;
-                    if seen_ids.insert(id.clone()) {
-                        result_ids.push(id);
-                    }
-                }
-            }
-        }
-        Ok(result_ids)
-    }
-
-    async fn format_triples_detailled(
-        &self,
-        triples: Result<Vec<Triple>, ErrorData>,
-    ) -> Vec<Value> {
-        if let Ok(triples) = triples {
-            join_all(triples.into_iter().map(|triple| async move {json!({
-                            "entity_id": triple.entity,
-                            "attribute_name": self.get_name_of_id(triple.attribute).await.unwrap_or("No attribute name".to_string()),
-                            "attribute_value": String::try_from(triple.value).unwrap_or("No value".to_string())
-                        })})).await.to_vec()
-        } else {
-            Vec::new()
-        }
-    }
-
+    // Tools that are available in the mcp server
     #[tool(description = include_str!("../resources/search_type_description.md"))]
     async fn search_types(
         &self,
@@ -454,15 +374,7 @@ impl KnowledgeGraph {
             search_traversal_filter.query
         );
 
-        let embedding = self
-            .embedding_model
-            .embed(vec![&search_traversal_filter.query], None)
-            .expect("Failed to get embedding")
-            .pop()
-            .expect("Embedding is empty")
-            .into_iter()
-            .map(|v| v as f64)
-            .collect::<Vec<_>>();
+        let embedding = self.create_embedding(vec![&search_traversal_filter.query]);
 
         let traversal_filters: Vec<_> = search_traversal_filter
             .traversal_filter
@@ -535,15 +447,7 @@ impl KnowledgeGraph {
     ) -> Result<CallToolResult, McpError> {
         tracing::info!("SearchTraversalFilter query: {:?}", search_traversal_filter);
 
-        let embedding = self
-            .embedding_model
-            .embed(vec![&search_traversal_filter.query], None)
-            .expect("Failed to get embedding")
-            .pop()
-            .expect("Embedding is empty")
-            .into_iter()
-            .map(|v| v as f64)
-            .collect::<Vec<_>>();
+        let embedding = self.create_embedding(vec![&search_traversal_filter.query]);
 
         let traversal_filters: Vec<Result<TraverseRelation, McpError>> =
             match search_traversal_filter.traversal_filter {
@@ -725,7 +629,7 @@ impl KnowledgeGraph {
                 .into_iter()
                 .map(|result| async move {
                     json!({
-                        "relation_id": result.id,
+                        "relation_id": result.relation_type,
                         "relation_type": self.get_name_of_id(result.relation_type).await.unwrap_or("No relation type".to_string()),
                         "id": if is_inbound {result.from.id.clone()} else {result.to.id.clone()},
                         "name": self.get_name_of_id(if is_inbound {result.from.id.clone()} else {result.to.id.clone()}).await.unwrap_or("No name".to_string()),
@@ -797,6 +701,91 @@ impl KnowledgeGraph {
         ))
     }
 
+    async fn search(
+        &self,
+        query: String,
+        limit: Option<usize>,
+    ) -> Result<Vec<SemanticSearchResult>, McpError> {
+        let embedding = self.create_embedding(vec![&query]);
+
+        let limit = limit.unwrap_or(10);
+
+        let semantic_search_triples = triple::search(&self.neo4j, embedding)
+            .limit(limit)
+            .send()
+            .await
+            .map_err(|e| {
+                McpError::internal_error(
+                    "search_types_failed",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?
+            .try_collect::<Vec<_>>()
+            .await
+            .map_err(|e| {
+                McpError::internal_error(
+                    "search_types_failed",
+                    Some(json!({ "error": e.to_string() })),
+                )
+            })?;
+        Ok(semantic_search_triples)
+    }
+
+    async fn get_ids_from_search(
+        &self,
+        search_triples: Vec<SemanticSearchResult>,
+        create_relation_filter: impl Fn(SemanticSearchResult) -> RelationFilter,
+    ) -> Result<Vec<String>, McpError> {
+        let mut seen_ids: HashSet<String> = HashSet::new();
+        let mut result_ids: Vec<String> = Vec::new();
+
+        for semantic_search_triple in search_triples {
+            let filtered_for_types = relation::find_many::<RelationEdge<EntityNode>>(&self.neo4j)
+                .filter(create_relation_filter(semantic_search_triple))
+                .send()
+                .await;
+
+            //We only need to get the first relation since they would share the same entity id
+            if let Ok(stream) = filtered_for_types {
+                pin_mut!(stream);
+                if let Some(edge) = stream.try_next().await.ok().flatten() {
+                    let id = edge.from.id;
+                    if seen_ids.insert(id.clone()) {
+                        result_ids.push(id);
+                    }
+                }
+            }
+        }
+        Ok(result_ids)
+    }
+
+    async fn format_triples_detailled(
+        &self,
+        triples: Result<Vec<Triple>, ErrorData>,
+    ) -> Vec<Value> {
+        if let Ok(triples) = triples {
+            join_all(triples.into_iter().map(|triple| async move {json!({
+                            "entity_id": triple.entity,
+                            "attribute_name": self.get_name_of_id(triple.attribute).await.unwrap_or("No attribute name".to_string()),
+                            "attribute_value": String::try_from(triple.value).unwrap_or("No value".to_string())
+                        })})).await.to_vec()
+        } else {
+            Vec::new()
+        }
+    }
+
+    #[inline(always)]
+    fn create_embedding(&self, name: Vec<&str>) -> Vec<f64> {
+        self.embedding_model
+            .embed(name, None)
+            .expect("Failed to get embedding")
+            .pop()
+            .expect("No embedding found")
+            .into_iter()
+            .map(|v| v as f64)
+            .collect::<Vec<_>>()
+    }
+
     async fn get_name_of_id(&self, id: String) -> Result<String, McpError> {
         let entity = entity::find_one::<Entity<BaseEntity>>(&self.neo4j, &id)
             .send()
@@ -807,7 +796,9 @@ impl KnowledgeGraph {
             .ok_or_else(|| {
                 McpError::internal_error("entity_name_not_found", Some(json!({ "id": id })))
             })?;
-        Ok(entity.attributes.name.unwrap_or("No name".to_string()))
+        entity.attributes.name.ok_or_else(|| {
+            McpError::internal_error("entity_name_not_found", Some(json!({ "id": id })))
+        })
     }
 }
 
@@ -837,53 +828,6 @@ impl ServerHandler for KnowledgeGraph {
             tracing::info!(?initialize_headers, %initialize_uri, "initialize from http server");
         }
         Ok(self.get_info())
-    }
-
-    //TODO: make prompt examples to use on data
-    async fn list_prompts(
-        &self,
-        _request: Option<PaginatedRequestParam>,
-        _: RequestContext<RoleServer>,
-    ) -> Result<ListPromptsResult, McpError> {
-        Ok(ListPromptsResult {
-            next_cursor: None,
-            prompts: vec![Prompt::new(
-                "example_prompt",
-                Some("This is an example prompt that takes one required argument, message"),
-                Some(vec![PromptArgument {
-                    name: "message".to_string(),
-                    description: Some("A message to put in the prompt".to_string()),
-                    required: Some(true),
-                }]),
-            )],
-        })
-    }
-
-    async fn get_prompt(
-        &self,
-        GetPromptRequestParam { name, arguments }: GetPromptRequestParam,
-        _: RequestContext<RoleServer>,
-    ) -> Result<GetPromptResult, McpError> {
-        match name.as_str() {
-            "example_prompt" => {
-                let message = arguments
-                    .and_then(|json| json.get("message")?.as_str().map(|s| s.to_string()))
-                    .ok_or_else(|| {
-                        McpError::invalid_params("No message provided to example_prompt", None)
-                    })?;
-
-                let prompt =
-                    format!("This is an example prompt with your message here: '{message}'");
-                Ok(GetPromptResult {
-                    description: None,
-                    messages: vec![PromptMessage {
-                        role: PromptMessageRole::User,
-                        content: PromptMessageContent::text(prompt),
-                    }],
-                })
-            }
-            _ => Err(McpError::invalid_params("prompt not found", None)),
-        }
     }
 }
 

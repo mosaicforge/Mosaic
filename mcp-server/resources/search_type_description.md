@@ -15,18 +15,6 @@ ToolResult>
       "attribute_value": "University",
       "entity_id": "L8iozarUyS8bkcUiS6kPqV"
     }
-  ],
-  [
-    {
-      "attribute_name": "Description",
-      "attribute_value": "An educational institution where students acquire knowledge, skills, and credentials through structured learning programs.",
-      "entity_id": "M89C7wwdJVaCW9rAVQpJbY"
-    },
-    {
-      "attribute_name": "Name",
-      "attribute_value": "School",
-      "entity_id": "M89C7wwdJVaCW9rAVQpJbY"
-    }
   ]
 ]
 ```

@@ -86,7 +86,7 @@ impl<T> SearchWithTraversals<T> {
 
     fn subquery(&self) -> QueryBuilder {
         const QUERY: &str = r#"
-            CALL db.index.vector.queryNodes('vector_index', $limit * $effective_search_ratio, $vector)
+            CALL db.index.vector.queryNodes('vector_index', $effective_search_ratio, $vector)
             YIELD node AS n, score AS score
             WHERE score > $threshold
             MATCH (e:Entity) -[r:ATTRIBUTE]-> (n)

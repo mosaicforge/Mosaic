@@ -15,28 +15,6 @@ ToolResult>
       "attribute_value": "0",
       "entity_id": "U1uCAzXsRSTP4vFwo1JwJG"
     }
-  ],
-  [
-    {
-      "attribute_name": "Name",
-      "attribute_value": "Worked at",
-      "entity_id": "8fvqALeBDwEExJsDeTcvnV"
-    },
-    {
-      "attribute_name": "Is type property",
-      "attribute_value": "0",
-      "entity_id": "8fvqALeBDwEExJsDeTcvnV"
-    },
-    {
-      "attribute_name": "Name",
-      "attribute_value": "Worked at",
-      "entity_id": "8fvqALeBDwEExJsDeTcvnV"
-    },
-    {
-      "attribute_name": "Description",
-      "attribute_value": "A project that someone worked at in the past. Details about the role can be added as properties on the relation.",
-      "entity_id": "8fvqALeBDwEExJsDeTcvnV"
-    }
   ]
 ]
 ```
