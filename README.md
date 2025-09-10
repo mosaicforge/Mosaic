@@ -16,44 +16,4 @@ Mosaic is a Rust-native orchestration layer that enables Rig agents to collabora
 * 🧩 Define multiple agents that work together dynamically
 * ⚡ Optimized Rust architecture for low-latency execution
 
-### 2. Compile and run the indexer
-In a separate terminal, run the following commands:
-```bash
-CFLAGS='-std=gnu17' cargo run --release --bin sink -- \
-    --no-versioning \
-    --no-governance \
-    --neo4j-uri neo4j://localhost:7687 \
-    --neo4j-user neo4j \
-    --neo4j-pass neo4j
-```
-
-```bash
-CFLAGS='-std=gnu17' cargo run --bin api -- \
-    --neo4j-uri neo4j://localhost:7687 \
-    --neo4j-user neo4j \
-    --neo4j-pass neo4j
-```
-Schema introspection
-
-```
-npx get-graphql-schema+alpha http://127.0.0.1:8080/graphql > api/schema.graphql
-```
-
-## MCP Server
-```bash
-CFLAGS='-std=gnu17' cargo run --bin mcp-server -- \
-    --neo4j-uri neo4j://localhost:7687 \
-    --neo4j-user neo4j \
-    --neo4j-pass neo4j
-```
-
-### Local testing with sample data
-Start the neo4j database and run the following command:
-```bash
-CFLAGS='-std=gnu17' cargo run --example seed_data
-```
-
-The IDs of the sample data can be found in `sink/examples/seed_data.rs`.
-
-## GRC20 CLI
-Coming soon™️
+Mosaic works plug'n'play with the [$arc rig framework](https://github.com/0xPlaygrounds/rig) allowing Agents to interact with the Solana blockchain.
