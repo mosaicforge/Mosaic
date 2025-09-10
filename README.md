@@ -1,8 +1,11 @@
-# GRC20 Neo4j Indexer
-This repo contains a GRC20 indexer that uses Neo4j to store triple data. 
-
-## Running the indexer
-❗Important: Both methods require the `SUBSTREAMS_ENDPOINT_URL` (and optionally `SUBSTREAMS_API_TOKEN` if using a substreams provider with authentication) environment variables to be set.
+<h1 align="center">
+ Mosaic
+</h1>
+<p align="center">
+  <img width="400" alt="mosaic" src="https://pbs.twimg.com/profile_images/1890229652326612992/SsN44tyU_400x400.jpg"/>
+</p>
+<p align="center">
+Orchestration layer for Rig-based agents
 
 ### With `docker-compose`
 ```bash
