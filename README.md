@@ -40,7 +40,7 @@ CFLAGS='-std=gnu17' cargo run --bin api -- \
 Schema introspection
 
 ```
-npx get-graphql-schema http://127.0.0.1:8080/graphql > api/schema.graphql
+npx get-graphql-schema+alpha http://127.0.0.1:8080/graphql > api/schema.graphql
 ```
 
 ## MCP Server
