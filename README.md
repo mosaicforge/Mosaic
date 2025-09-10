@@ -7,21 +7,14 @@
 <p align="center">
 Orchestration layer for Rig-based agents
 
-### With `docker-compose`
-```bash
-cd docker/
-docker compose up
-```
+## Overview
+Mosaic is a Rust-native orchestration layer that enables Rig agents to collaborate and coordinate dynamically across complex tasks.
 
-### Without docker
-### 1. Start Neo4j
-```bash
-docker run \
-    --publish=7474:7474 --publish=7687:7687 \
-    --volume=./data:/data \
-    --env=NEO4J_AUTH=none \
-    neo4j
-```
+## Features
+* 🤖 Deploy intelligent agents using Rig’s runtime and orchestration tools
+* 🔗 Interaction with APIs, databases, and vector stores
+* 🧩 Define multiple agents that work together dynamically
+* ⚡ Optimized Rust architecture for low-latency execution
 
 ### 2. Compile and run the indexer
 In a separate terminal, run the following commands:
