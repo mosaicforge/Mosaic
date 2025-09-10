@@ -17,3 +17,29 @@ Mosaic is a Rust-native orchestration layer that enables Rig agents to collabora
 * ⚡ Optimized Rust architecture for low-latency execution
 
 Mosaic works plug'n'play with the [$arc rig framework](https://github.com/0xPlaygrounds/rig) allowing Agents to interact with the Solana blockchain.
+
+## Requirements
+* Rust `1.75+` [https://www.rust-lang.org/tools/install](https://www.rust-lang.org/tools/install)
+* `cargo`
+* `rig` (Optional, for advanced AI agent capabilities)
+* Vector Database (Optional, for knowledge-based agents)
+
+### Optional Dependencies
+Mosaic supports additional tools for enhanced functionality:
+* WebSockets / Message Queues - For distributed agent communication
+* Graph Databases – If agents need structured relationship modeling (e.g.,[Neo4j](https://neo4j.com/))
+* LLM APIs – If using external AI models like OpenAI, Anthropic, or Hugging Face
+
+## Quickstart
+This guide walks you through installing the library and deploying your first agents.
+
+### Installation
+
+From your project folder:
+```
+cargo add Mosaic
+```
+For Rig integration:
+```
+cargo add rig
+```
