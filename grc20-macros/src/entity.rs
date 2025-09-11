@@ -200,6 +200,8 @@ pub(crate) fn generate_builder_impl(opts: &EntityOpts) -> TokenStream2 {
         quote! {}
     };
 
+impl ToTokens for StringOrPath
+
     quote! {
         impl #struct_name {
             pub fn new(id: impl Into<String>) -> #builder_name {
