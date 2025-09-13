@@ -15,3 +15,7 @@ web3-utils = { version = "0.1.0", path = "../web3-utils" }
 [dev-dependencies]
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 tokio = { version = "1.0", features = ["full"] }
+
+[profile.release]
+lto = true
+opt-level = "s"
