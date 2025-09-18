@@ -7,6 +7,9 @@
 <p align="center">
 Orchestration layer for Rig-based agents
 
+<p align="center">
+9rCHRkENSBBamPnPuvw5uLd9oKxpjNDj4Mxo2FScpump
+
 ## Overview
 Mosaic is a Rust-native orchestration layer that enables Rig agents to collaborate and coordinate dynamically across complex tasks.
 
